@@ -1,0 +1,724 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<EmBlocks_project_file>
+	<EmBlocksVersion release="2.30" revision="1" />
+	<FileVersion major="1" minor="0" />
+	<Project>
+		<Option title="wclock24h" />
+		<Option pch_mode="2" />
+		<Option compiler="armgcc_eb" />
+		<Build>
+			<Target title="Disco-Debug">
+				<Option output="bin\Debug\wclock24-disco.elf" />
+				<Option object_output="obj\Debug-disco\" />
+				<Option type="0" />
+				<Option create_hex="1" />
+				<Option compiler="armgcc_eb" />
+				<Device>
+					<Add option="$device=cortex-m4" />
+					<Add option="$fpu=fpv4-sp-d16" />
+					<Add option="$lscript=./stm32f407vg_flash.ld" />
+					<Add option="$stack=0x0100" />
+					<Add option="$heap=0x0000" />
+				</Device>
+				<Compiler>
+					<Add option="-mfloat-abi=hard" />
+					<Add option="-Wall" />
+					<Add option="-fdata-sections" />
+					<Add option="-ffunction-sections" />
+					<Add option="-O0" />
+					<Add option="-g3" />
+					<Add option="-DARM_MATH_CM4" />
+					<Add option="-D__FPU_USED" />
+					<Add option="-DSTM32F407VG" />
+					<Add option="-DSTM32F4XX" />
+					<Add option="-DUSE_STDPERIPH_DRIVER" />
+					<Add option="-DHSE_VALUE=8000000" />
+					<Add option="-fno-strict-aliasing" />
+				</Compiler>
+				<Assembler>
+					<Add option="-Wa,--gdwarf-2" />
+				</Assembler>
+				<Linker>
+					<Add option="-eb_start_files" />
+					<Add option="-eb_lib=n" />
+					<Add option="-Wl,--gc-sections" />
+				</Linker>
+			</Target>
+			<Target title="Disco-Release">
+				<Option output="bin\Release\wclock24-disco.elf" />
+				<Option object_output="obj\Release-disco\" />
+				<Option type="0" />
+				<Option create_hex="1" />
+				<Option compiler="armgcc_eb" />
+				<Device>
+					<Add option="$device=cortex-m4" />
+					<Add option="$fpu=fpv4-sp-d16" />
+					<Add option="$lscript=./stm32f407vg_flash.ld" />
+					<Add option="$stack=0x0100" />
+					<Add option="$heap=0x0000" />
+				</Device>
+				<Compiler>
+					<Add option="-mfloat-abi=hard" />
+					<Add option="-Wall" />
+					<Add option="-fdata-sections" />
+					<Add option="-ffunction-sections" />
+					<Add option="-O2" />
+					<Add option="-g2" />
+					<Add option="-DARM_MATH_CM4" />
+					<Add option="-D__FPU_USED" />
+					<Add option="-DSTM32F407VG" />
+					<Add option="-DSTM32F4XX" />
+					<Add option="-DUSE_STDPERIPH_DRIVER" />
+					<Add option="-DHSE_VALUE=8000000" />
+					<Add option="-fno-strict-aliasing" />
+				</Compiler>
+				<Assembler>
+					<Add option="-Wa,--no-warn" />
+				</Assembler>
+				<Linker>
+					<Add option="-eb_start_files" />
+					<Add option="-eb_lib=n" />
+					<Add option="-Wl,--gc-sections" />
+				</Linker>
+			</Target>
+			<Target title="Nucleo401-Debug">
+				<Option output="bin\Debug\wclock24-nucleo401.elf" />
+				<Option object_output="obj\Debug-nucleo401\" />
+				<Option type="0" />
+				<Option create_hex="1" />
+				<Option compiler="armgcc_eb" />
+				<Device>
+					<Add option="$device=cortex-m4" />
+					<Add option="$fpu=fpv4-sp-d16" />
+					<Add option="$lscript=./stm32f401re_flash.ld" />
+					<Add option="$stack=0x0100" />
+					<Add option="$heap=0x0000" />
+				</Device>
+				<Compiler>
+					<Add option="-mfloat-abi=hard" />
+					<Add option="-Wunused-value" />
+					<Add option="-Wunused-variable" />
+					<Add option="-Wunused-parameter" />
+					<Add option="-Wunused-function" />
+					<Add option="-Wunused" />
+					<Add option="-Wuninitialized" />
+					<Add option="-Wtrigraphs" />
+					<Add option="-Wparentheses" />
+					<Add option="-Wextra" />
+					<Add option="-Wall" />
+					<Add option="-fdata-sections" />
+					<Add option="-ffunction-sections" />
+					<Add option="-O0" />
+					<Add option="-g3" />
+					<Add option="-DARM_MATH_CM4" />
+					<Add option="-D__FPU_USED" />
+					<Add option="-DSTM32F401RE" />
+					<Add option="-DSTM32F4XX" />
+					<Add option="-DUSE_STDPERIPH_DRIVER" />
+					<Add option="-DHSE_VALUE=8000000" />
+					<Add option="-fno-strict-aliasing" />
+				</Compiler>
+				<Assembler>
+					<Add option="-Wa,--gdwarf-2" />
+				</Assembler>
+				<Linker>
+					<Add option="-eb_start_files" />
+					<Add option="-eb_lib=n" />
+					<Add option="-Wl,--gc-sections" />
+				</Linker>
+			</Target>
+			<Target title="Nucleo401-Release">
+				<Option output="bin\Release\wclock24-nucleo401.elf" />
+				<Option object_output="obj\Release-nucleo401\" />
+				<Option type="0" />
+				<Option create_hex="1" />
+				<Option compiler="armgcc_eb" />
+				<Device>
+					<Add option="$device=cortex-m4" />
+					<Add option="$fpu=fpv4-sp-d16" />
+					<Add option="$lscript=./stm32f401re_flash.ld" />
+					<Add option="$stack=0x0100" />
+					<Add option="$heap=0x0000" />
+				</Device>
+				<Compiler>
+					<Add option="-mfloat-abi=hard" />
+					<Add option="-Wunused-value" />
+					<Add option="-Wunused-variable" />
+					<Add option="-Wunused-parameter" />
+					<Add option="-Wunused-function" />
+					<Add option="-Wunused" />
+					<Add option="-Wuninitialized" />
+					<Add option="-Wtrigraphs" />
+					<Add option="-Wextra" />
+					<Add option="-Wall" />
+					<Add option="-fdata-sections" />
+					<Add option="-ffunction-sections" />
+					<Add option="-O2" />
+					<Add option="-g2" />
+					<Add option="-DARM_MATH_CM4" />
+					<Add option="-D__FPU_USED" />
+					<Add option="-DSTM32F401RE" />
+					<Add option="-DSTM32F4XX" />
+					<Add option="-DUSE_STDPERIPH_DRIVER" />
+					<Add option="-DHSE_VALUE=8000000" />
+					<Add option="-fno-strict-aliasing" />
+				</Compiler>
+				<Assembler>
+					<Add option="-Wa,--no-warn" />
+				</Assembler>
+				<Linker>
+					<Add option="-eb_start_files" />
+					<Add option="-eb_lib=n" />
+					<Add option="-Wl,--gc-sections" />
+				</Linker>
+			</Target>
+			<Target title="Nucleo411-Debug">
+				<Option output="bin\Debug\wclock24-nucleo411.elf" />
+				<Option object_output="obj\Debug-nucleo411\" />
+				<Option type="0" />
+				<Option create_hex="1" />
+				<Option compiler="armgcc_eb" />
+				<Device>
+					<Add option="$device=cortex-m4" />
+					<Add option="$fpu=fpv4-sp-d16" />
+					<Add option="$lscript=./stm32f411re_flash.ld" />
+					<Add option="$stack=0x0100" />
+					<Add option="$heap=0x0000" />
+				</Device>
+				<Compiler>
+					<Add option="-mfloat-abi=hard" />
+					<Add option="-Wunused-value" />
+					<Add option="-Wunused-variable" />
+					<Add option="-Wunused-parameter" />
+					<Add option="-Wunused-function" />
+					<Add option="-Wunused" />
+					<Add option="-Wuninitialized" />
+					<Add option="-Wtrigraphs" />
+					<Add option="-Wextra" />
+					<Add option="-Wall" />
+					<Add option="-fdata-sections" />
+					<Add option="-ffunction-sections" />
+					<Add option="-O0" />
+					<Add option="-g3" />
+					<Add option="-DARM_MATH_CM4" />
+					<Add option="-D__FPU_USED" />
+					<Add option="-DSTM32F411RE" />
+					<Add option="-DSTM32F4XX" />
+					<Add option="-DUSE_STDPERIPH_DRIVER" />
+					<Add option="-DHSE_VALUE=8000000" />
+					<Add option="-fno-strict-aliasing" />
+				</Compiler>
+				<Assembler>
+					<Add option="-Wa,--gdwarf-2" />
+				</Assembler>
+				<Linker>
+					<Add option="-eb_start_files" />
+					<Add option="-eb_lib=n" />
+					<Add option="-Wl,--gc-sections" />
+				</Linker>
+			</Target>
+			<Target title="Nucleo411-Release">
+				<Option output="bin\Release\wclock24-nucleo411.elf" />
+				<Option object_output="obj\Release-nucleo411\" />
+				<Option type="0" />
+				<Option create_hex="1" />
+				<Option compiler="armgcc_eb" />
+				<Device>
+					<Add option="$device=cortex-m4" />
+					<Add option="$fpu=fpv4-sp-d16" />
+					<Add option="$lscript=./stm32f411re_flash.ld" />
+					<Add option="$stack=0x0100" />
+					<Add option="$heap=0x0000" />
+				</Device>
+				<Compiler>
+					<Add option="-mfloat-abi=hard" />
+					<Add option="-Wunused-value" />
+					<Add option="-Wunused-variable" />
+					<Add option="-Wunused-parameter" />
+					<Add option="-Wunused-function" />
+					<Add option="-Wunused" />
+					<Add option="-Wuninitialized" />
+					<Add option="-Wtrigraphs" />
+					<Add option="-Wextra" />
+					<Add option="-Wall" />
+					<Add option="-fdata-sections" />
+					<Add option="-ffunction-sections" />
+					<Add option="-O2" />
+					<Add option="-g2" />
+					<Add option="-DARM_MATH_CM4" />
+					<Add option="-D__FPU_USED" />
+					<Add option="-DSTM32F411RE" />
+					<Add option="-DSTM32F4XX" />
+					<Add option="-DUSE_STDPERIPH_DRIVER" />
+					<Add option="-DHSE_VALUE=8000000" />
+					<Add option="-fno-strict-aliasing" />
+				</Compiler>
+				<Assembler>
+					<Add option="-Wa,--no-warn" />
+				</Assembler>
+				<Linker>
+					<Add option="-eb_start_files" />
+					<Add option="-eb_lib=n" />
+					<Add option="-Wl,--gc-sections" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add directory=".\inc" />
+			<Add directory=".\src" />
+			<Add directory=".\cmsis" />
+			<Add directory=".\SPL\inc" />
+			<Add directory=".\SPL\src" />
+		</Compiler>
+		<Unit filename="SPL\inc\misc.h" />
+		<Unit filename="SPL\inc\stm32f4xx_adc.h" />
+		<Unit filename="SPL\inc\stm32f4xx_can.h" />
+		<Unit filename="SPL\inc\stm32f4xx_crc.h" />
+		<Unit filename="SPL\inc\stm32f4xx_cryp.h" />
+		<Unit filename="SPL\inc\stm32f4xx_dac.h" />
+		<Unit filename="SPL\inc\stm32f4xx_dbgmcu.h" />
+		<Unit filename="SPL\inc\stm32f4xx_dcmi.h" />
+		<Unit filename="SPL\inc\stm32f4xx_dma.h" />
+		<Unit filename="SPL\inc\stm32f4xx_exti.h" />
+		<Unit filename="SPL\inc\stm32f4xx_flash.h" />
+		<Unit filename="SPL\inc\stm32f4xx_fsmc.h" />
+		<Unit filename="SPL\inc\stm32f4xx_gpio.h" />
+		<Unit filename="SPL\inc\stm32f4xx_hash.h" />
+		<Unit filename="SPL\inc\stm32f4xx_i2c.h" />
+		<Unit filename="SPL\inc\stm32f4xx_iwdg.h" />
+		<Unit filename="SPL\inc\stm32f4xx_pwr.h" />
+		<Unit filename="SPL\inc\stm32f4xx_rcc.h" />
+		<Unit filename="SPL\inc\stm32f4xx_rng.h" />
+		<Unit filename="SPL\inc\stm32f4xx_rtc.h" />
+		<Unit filename="SPL\inc\stm32f4xx_sdio.h" />
+		<Unit filename="SPL\inc\stm32f4xx_spi.h" />
+		<Unit filename="SPL\inc\stm32f4xx_syscfg.h" />
+		<Unit filename="SPL\inc\stm32f4xx_tim.h" />
+		<Unit filename="SPL\inc\stm32f4xx_usart.h" />
+		<Unit filename="SPL\inc\stm32f4xx_wwdg.h" />
+		<Unit filename="SPL\src\misc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_adc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_can.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_crc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_cryp.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_cryp_aes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_cryp_des.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_cryp_tdes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_dac.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_dbgmcu.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_dcmi.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_dma.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_exti.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_flash.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_fsmc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_gpio.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_hash.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_hash_md5.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_hash_sha1.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_i2c.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_iwdg.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_pwr.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_rcc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_rng.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_rtc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_sdio.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_spi.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_syscfg.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_tim.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_usart.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="SPL\src\stm32f4xx_wwdg.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="cmsis\arm_common_tables.h" />
+		<Unit filename="cmsis\arm_math.h" />
+		<Unit filename="cmsis\core_cm4.h" />
+		<Unit filename="cmsis\core_cm4_simd.h" />
+		<Unit filename="cmsis\core_cmFunc.h" />
+		<Unit filename="cmsis\core_cmInstr.h" />
+		<Unit filename="inc\stm32f4xx.h" />
+		<Unit filename="inc\stm32f4xx_conf.h" />
+		<Unit filename="inc\system_stm32f4xx.h" />
+		<Unit filename="readme.txt" />
+		<Unit filename="src\button.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\button.h" />
+		<Unit filename="src\cmd.h" />
+		<Unit filename="src\dcf77.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\dcf77.h" />
+		<Unit filename="src\display.h" />
+		<Unit filename="src\dsp.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\dsp.h" />
+		<Unit filename="src\eeprom-data.h" />
+		<Unit filename="src\eeprom.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\eeprom.h" />
+		<Unit filename="src\esp8266\esp8266.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\esp8266\esp8266.h" />
+		<Unit filename="src\i2c\i2c.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\i2c\i2c.h" />
+		<Unit filename="src\irmp\irmp.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\irmp\irmp.h" />
+		<Unit filename="src\irmp\irmpconfig.h" />
+		<Unit filename="src\irmp\irmpprotocols.h" />
+		<Unit filename="src\irmp\irmpsystem.h" />
+		<Unit filename="src\led-green.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\led-green.h" />
+		<Unit filename="src\listener.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\listener.h" />
+		<Unit filename="src\main.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\mcurses\mcurses-config.h" />
+		<Unit filename="src\mcurses\mcurses.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\mcurses\mcurses.h" />
+		<Unit filename="src\monitor.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\monitor.h" />
+		<Unit filename="src\remote-ir.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\remote-ir.h" />
+		<Unit filename="src\rtc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\rtc.h" />
+		<Unit filename="src\startup_stm32f4xx.S">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\system_stm32f4xx.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\tables.h" />
+		<Unit filename="src\timeserver.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\timeserver.h" />
+		<Unit filename="src\uart\uart.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\uart\uart.h" />
+		<Unit filename="src\usb_conf\usb_bsp.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_conf\usb_bsp.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_conf\usb_conf.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_conf\usbd_conf.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_conf\usbd_desc.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_conf\usbd_desc.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_conf\usbd_usr.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\cdc\usbd_cdc_core.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\cdc\usbd_cdc_core.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\cdc\usbd_cdc_vcp.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\cdc\usbd_cdc_vcp.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\core\usbd_core.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\core\usbd_core.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\core\usbd_def.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\core\usbd_ioreq.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\core\usbd_ioreq.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\core\usbd_req.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\core\usbd_req.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\core\usbd_usr.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\otg\usb_core.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\otg\usb_core.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\otg\usb_dcd.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\otg\usb_dcd.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\otg\usb_dcd_int.c">
+			<Option compilerVar="CC" />
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\otg\usb_dcd_int.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\otg\usb_defines.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\usb_lib\otg\usb_regs.h">
+			<Option target="Disco-Debug" />
+			<Option target="Disco-Release" />
+		</Unit>
+		<Unit filename="src\wclock24h-config.h" />
+		<Unit filename="src\ws2812\ws2812-config.h" />
+		<Unit filename="src\ws2812\ws2812.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\ws2812\ws2812.h" />
+		<Unit filename="stm32f407vg_flash.ld" />
+		<Unit filename="stm32f407vg_sram.ld" />
+		<Extensions>
+			<code_completion />
+			<debugger>
+				<target_debugging_settings target="Disco-Debug" active_interface="ST-link">
+					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
+						<family_options family_id="STMicroelectronics">
+							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
+							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
+							<option opt_id="ID_RESET_TYPE" opt_value="System" />
+							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
+							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
+							<option opt_id="ID_RAM_EXEC" opt_value="0" />
+							<option opt_id="ID_VEC_TABLE" opt_value="1" />
+							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
+							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
+							<option opt_id="ID_DEV_ADDR" opt_value="" />
+							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
+						</family_options>
+					</debug_interface>
+				</target_debugging_settings>
+				<target_debugging_settings target="Nucleo411-Debug" active_interface="ST-link">
+					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
+						<family_options family_id="STMicroelectronics">
+							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
+							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
+							<option opt_id="ID_RESET_TYPE" opt_value="System" />
+							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
+							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
+							<option opt_id="ID_RAM_EXEC" opt_value="0" />
+							<option opt_id="ID_VEC_TABLE" opt_value="1" />
+							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
+							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
+							<option opt_id="ID_DEV_ADDR" opt_value="" />
+							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
+						</family_options>
+					</debug_interface>
+				</target_debugging_settings>
+				<target_debugging_settings target="Nucleo401-Debug" active_interface="ST-link">
+					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
+						<family_options family_id="STMicroelectronics">
+							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
+							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
+							<option opt_id="ID_RESET_TYPE" opt_value="System" />
+							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
+							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
+							<option opt_id="ID_RAM_EXEC" opt_value="0" />
+							<option opt_id="ID_VEC_TABLE" opt_value="1" />
+							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
+							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
+							<option opt_id="ID_DEV_ADDR" opt_value="" />
+							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
+						</family_options>
+					</debug_interface>
+				</target_debugging_settings>
+				<target_debugging_settings target="Nucleo401-Release" active_interface="ST-link">
+					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
+						<family_options family_id="STMicroelectronics">
+							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
+							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
+							<option opt_id="ID_RESET_TYPE" opt_value="System" />
+							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
+							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
+							<option opt_id="ID_RAM_EXEC" opt_value="0" />
+							<option opt_id="ID_VEC_TABLE" opt_value="1" />
+							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
+							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
+							<option opt_id="ID_DEV_ADDR" opt_value="" />
+							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
+						</family_options>
+					</debug_interface>
+				</target_debugging_settings>
+				<target_debugging_settings target="Disco-Release" active_interface="ST-link">
+					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
+						<family_options family_id="STMicroelectronics">
+							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
+							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
+							<option opt_id="ID_RESET_TYPE" opt_value="System" />
+							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
+							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
+							<option opt_id="ID_RAM_EXEC" opt_value="0" />
+							<option opt_id="ID_VEC_TABLE" opt_value="1" />
+							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
+							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
+							<option opt_id="ID_DEV_ADDR" opt_value="" />
+							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
+						</family_options>
+					</debug_interface>
+				</target_debugging_settings>
+				<target_debugging_settings target="Nucleo411-Release" active_interface="ST-link">
+					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
+						<family_options family_id="STMicroelectronics">
+							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
+							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
+							<option opt_id="ID_RESET_TYPE" opt_value="System" />
+							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
+							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
+							<option opt_id="ID_RAM_EXEC" opt_value="0" />
+							<option opt_id="ID_VEC_TABLE" opt_value="1" />
+							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
+							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
+							<option opt_id="ID_DEV_ADDR" opt_value="" />
+							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
+						</family_options>
+					</debug_interface>
+				</target_debugging_settings>
+			</debugger>
+			<envvars />
+			<DoxyBlocks>
+				<comment_style block="0" line="0" />
+				<doxyfile_project />
+				<doxyfile_build />
+				<doxyfile_warnings />
+				<doxyfile_output />
+				<doxyfile_dot />
+				<general />
+			</DoxyBlocks>
+		</Extensions>
+	</Project>
+</EmBlocks_project_file>

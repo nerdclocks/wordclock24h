@@ -1,0 +1,69 @@
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * green-led.c - LED routines
+ *
+ * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+#include "stm32f4xx.h"
+#include "led-green.h"
+
+#if defined (STM32F407VG)                                       // STM32F4 Discovery Board PD12
+#define LED_GREEN_PERIPH_CLOCK_CMD  RCC_AHB1PeriphClockCmd
+#define LED_GREEN_PERIPH            RCC_AHB1Periph_GPIOD
+#define LED_GREEN_PORT              GPIOD
+#define LED_GREEN_LED               GPIO_Pin_12
+
+#elif defined (STM32F401RE) || defined (STM32F411RE)            // STM32F401/STM32F411 Nucleo Board PA5
+#define LED_GREEN_PERIPH_CLOCK_CMD  RCC_AHB1PeriphClockCmd
+#define LED_GREEN_PERIPH            RCC_AHB1Periph_GPIOA
+#define LED_GREEN_PORT              GPIOA
+#define LED_GREEN_LED               GPIO_Pin_5
+
+#else
+#error STM32 unknown
+#endif
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * initialize LED port
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+led_green_init (void)
+{
+    GPIO_InitTypeDef gpio;
+
+    LED_GREEN_PERIPH_CLOCK_CMD (LED_GREEN_PERIPH, ENABLE);     // enable clock for LED Port
+
+    gpio.GPIO_Pin   = LED_GREEN_LED;
+    gpio.GPIO_Mode  = GPIO_Mode_OUT;
+    gpio.GPIO_OType = GPIO_OType_PP;
+    gpio.GPIO_PuPd  = GPIO_PuPd_NOPULL;
+    gpio.GPIO_Speed = GPIO_Speed_50MHz;
+
+    GPIO_Init(LED_GREEN_PORT, &gpio);
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * green LED on
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+led_green_on (void)
+{
+    GPIO_WriteBit(LED_GREEN_PORT, LED_GREEN_LED, SET);
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * green LED off
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+led_green_off (void)
+{
+    GPIO_WriteBit(LED_GREEN_PORT, LED_GREEN_LED, RESET);
+}

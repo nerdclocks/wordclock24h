@@ -1,6 +1,6 @@
 Documentation: http://www.mikrocontroller.net/articles/WordClock24h
 
-Copyright (c) 2014 Frank Meyer - frank(at)fli4l.de
+Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
