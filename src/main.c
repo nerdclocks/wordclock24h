@@ -89,7 +89,7 @@
  * global variables
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-static volatile uint_fast8_t    fade_flag           = 0;        // flag: fade LEDs
+static volatile uint_fast8_t    animation_flag      = 0;        // flag: animate LEDs
 static volatile uint_fast8_t    dcf77_flag          = 0;        // flag: check DCF77 signal
 static volatile uint_fast8_t    ds3231_flag         = 0;        // flag: read date/time from RTC DS3231
 static volatile uint_fast8_t    net_time_flag       = 0;        // flag: read date/time from time server
@@ -98,7 +98,8 @@ static volatile uint32_t        uptime              = 0;        // uptime in sec
 
 static ESP8266_CONNECTION_INFO  esp8266_connection_info;        // ESP8266 connection info: SSID & IP address
 
-static uint_fast8_t             mode                = 0;        // display mode
+static uint_fast8_t             display_mode        = 0;        // display mode
+static uint_fast8_t             animation_mode      = 0;        // animation mode
 static volatile uint_fast8_t    hour                = 0;        // current hour
 static volatile uint_fast8_t    minute              = 0;        // current minute
 static volatile uint_fast8_t    second              = 0;        // current second
@@ -158,7 +159,7 @@ timer2_init (void)
 void
 TIM2_IRQHandler (void)
 {
-    static uint_fast16_t fade_cnt;
+    static uint_fast16_t animation_cnt;
     static uint_fast16_t clk_cnt;
     static uint_fast16_t dcf77_cnt;
     static uint_fast16_t net_time_cnt;
@@ -168,12 +169,12 @@ TIM2_IRQHandler (void)
 
     (void) irmp_ISR ();                                         // call irmp ISR
 
-    fade_cnt++;
+    animation_cnt++;
 
-    if (fade_cnt == F_INTERRUPTS / 20)                          // set fade_flag every 1/20 of a second
+    if (animation_cnt == F_INTERRUPTS / 20)                     // set animation_flag every 1/20 of a second
     {
-        fade_flag = 1;
-        fade_cnt = 0;
+        animation_flag = 1;
+        animation_cnt = 0;
     }
 
     dcf77_cnt++;
@@ -284,8 +285,8 @@ repaint_screen (void)
 {
     if (mcurses_is_up)
     {
-        monitor_show_screen (mode, &esp8266_connection_info);   // show clear screen and LEDs
-        monitor_show_clock (mode, hour, minute, second);
+        monitor_show_screen (display_mode, animation_mode, &esp8266_connection_info);   // show clear screen and LEDs
+        monitor_show_clock (display_mode, hour, minute, second);
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -335,8 +336,9 @@ main ()
     dsp_init ();                                                // initialize display
     dcf77_init ();                                              // initialize DCF77
 
-    dsp_all_leds_off ();                                        // switch leds off
-    mode = dsp_get_mode ();
+    reset_led_states ();
+    display_mode = dsp_get_display_mode ();
+    animation_mode = dsp_get_animation_mode ();
 
     if (eeprom_is_up)
     {
@@ -366,7 +368,7 @@ main ()
 
     if (mcurses_is_up)
     {
-        monitor_show_screen (mode, &esp8266_connection_info);   // show clear screen and LEDs
+        monitor_show_screen (display_mode, animation_mode, &esp8266_connection_info);   // show clear screen and LEDs
     }
 
     while (1)
@@ -430,17 +432,18 @@ main ()
             else
             {
                 uint_fast8_t    code;
+
                 if ((code = listener (&lis)) != 0)
                 {
                     switch (code)
                     {
-                        case 'C':
+                        case 'C':                               // Set Color
                         {
                             dsp_set_brightness(&(lis.rgb));
                             break;
                         }
 
-                        case 'P':
+                        case 'P':                               // Power on/off
                         {
                             if (power_is_on != lis.power)
                             {
@@ -452,18 +455,30 @@ main ()
                             break;
                         }
 
-                        case 'M':
+                        case 'D':                               // Set Display Mode
+                        case 'M':                               // M is deprecated
                         {
-                            if (mode != lis.mode)
+                            if (display_mode != lis.mode)
                             {
-                                mode = dsp_set_mode (lis.mode);
-                                monitor_show_mode (mode);
+                                display_mode = dsp_set_display_mode (lis.mode);
+                                monitor_show_modes (display_mode, animation_mode);
                                 do_display = 1;
                             }
                             break;
                         }
 
-                        case 'T':
+                        case 'A':                               // Set Animation Mode
+                        {
+                            if (animation_mode != lis.mode)
+                            {
+                                animation_mode = dsp_set_animation_mode (lis.mode);
+                                monitor_show_modes (display_mode, animation_mode);
+                                do_display = 1;
+                            }
+                            break;
+                        }
+
+                        case 'T':                               // Set Date/Time
                         {
                             if (rtc_is_up)
                             {
@@ -476,13 +491,13 @@ main ()
                             do_display  = 1;
                         }
 
-                        case 'N':
+                        case 'N':                               // Get Net Time
                         {
                             net_time_flag = 1;
                             break;
                         }
 
-                        case 'S':
+                        case 'S':                               // Save configuration
                         {
                             dsp_write_config_to_eeprom ();
                             break;
@@ -616,17 +631,17 @@ main ()
 
             if (! update_leds_only)
             {
-                monitor_show_clock (mode, hour, minute, second);
+                monitor_show_clock (display_mode, hour, minute, second);
             }
 
             do_display          = 0;
             update_leds_only    = 0;
         }
 
-        if (fade_flag)
+        if (animation_flag)
         {
-            fade_flag = 0;
-            dsp_fade (0);
+            animation_flag = 0;
+            dsp_animation ();
         }
 
         if (dcf77_flag)
@@ -647,8 +662,10 @@ main ()
                 {
                     case CMD_POWER:                         addstr ("IRMP: POWER key");                     break;
                     case CMD_OK:                            addstr ("IRMP: OK key");                        break;
-                    case CMD_DECREMENT_MODE:                addstr ("IRMP: decrement mode");                break;
-                    case CMD_INCREMENT_MODE:                addstr ("IRMP: increment mode");                break;
+                    case CMD_DECREMENT_DISPLAY_MODE:        addstr ("IRMP: decrement display mode");        break;
+                    case CMD_INCREMENT_DISPLAY_MODE:        addstr ("IRMP: increment display mode");        break;
+                    case CMD_DECREMENT_ANIMATION_MODE:      addstr ("IRMP: decrement animation mode");      break;
+                    case CMD_INCREMENT_ANIMATION_MODE:      addstr ("IRMP: increment animation mode");      break;
                     case CMD_DECREMENT_HOUR:                addstr ("IRMP: decrement minute");              break;
                     case CMD_INCREMENT_HOUR:                addstr ("IRMP: increment hour");                break;
                     case CMD_DECREMENT_MINUTE:              addstr ("IRMP: decrement minute");              break;
@@ -671,9 +688,11 @@ main ()
                 switch (ch)                                     // map keys to commands
                 {
                     case 'p':   cmd = CMD_POWER;                        break;
-                    case 'o':   cmd = CMD_OK;                           break;
-                    case 'X':   cmd = CMD_DECREMENT_MODE;               break;
-                    case 'x':   cmd = CMD_INCREMENT_MODE;               break;
+                    case 's':   cmd = CMD_OK;                           break;
+                    case 'D':   cmd = CMD_DECREMENT_DISPLAY_MODE;       break;
+                    case 'd':   cmd = CMD_INCREMENT_DISPLAY_MODE;       break;
+                    case 'A':   cmd = CMD_DECREMENT_ANIMATION_MODE;     break;
+                    case 'a':   cmd = CMD_INCREMENT_ANIMATION_MODE;     break;
                     case 'H':   cmd = CMD_DECREMENT_HOUR;               break;
                     case 'h':   cmd = CMD_INCREMENT_HOUR;               break;
                     case 'M':   cmd = CMD_DECREMENT_MINUTE;             break;
@@ -753,18 +772,34 @@ main ()
                 break;
             }
 
-            case CMD_DECREMENT_MODE:                            // decrement display mode
+            case CMD_DECREMENT_DISPLAY_MODE:                    // decrement display mode
             {
-                mode = dsp_decrement_mode ();
-                monitor_show_mode (mode);
+                display_mode = dsp_decrement_display_mode ();
+                monitor_show_modes (display_mode, animation_mode);
                 do_display = 1;
                 break;
             }
 
-            case CMD_INCREMENT_MODE:                            // increment display mode
+            case CMD_INCREMENT_DISPLAY_MODE:                    // increment display mode
             {
-                mode = dsp_increment_mode ();
-                monitor_show_mode (mode);
+                display_mode = dsp_increment_display_mode ();
+                monitor_show_modes (display_mode, animation_mode);
+                do_display = 1;
+                break;
+            }
+
+            case CMD_DECREMENT_ANIMATION_MODE:                  // decrement display mode
+            {
+                animation_mode = dsp_decrement_animation_mode ();
+                monitor_show_modes (display_mode, animation_mode);
+                do_display = 1;
+                break;
+            }
+
+            case CMD_INCREMENT_ANIMATION_MODE:                  // increment display mode
+            {
+                animation_mode = dsp_increment_animation_mode ();
+                monitor_show_modes (display_mode, animation_mode);
                 do_display = 1;
                 break;
             }

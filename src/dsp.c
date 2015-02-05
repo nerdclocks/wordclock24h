@@ -11,9 +11,9 @@
  */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include "wclock24h-config.h"
-#include "display.h"
 #include "tables.h"
 #include "dsp.h"
 #include "irmp.h"
@@ -100,37 +100,88 @@ static RGB_BRIGHTNESS   current_brightness =
     MAX_BRIGHTNESS / 2, 0, 0
 };
 
-static uint_fast8_t     mode;
+static uint_fast8_t                 display_mode;
 
-static RGB_BRIGHTNESS   current_brightness_up;
-static RGB_BRIGHTNESS   current_brightness_down;
+static RGB_BRIGHTNESS               current_brightness_up;
+static RGB_BRIGHTNESS               current_brightness_down;
 
-#define CURRENT_STATE   0x01
-#define TARGET_STATE    0x02
+#define CURRENT_STATE               0x01
+#define TARGET_STATE                0x02
+#define NEW_STATE                   0x04
+#define CALC_STATE                  0x08
 
-static uint8_t          led_state[WS2812_LEDS];
-static uint_fast8_t     red_step;
-static uint_fast8_t     green_step;
-static uint_fast8_t     blue_step;
+#define ANIMATION_MODE_NONE         0
+#define ANIMATION_MODE_FADE         1
+#define ANIMATION_MODE_ROLL         2
+#define ANIMATION_MODE_EXPLODE      3
+#define ANIMATION_MODE_RANDOM       4
+#define ANIMATION_MODES             5
+
+char *                              animation_modes[ANIMATION_MODES] =
+{
+    "None",
+    "Fade",
+    "Roll",
+    "Explode",
+    "Random"
+};
+
+static uint_fast8_t                 animation_mode = ANIMATION_MODE_FADE;
+static uint_fast8_t                 animation_start_flag;
+static uint_fast8_t                 animation_stop_flag;
+
+union
+{
+    uint8_t                         state[WS2812_LEDS];
+    uint8_t                         matrix[WC_ROWS][WC_COLUMNS];
+} led;
+
+static uint_fast8_t                 red_step;
+static uint_fast8_t                 green_step;
+static uint_fast8_t                 blue_step;
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * set LED to RGB
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
+{
+	if (n < WS2812_LEDS)
+	{
+        uint8_t y;
+        uint8_t x;
+
+        y = n / WC_COLUMNS;
+
+        if (y & 0x01)                                       // snake: odd row: count from right to left
+        {
+            x = n % WC_COLUMNS;
+            n = y * 18 + (WC_COLUMNS - 1 - x);
+        }
+
+        ws2812_set_led (n, rgb, refresh);
+	}
+}
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * switch all LEDs off
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_all_leds_off (void)
+reset_led_states (void)
 {
     uint_fast16_t     idx;
 
     for (idx = 0; idx < WS2812_LEDS; idx++)
     {
-        if (led_state[idx] & TARGET_STATE)
+        if (led.state[idx] & TARGET_STATE)
         {
-            led_state[idx] = CURRENT_STATE;
+            led.state[idx] = CURRENT_STATE;
         }
         else
         {
-            led_state[idx] = 0;
+            led.state[idx] = 0;
         }
     }
 }
@@ -142,18 +193,7 @@ dsp_all_leds_off (void)
 void
 dsp_led_on (uint_fast8_t y, uint_fast8_t x)
 {
-    uint_fast16_t     n;
-
-    if (y & 0x01)                                       // odd row: count from right to left
-    {
-        n = y * WC_COLUMNS + (WC_COLUMNS - x);
-    }
-    else                                                // even row: count from left to right
-    {
-        n = y * WC_COLUMNS + x;
-    }
-
-    led_state[n] |= TARGET_STATE;
+    led.matrix[y][x] |= TARGET_STATE;
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -175,6 +215,918 @@ dsp_word_on (uint_fast8_t idx)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
+ * flush animation
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_flush (void)
+{
+    WS2812_RGB      rgb;
+    WS2812_RGB      rgb0;
+    uint_fast16_t    idx;
+
+    rgb.red         = pwmtable8[current_brightness.red];
+    rgb.green       = pwmtable8[current_brightness.green];
+    rgb.blue        = pwmtable8[current_brightness.blue];
+
+    rgb0.red        = 0;
+    rgb0.green      = 0;
+    rgb0.blue       = 0;
+
+    for (idx = 0; idx < WS2812_LEDS; idx++)
+    {
+        if (led.state[idx] & TARGET_STATE)                          // fm: == ???
+        {
+            dsp_set_led (idx, &rgb, 0);
+            led.state[idx] |= CURRENT_STATE;                        // we are in sync
+        }
+        else
+        {
+            dsp_set_led (idx, &rgb0, 0);
+            led.state[idx] &= ~CURRENT_STATE;                       // we are in sync
+        }
+    }
+
+    ws2812_refresh();
+    animation_stop_flag = 1;
+}
+
+static void
+dsp_animation_none (void)
+{
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+        dsp_animation_flush ();
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * fade
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_fade (void)
+{
+    uint_fast16_t    idx;
+    uint_fast8_t     changed = 0;
+
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+
+        red_step = current_brightness.red / 5;
+
+        if (red_step == 0 && current_brightness.red > 0)
+        {
+            red_step = 1;
+        }
+
+        green_step = current_brightness.green / 5;
+
+        if (green_step == 0 && current_brightness.green > 0)
+        {
+            green_step = 1;
+        }
+
+        blue_step = current_brightness.blue / 5;
+
+        if (blue_step == 0 && current_brightness.blue > 0)
+        {
+            blue_step = 1;
+        }
+
+        current_brightness_up.red       = 0;
+        current_brightness_up.green     = 0;
+        current_brightness_up.blue      = 0;
+
+        current_brightness_down.red     = current_brightness.red;
+        current_brightness_down.green   = current_brightness.green;
+        current_brightness_down.blue    = current_brightness.blue;
+    }
+
+    if (! animation_stop_flag)
+    {
+        if (current_brightness_down.red >= red_step)
+        {
+            current_brightness_down.red -= red_step;
+            changed = 1;
+        }
+        else if (current_brightness_down.red != 0)
+        {
+            current_brightness_down.red = 0;
+            changed = 1;
+        }
+
+        if (current_brightness_down.green >= green_step)
+        {
+            current_brightness_down.green -= green_step;
+            changed = 1;
+        }
+        else if (current_brightness_down.green != 0)
+        {
+            current_brightness_down.green = 0;
+            changed = 1;
+        }
+
+        if (current_brightness_down.blue >= blue_step)
+        {
+            current_brightness_down.blue -= blue_step;
+            changed = 1;
+        }
+        else if (current_brightness_down.blue != 0)
+        {
+            current_brightness_down.blue = 0;
+            changed = 1;
+        }
+
+        if (current_brightness_up.red + red_step <= current_brightness.red)
+        {
+            current_brightness_up.red += red_step;
+            changed = 1;
+        }
+        else if (current_brightness_up.red != current_brightness.red)
+        {
+            current_brightness_up.red = current_brightness.red;
+            changed = 1;
+        }
+
+        if (current_brightness_up.green + green_step <= current_brightness.green)
+        {
+            current_brightness_up.green += green_step;
+            changed = 1;
+        }
+        else if (current_brightness_up.green != current_brightness.green)
+        {
+            current_brightness_up.green = current_brightness.green;
+            changed = 1;
+        }
+
+        if (current_brightness_up.blue + blue_step <= current_brightness.blue)
+        {
+            current_brightness_up.blue += blue_step;
+            changed = 1;
+        }
+        else if (current_brightness_up.blue != current_brightness.blue)
+        {
+            current_brightness_up.blue = current_brightness.blue;
+            changed = 1;
+        }
+
+        if (changed)
+        {
+            WS2812_RGB  rgb;
+            WS2812_RGB  rgb_up;
+            WS2812_RGB  rgb_down;
+
+            rgb.red         = pwmtable8[current_brightness.red];
+            rgb.green       = pwmtable8[current_brightness.green];
+            rgb.blue        = pwmtable8[current_brightness.blue];
+
+            rgb_up.red      = pwmtable8[current_brightness_up.red];
+            rgb_up.green    = pwmtable8[current_brightness_up.green];
+            rgb_up.blue     = pwmtable8[current_brightness_up.blue];
+
+            rgb_down.red    = pwmtable8[current_brightness_down.red];
+            rgb_down.green  = pwmtable8[current_brightness_down.green];
+            rgb_down.blue   = pwmtable8[current_brightness_down.blue];
+
+            for (idx = 0; idx < WS2812_LEDS; idx++)
+            {
+                if (led.state[idx] == TARGET_STATE)                           // up
+                {
+                    dsp_set_led (idx, &rgb_up, 0);
+                }
+                else if (led.state[idx] == CURRENT_STATE)                     // down
+                {
+                    dsp_set_led (idx, &rgb_down, 0);
+                }
+                else if (led.state[idx] == (CURRENT_STATE | TARGET_STATE))    // on, but no change
+                {
+                    dsp_set_led (idx, &rgb, 0);
+                }
+            }
+
+            ws2812_refresh();
+        }
+    }
+}
+
+static void
+dsp_show_new_display (void)
+{
+    WS2812_RGB          rgb;
+    WS2812_RGB          rgb0;
+    uint_fast16_t       idx;
+
+    rgb.red         = pwmtable8[current_brightness.red];
+    rgb.green       = pwmtable8[current_brightness.green];
+    rgb.blue        = pwmtable8[current_brightness.blue];
+
+    rgb0.red        = 0;
+    rgb0.green      = 0;
+    rgb0.blue       = 0;
+
+    for (idx = 0; idx < WS2812_LEDS; idx++)
+    {
+        if (led.state[idx] & NEW_STATE)                                // on
+        {
+            dsp_set_led (idx, &rgb, 0);
+        }
+        else
+        {
+            dsp_set_led (idx, &rgb0, 0);
+        }
+    }
+
+    ws2812_refresh();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * roll right
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_roll_right (void)
+{
+ #if 0
+    static uint_fast8_t cnt;
+    uint_fast8_t        y;
+    uint_fast8_t        x;
+#else
+    static uint_fast16_t    cnt;
+    uint_fast16_t           y;
+    uint_fast16_t           x;
+#endif
+
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+        cnt = 0;
+    }
+
+    if (! animation_stop_flag)
+    {
+        if (cnt < WC_COLUMNS)
+        {
+            cnt++;                                                  // 1...WC_COLUMNS
+#if 0
+            for (y = 0; y < WC_ROWS; y++)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (x >= cnt)
+                    {
+                        if (led.matrix[y][x - cnt] & CURRENT_STATE)
+                        {
+                            led.matrix[y][x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.matrix[y][x] &= ~NEW_STATE;
+                        }
+                    }
+                    else
+                    {
+                        if (led.matrix[y][x + WC_COLUMNS - cnt] & TARGET_STATE)
+                        {
+                            led.matrix[y][x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.matrix[y][x] &= ~NEW_STATE;
+                        }
+                    }
+                }
+            }
+#else
+            for (y = 0; y < WC_ROWS * WC_COLUMNS; y += WC_COLUMNS)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (x >= cnt)
+                    {
+                        if (led.state[y + x - cnt] & CURRENT_STATE)
+                        {
+                            led.state[y + x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.state[y + x] &= ~NEW_STATE;
+                        }
+                    }
+                    else
+                    {
+                        if (led.state[y + x + WC_COLUMNS - cnt] & TARGET_STATE)
+                        {
+                            led.state[y + x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.state[y + x] &= ~NEW_STATE;
+                        }
+                    }
+                }
+            }
+#endif
+            dsp_show_new_display ();
+        }
+        else
+        {
+            animation_stop_flag = 1;
+        }
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * roll left
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_roll_left ()
+{
+#if 0
+    static uint_fast8_t cnt;
+    uint_fast8_t        y;
+    uint_fast8_t        x;
+#else
+    static uint_fast16_t    cnt;
+    uint_fast16_t           y;
+    uint_fast16_t           x;
+#endif
+
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+        cnt = 0;
+    }
+
+    if (! animation_stop_flag)
+    {
+        if (cnt < WC_COLUMNS)
+        {
+            cnt++;                                                  // 1...WC_COLUMNS
+
+#if 0
+            for (y = 0; y < WC_ROWS; y++)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (x + cnt < WC_COLUMNS)
+                    {
+                        if (led.matrix[y][x + cnt] & CURRENT_STATE)
+                        {
+                            led.matrix[y][x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.matrix[y][x] &= ~NEW_STATE;
+                        }
+                    }
+                    else
+                    {
+                        if (led.matrix[y][x + cnt - WC_COLUMNS] & TARGET_STATE)
+                        {
+                            led.matrix[y][x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.matrix[y][x] &= ~NEW_STATE;
+                        }
+                    }
+                }
+            }
+#else
+            for (y = 0; y < WC_ROWS * WC_COLUMNS; y += WC_COLUMNS)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (x + cnt < WC_COLUMNS)
+                    {
+                        if (led.state[y + x + cnt] & CURRENT_STATE)
+                        {
+                            led.state[y + x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.state[y + x] &= ~NEW_STATE;
+                        }
+                    }
+                    else
+                    {
+                        if (led.state[y + x + cnt - WC_COLUMNS] & TARGET_STATE)
+                        {
+                            led.state[y + x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.state[y + x] &= ~NEW_STATE;
+                        }
+                    }
+                }
+            }
+#endif
+            dsp_show_new_display ();
+        }
+        else
+        {
+            animation_stop_flag = 1;
+        }
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * roll down
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_roll_down ()
+{
+#if 0
+    static uint_fast8_t cnt;
+    uint_fast8_t        y;
+    uint_fast8_t        x;
+
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+        cnt = 0;
+    }
+
+    if (! animation_stop_flag)
+    {
+        if (cnt < WC_ROWS)
+        {
+            cnt++;                                                  // 1...WC_ROWS
+
+            for (y = 0; y < WC_ROWS; y++)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (y >= cnt)
+                    {
+                        if (led.matrix[y - cnt][x] & CURRENT_STATE)
+                        {
+                            led.matrix[y][x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.matrix[y][x] &= ~NEW_STATE;
+                        }
+                    }
+                    else
+                    {
+                        if (led.matrix[y + WC_ROWS - cnt][x] & TARGET_STATE)
+                        {
+                            led.matrix[y][x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.matrix[y][x] &= ~NEW_STATE;
+                        }
+                    }
+                }
+            }
+            dsp_show_new_display ();
+        }
+        else
+        {
+            animation_stop_flag = 1;
+        }
+    }
+#else
+    static uint_fast16_t    cnt;
+    uint_fast16_t           y;
+    uint_fast16_t           x;
+
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+        cnt = 0;
+    }
+
+    if (! animation_stop_flag)
+    {
+        if (cnt < WC_ROWS * WC_COLUMNS)
+        {
+            cnt += WC_COLUMNS;                                  // (1...WC_ROWS) * WC_COLUMNS
+
+            for (y = 0; y < WC_ROWS * WC_COLUMNS; y += WC_COLUMNS)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (y >= cnt)
+                    {
+                        if (led.state[y - cnt + x] & CURRENT_STATE)
+                        {
+                            led.state[y + x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.state[y + x] &= ~NEW_STATE;
+                        }
+                    }
+                    else
+                    {
+                        if (led.state[y + (WC_ROWS * WC_COLUMNS - cnt) + x] & TARGET_STATE)
+                        {
+                            led.state[y + x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.state[y + x] &= ~NEW_STATE;
+                        }
+                    }
+                }
+            }
+            dsp_show_new_display ();
+        }
+        else
+        {
+            animation_stop_flag = 1;
+        }
+    }
+#endif
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * roll up
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_roll_up ()
+{
+#if 0
+    static uint_fast8_t cnt;
+    uint_fast8_t        y;
+    uint_fast8_t        x;
+
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+        cnt = 0;
+    }
+
+    if (! animation_stop_flag)
+    {
+        if (cnt < WC_ROWS)
+        {
+            cnt++;                                                  // 1...WC_ROWS
+
+            for (y = 0; y < WC_ROWS; y++)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (y + cnt < WC_ROWS)
+                    {
+                        if (led.matrix[y + cnt][x] & CURRENT_STATE)
+                        {
+                            led.matrix[y][x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.matrix[y][x] &= ~NEW_STATE;
+                        }
+                    }
+                    else
+                    {
+                        if (led.matrix[y + cnt - WC_ROWS][x] & TARGET_STATE)
+                        {
+                            led.matrix[y][x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.matrix[y][x] &= ~NEW_STATE;
+                        }
+                    }
+                }
+            }
+            dsp_show_new_display ();
+        }
+        else
+        {
+            animation_stop_flag = 1;
+        }
+    }
+#else
+    static uint_fast16_t    cnt;
+    uint_fast16_t           y;
+    uint_fast16_t           x;
+
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+        cnt = 0;
+    }
+
+    if (! animation_stop_flag)
+    {
+        if (cnt < WC_ROWS * WC_COLUMNS)
+        {
+            cnt += WC_COLUMNS;                                  // (1...WC_ROWS) * WC_COLUMNS
+
+            for (y = 0; y < WC_ROWS * WC_COLUMNS; y += WC_COLUMNS)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (y + cnt < WC_ROWS * WC_COLUMNS)
+                    {
+                        if (led.state[y + cnt + x] & CURRENT_STATE)
+                        {
+                            led.state[y + x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.state[y + x] &= ~NEW_STATE;
+                        }
+                    }
+                    else
+                    {
+                        if (led.state[y + (cnt - WC_ROWS * WC_COLUMNS) + x] & TARGET_STATE)
+                        {
+                            led.state[y + x] |= NEW_STATE;
+                        }
+                        else
+                        {
+                            led.state[y + x] &= ~NEW_STATE;
+                        }
+                    }
+                }
+            }
+            dsp_show_new_display ();
+        }
+        else
+        {
+            animation_stop_flag = 1;
+        }
+    }
+#endif
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * roll
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_roll ()
+{
+    static uint32_t        x;
+
+    if (animation_start_flag)
+    {
+        x = rand () % 4;
+    }
+
+    switch (x)
+    {
+        case 0:     dsp_animation_roll_right ();       break;
+        case 1:     dsp_animation_roll_left  ();       break;
+        case 2:     dsp_animation_roll_down  ();       break;
+        case 3:     dsp_animation_roll_up    ();       break;
+    }
+}
+
+static void
+dsp_animation_calc_implode (int n)
+{
+    uint_fast8_t    y;
+    uint_fast16_t   yi;
+    uint_fast8_t    x;
+    uint_fast16_t   xi;
+    uint_fast8_t    ny;
+    uint_fast8_t    nx;
+
+    for (yi = 0; yi < WC_ROWS * WC_COLUMNS; yi += WC_COLUMNS)
+    {
+        for (xi = 0; xi < WC_COLUMNS; xi++)
+        {
+            led.state[yi + xi] &= ~CALC_STATE;
+        }
+    }
+
+    for (y = 0; y < WC_ROWS; y++)
+    {
+        for (x = 0; x < WC_COLUMNS; x++)
+        {
+            if (led.matrix[y][x] & TARGET_STATE)
+            {
+                if (y < WC_ROWS / 2)
+                {
+                    if (x < WC_COLUMNS / 2)
+                    {
+                        ny = y + n;
+                        nx = x + n;
+
+                        if (ny > WC_ROWS / 2 - 1)
+                        {
+                            ny = WC_ROWS / 2 - 1;
+                        }
+
+                        if (nx > WC_COLUMNS / 2 - 1)
+                        {
+                            nx = WC_COLUMNS / 2 - 1;
+                        }
+                    }
+                    else
+                    {
+                        ny = y + n;
+                        nx = x - n;
+
+                        if (ny > WC_ROWS / 2 - 1)
+                        {
+                            ny = WC_ROWS / 2 - 1;
+                        }
+
+                        if (nx < WC_COLUMNS / 2)
+                        {
+                            nx = WC_COLUMNS / 2;
+                        }
+                    }
+                }
+                else
+                {
+                    if (x < WC_COLUMNS / 2)
+                    {
+                        ny = y - n;
+                        nx = x + n;
+
+                        if (ny < WC_ROWS / 2)
+                        {
+                            ny = WC_ROWS / 2;
+                        }
+
+                        if (nx > WC_COLUMNS / 2 - 1)
+                        {
+                            nx = WC_COLUMNS / 2 - 1;
+                        }
+                    }
+                    else
+                    {
+                        ny = y - n;
+                        nx = x - n;
+
+                        if (ny < WC_ROWS / 2)
+                        {
+                            ny = WC_ROWS / 2;
+                        }
+
+                        if (nx < WC_COLUMNS / 2)
+                        {
+                            nx = WC_COLUMNS / 2;
+                        }
+                    }
+                }
+
+                led.matrix[ny][nx] |= CALC_STATE;
+            }
+        }
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * explode
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_explode (void)
+{
+    static uint_fast8_t cnt;
+    uint_fast8_t        y;
+    uint_fast16_t       yi;
+    uint_fast8_t        x;
+
+    if (animation_start_flag)
+    {
+        animation_start_flag = 0;
+        animation_stop_flag = 0;
+        cnt = 0;
+    }
+
+    if (! animation_stop_flag)
+    {
+        if (cnt < WC_COLUMNS / 2)
+        {
+            for (y = 0; y < WC_ROWS; y++)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    led.matrix[y][x] &= ~NEW_STATE;
+                }
+            }
+
+            cnt++;
+
+            dsp_animation_calc_implode (WC_COLUMNS / 2 - cnt);
+
+            for (y = 0, yi = 0; y < WC_ROWS; y++, yi += WC_COLUMNS)
+            {
+                for (x = 0; x < WC_COLUMNS; x++)
+                {
+                    if (led.matrix[y][x] & CURRENT_STATE)
+                    {
+                        if (y < WC_ROWS / 2)
+                        {
+                            if (x < WC_COLUMNS / 2)
+                            {
+                                if (y >= cnt && x >= cnt)
+                                {
+                                    led.matrix[y - cnt][x - cnt] |= NEW_STATE;
+                                }
+                            }
+                            else
+                            {
+                                if (y >= cnt && x + cnt < WC_COLUMNS)
+                                {
+                                    led.matrix[y - cnt][x + cnt] |= NEW_STATE;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (x < WC_COLUMNS / 2)
+                            {
+                                if (y + cnt < WC_ROWS && x >= cnt)
+                                {
+                                    led.matrix[y + cnt][x - cnt] |= NEW_STATE;
+                                }
+                            }
+                            else
+                            {
+                                if (y + cnt < WC_ROWS && x + cnt < WC_COLUMNS)
+                                {
+                                    led.matrix[y + cnt][x + cnt] |= NEW_STATE;
+                                }
+                            }
+                        }
+                    }
+
+                    if (led.state[yi + x] & CALC_STATE)
+                    {
+                        led.state[yi + x] |= NEW_STATE;        // matrix leds |= calculated leds
+                    }
+                }
+            }
+
+            dsp_show_new_display ();
+        }
+        else
+        {
+            animation_stop_flag = 1;
+        }
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * random animation
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_animation_random ()
+{
+    static uint32_t x;
+
+    if (animation_start_flag)
+    {
+        x = rand () % 6;
+    }
+
+    switch (x)
+    {
+        case 0:     dsp_animation_fade ();          break;
+        case 1:     dsp_animation_roll_right ();    break;
+        case 2:     dsp_animation_roll_left ();     break;
+        case 3:     dsp_animation_roll_down ();     break;
+        case 4:     dsp_animation_roll_up ();       break;
+        case 5:     dsp_animation_explode ();       break;
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * animation
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+dsp_animation (void)
+{
+    switch (animation_mode)
+    {
+        case ANIMATION_MODE_FADE:       dsp_animation_fade ();      break;
+        case ANIMATION_MODE_ROLL:       dsp_animation_roll ();      break;
+        case ANIMATION_MODE_EXPLODE:    dsp_animation_explode ();   break;
+        case ANIMATION_MODE_RANDOM:     dsp_animation_random ();    break;
+        default:                        dsp_animation_none ();      break;
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
  * display clock time
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -182,220 +1134,65 @@ void
 dsp_clock (uint_fast8_t power_is_on, uint_fast8_t hour, uint_fast8_t minute)
 {
     static uint8_t                  words[WP_COUNT];
-    WS2812_RGB                      rgb_on;
-    WS2812_RGB                      rgb_off;
+    static uint_fast8_t             last_hour           = 0xff;
+    static uint_fast8_t             last_minute         = 0xff;
+    static uint_fast8_t             last_power_is_on    = 0xff;
     uint8_t                         hour_mode;
     uint8_t                         minute_mode;
     const struct MinuteDisplay *    tbl_minute;
     const uint8_t *                 word_idx_p;
     uint_fast16_t                   idx;
 
-    // Perhaps not all LEDs have reached the desired brightness yet.
-    // This happens when we change the time faster than LED fading is.
-    // Then we have to flush the target states:
-    rgb_on.red      = pwmtable8[current_brightness.red];
-    rgb_on.green    = pwmtable8[current_brightness.green];
-    rgb_on.blue     = pwmtable8[current_brightness.blue];
-
-    rgb_off.red     = 0;
-    rgb_off.green   = 0;
-    rgb_off.blue    = 0;
-
-    if (current_brightness_down.red     != rgb_off.red      ||
-        current_brightness_down.green   != rgb_off.green    ||
-        current_brightness_down.blue    != rgb_off.blue     ||
-        current_brightness_up.red       != rgb_on.red       ||
-        current_brightness_up.green     != rgb_on.green     ||
-        current_brightness_up.blue      != rgb_on.blue)
+    if (last_hour != hour || last_minute != minute || last_power_is_on != power_is_on)
     {
-        for (idx = 0; idx < WS2812_LEDS; idx++)
+        last_hour               = hour;
+        last_minute             = minute;
+        last_power_is_on        = power_is_on;
+
+        // Perhaps not all LEDs have reached the desired brightness yet.
+        // This happens when we change the time faster than LED fading is.
+        // Then we have to flush the target states:
+
+        dsp_animation_flush ();
+
+        // Now all LEDs have the desired brightness of last time.
+        // We can now set the new values:
+
+        hour_mode   = tbl_modes[display_mode].hour_txt;
+        minute_mode = tbl_modes[display_mode].minute_txt;
+        tbl_minute  = &tbl_minutes[minute_mode][minute];
+
+        memset (words, 0, WP_COUNT);
+        reset_led_states ();
+
+        if (power_is_on)
         {
-            if (led_state[idx] == TARGET_STATE)                           // up
+            words[WP_ES] = 1;
+            words[WP_IST] = 1;
+
+            for (idx = 0; idx < MAX_MINUTE_WORDS && tbl_minute->wordIdx[idx] != 0; idx++)
             {
-                ws2812_set_led (idx, &rgb_on, 0);
+                words[tbl_minute->wordIdx[idx]] = 1;
             }
-            else if (led_state[idx] == CURRENT_STATE)                     // down
+
+            hour += tbl_minute->hourOffset;                             // correct the hour offset from the minutes
+            word_idx_p = tbl_hours[hour_mode][hour];                    // get the hour words from hour table
+
+            for (idx = 0; idx < MAX_HOUR_WORDS && word_idx_p[idx] != 0; idx++)
             {
-                ws2812_set_led (idx, &rgb_off, 0);
+                words[word_idx_p[idx]] = 1;
+            }
+
+            for (idx = 0; idx < WP_COUNT; idx++)
+            {
+                if (words[idx])
+                {
+                    dsp_word_on (idx);
+                }
             }
         }
 
-        ws2812_refresh();
-    }
-
-    // Now all LEDs have the desired brightness of last time.
-    // We can now set the new values:
-    hour_mode   = tbl_modes[mode].hour_txt;
-    minute_mode = tbl_modes[mode].minute_txt;
-    tbl_minute  = &tbl_minutes[minute_mode][minute];
-
-    memset (words, 0, WP_COUNT);
-    dsp_all_leds_off ();
-
-    if (power_is_on)
-    {
-        for (idx = 0; idx < MAX_MINUTE_WORDS && tbl_minute->wordIdx[idx] != 0; idx++)
-        {
-            words[tbl_minute->wordIdx[idx]] = 1;
-        }
-
-        hour += tbl_minute->hourOffset;                             // correct the hour offset from the minutes
-        word_idx_p = tbl_hours[hour_mode][hour];                    // get the hour words from hour table
-
-        for (idx = 0; idx < MAX_HOUR_WORDS && word_idx_p[idx] != 0; idx++)
-        {
-            words[word_idx_p[idx]] = 1;
-        }
-
-        for (idx = 0; idx < WP_COUNT; idx++)
-        {
-            if (words[idx])
-            {
-                dsp_word_on (idx);
-            }
-        }
-    }
-
-    red_step   = current_brightness.red / 5;
-
-    if (red_step == 0 && current_brightness.red > 0)
-    {
-        red_step = 1;
-    }
-
-    green_step = current_brightness.green / 5;
-
-    if (green_step == 0 && current_brightness.green > 0)
-    {
-        green_step = 1;
-    }
-
-    blue_step  = current_brightness.blue / 5;
-
-    if (blue_step == 0 && current_brightness.blue > 0)
-    {
-        blue_step = 1;
-    }
-
-    current_brightness_up.red       = 0;
-    current_brightness_up.green     = 0;
-    current_brightness_up.blue      = 0;
-
-    current_brightness_down.red     = current_brightness.red;
-    current_brightness_down.green   = current_brightness.green;
-    current_brightness_down.blue    = current_brightness.blue;
-}
-
-/*-------------------------------------------------------------------------------------------------------------------------------------------
- * fade
- *-------------------------------------------------------------------------------------------------------------------------------------------
- */
-void
-dsp_fade (uint_fast8_t changed)
-{
-    uint_fast16_t    idx;
-
-    if (current_brightness_down.red >= red_step)
-    {
-        current_brightness_down.red -= red_step;
-        changed = 1;
-    }
-    else if (current_brightness_down.red != 0)
-    {
-        current_brightness_down.red = 0;
-        changed = 1;
-    }
-
-    if (current_brightness_down.green >= green_step)
-    {
-        current_brightness_down.green -= green_step;
-        changed = 1;
-    }
-    else if (current_brightness_down.green != 0)
-    {
-        current_brightness_down.green = 0;
-        changed = 1;
-    }
-
-    if (current_brightness_down.blue >= blue_step)
-    {
-        current_brightness_down.blue -= blue_step;
-        changed = 1;
-    }
-    else if (current_brightness_down.blue != 0)
-    {
-        current_brightness_down.blue = 0;
-        changed = 1;
-    }
-
-    if (current_brightness_up.red + red_step <= current_brightness.red)
-    {
-        current_brightness_up.red += red_step;
-        changed = 1;
-    }
-    else if (current_brightness_up.red != current_brightness.red)
-    {
-        current_brightness_up.red = current_brightness.red;
-        changed = 1;
-    }
-
-    if (current_brightness_up.green + green_step <= current_brightness.green)
-    {
-        current_brightness_up.green += green_step;
-        changed = 1;
-    }
-    else if (current_brightness_up.green != current_brightness.green)
-    {
-        current_brightness_up.green = current_brightness.green;
-        changed = 1;
-    }
-
-    if (current_brightness_up.blue + blue_step <= current_brightness.blue)
-    {
-        current_brightness_up.blue += blue_step;
-        changed = 1;
-    }
-    else if (current_brightness_up.blue != current_brightness.blue)
-    {
-        current_brightness_up.blue = current_brightness.blue;
-        changed = 1;
-    }
-
-    if (changed)
-    {
-        WS2812_RGB  rgb;
-        WS2812_RGB  rgb_up;
-        WS2812_RGB  rgb_down;
-
-        rgb.red         = pwmtable8[current_brightness.red];
-        rgb.green       = pwmtable8[current_brightness.green];
-        rgb.blue        = pwmtable8[current_brightness.blue];
-
-        rgb_up.red      = pwmtable8[current_brightness_up.red];
-        rgb_up.green    = pwmtable8[current_brightness_up.green];
-        rgb_up.blue     = pwmtable8[current_brightness_up.blue];
-
-        rgb_down.red    = pwmtable8[current_brightness_down.red];
-        rgb_down.green  = pwmtable8[current_brightness_down.green];
-        rgb_down.blue   = pwmtable8[current_brightness_down.blue];
-
-        for (idx = 0; idx < WS2812_LEDS; idx++)
-        {
-            if (led_state[idx] == TARGET_STATE)                           // up
-            {
-                ws2812_set_led (idx, &rgb_up, 0);
-            }
-            else if (led_state[idx] == CURRENT_STATE)                     // down
-            {
-                ws2812_set_led (idx, &rgb_down, 0);
-            }
-            else if (led_state[idx] == (CURRENT_STATE | TARGET_STATE))    // on, but no change
-            {
-                ws2812_set_led (idx, &rgb, 0);
-            }
-        }
-
-        ws2812_refresh();
+        animation_start_flag = 1;
     }
 }
 
@@ -404,9 +1201,9 @@ dsp_fade (uint_fast8_t changed)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-dsp_get_mode (void)
+dsp_get_display_mode (void)
 {
-    return mode;
+    return display_mode;
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -414,13 +1211,14 @@ dsp_get_mode (void)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-dsp_set_mode (uint_fast8_t new_mode)
+dsp_set_display_mode (uint_fast8_t new_mode)
 {
     if (new_mode < MODES_COUNT)
     {
-        mode = new_mode;
+        display_mode = new_mode;
+        animation_start_flag = 1;
     }
-    return mode;
+    return display_mode;
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -428,37 +1226,101 @@ dsp_set_mode (uint_fast8_t new_mode)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-dsp_increment_mode (void)
+dsp_increment_display_mode (void)
 {
-    if (mode < MODES_COUNT - 1)
+    if (display_mode < MODES_COUNT - 1)
     {
-        mode++;
+        display_mode++;
     }
     else
     {
-        mode = 0;
+        display_mode = 0;
     }
 
-    return mode;
+    animation_start_flag = 1;
+    return display_mode;
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * increment display mode
+ * decrement display mode
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-dsp_decrement_mode (void)
+dsp_decrement_display_mode (void)
 {
-    if (mode == 0)
+    if (display_mode == 0)
     {
-        mode = MODES_COUNT - 1;
+        display_mode = MODES_COUNT - 1;
     }
     else
     {
-        mode--;
+        display_mode--;
     }
 
-    return mode;
+    animation_start_flag = 1;
+    return display_mode;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * get animation mode
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+dsp_get_animation_mode (void)
+{
+    return animation_mode;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * set animation mode
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+dsp_set_animation_mode (uint_fast8_t new_mode)
+{
+    if (new_mode < ANIMATION_MODES)
+    {
+        animation_mode = new_mode;
+    }
+    return animation_mode;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * increment animation mode
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+dsp_increment_animation_mode (void)
+{
+    if (animation_mode < ANIMATION_MODES - 1)
+    {
+        animation_mode++;
+    }
+    else
+    {
+        animation_mode = 0;
+    }
+
+    return animation_mode;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * decrement animation mode
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+dsp_decrement_animation_mode (void)
+{
+    if (animation_mode == 0)
+    {
+        animation_mode = ANIMATION_MODES - 1;
+    }
+    else
+    {
+        animation_mode--;
+    }
+
+    return animation_mode;
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -471,7 +1333,7 @@ dsp_increment_brightness_red (void)
     if (current_brightness.red < MAX_BRIGHTNESS - 1)
     {
         current_brightness.red++;
-        dsp_fade (1);
+        dsp_animation_flush ();
     }
 }
 
@@ -485,7 +1347,7 @@ dsp_decrement_brightness_red (void)
     if (current_brightness.red > 0)
     {
         current_brightness.red--;
-        dsp_fade (1);
+        dsp_animation_flush ();
     }
 }
 
@@ -499,7 +1361,7 @@ dsp_increment_brightness_green (void)
     if (current_brightness.green < MAX_BRIGHTNESS - 1)
     {
         current_brightness.green++;
-        dsp_fade (1);
+        dsp_animation_flush ();
     }
 }
 
@@ -513,7 +1375,7 @@ dsp_decrement_brightness_green (void)
     if (current_brightness.green > 0)
     {
         current_brightness.green--;
-        dsp_fade (1);
+        dsp_animation_flush ();
     }
 }
 
@@ -527,7 +1389,7 @@ dsp_increment_brightness_blue (void)
     if (current_brightness.blue < MAX_BRIGHTNESS - 1)
     {
         current_brightness.blue++;
-        dsp_fade (1);
+        dsp_animation_flush ();
     }
 }
 
@@ -541,7 +1403,7 @@ dsp_decrement_brightness_blue (void)
     if (current_brightness.blue > 0)
     {
         current_brightness.blue--;
-        dsp_fade (1);
+        dsp_animation_flush ();
     }
 }
 
@@ -556,7 +1418,7 @@ dsp_set_brightness (RGB_BRIGHTNESS * rgb)
     current_brightness.green    = (rgb->green < MAX_BRIGHTNESS) ? rgb->green : MAX_BRIGHTNESS;
     current_brightness.blue     = (rgb->blue < MAX_BRIGHTNESS)  ? rgb->blue : MAX_BRIGHTNESS;
 
-    dsp_fade (1);
+    dsp_animation_flush ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -568,22 +1430,30 @@ dsp_read_config_from_eeprom (void)
 {
     uint_fast8_t            rtc = 0;
     PACKED_RGB_BRIGHTNESS   packed_rgb_brightness;
-    uint8_t                 mode8;
+    uint8_t                 display_mode8;
+    uint8_t                 animation_mode8;
 
     if (eeprom_is_up)
     {
         if (eeprom_read (EEPROM_DATA_OFFSET_RGB_BRIGHTNESS, (uint8_t *) &packed_rgb_brightness, sizeof(PACKED_RGB_BRIGHTNESS)) &&
-            eeprom_read (EEPROM_DATA_OFFSET_MODE, &mode8, sizeof(mode8)))
+            eeprom_read (EEPROM_DATA_OFFSET_DISPLAY_MODE, &display_mode8, sizeof(display_mode8)) &&
+            eeprom_read (EEPROM_DATA_OFFSET_ANIMATION_MODE, &animation_mode8, sizeof(animation_mode8)))
         {
-            if (mode8 >= MODES_COUNT)
+            if (display_mode8 >= MODES_COUNT)
             {
-                mode8 = 0;
+                display_mode8 = 0;
+            }
+
+            if (animation_mode8 >= ANIMATION_MODES)
+            {
+                animation_mode8 = 0;
             }
 
             current_brightness.red      = packed_rgb_brightness.red;
             current_brightness.green    = packed_rgb_brightness.green;
             current_brightness.blue     = packed_rgb_brightness.blue;
-            mode = mode8;
+            display_mode                = display_mode8;
+            animation_mode              = animation_mode8;
 
             rtc = 1;
         }
@@ -601,18 +1471,21 @@ dsp_write_config_to_eeprom (void)
 {
     uint_fast8_t            rtc = 0;
     PACKED_RGB_BRIGHTNESS   packed_rgb_brightness;
-    uint8_t                 mode8;
+    uint8_t                 display_mode8;
+    uint8_t                 animation_mode8;
 
     packed_rgb_brightness.red   = current_brightness.red;
     packed_rgb_brightness.green = current_brightness.green;
     packed_rgb_brightness.blue  = current_brightness.blue;
 
-    mode8 = mode;
+    display_mode8               = display_mode;
+    animation_mode8             = animation_mode;
 
     if (eeprom_is_up)
     {
         if (eeprom_write (EEPROM_DATA_OFFSET_RGB_BRIGHTNESS, (uint8_t *) &packed_rgb_brightness, sizeof(PACKED_RGB_BRIGHTNESS)) &&
-            eeprom_write (EEPROM_DATA_OFFSET_MODE, &mode8, sizeof(mode8)))
+            eeprom_write (EEPROM_DATA_OFFSET_DISPLAY_MODE, &display_mode8, sizeof(display_mode8)) &&
+            eeprom_write (EEPROM_DATA_OFFSET_ANIMATION_MODE, &animation_mode8, sizeof(animation_mode8)))
         {
             rtc = 1;
         }

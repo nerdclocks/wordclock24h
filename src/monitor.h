@@ -32,11 +32,14 @@
 #define DCF_TIME_LINE       9
 #define TIM_TIME_LINE       10
 
-#define MODE_LINE           18
+#define ANIMATION_MODE_LINE 17
+#define DISPLAY_MODE_LINE   18
 
-#define MENU_1_LINE         20
-#define MENU_2_LINE         21
-#define MENU_3_LINE         22
+#define MENU_1_LINE         19
+#define MENU_2_LINE         20
+#define MENU_3_LINE         21
+#define MENU_4_LINE         22
+
 #define LOG_LINE            23
 
 #define IRMP_FRAME_COL      70
@@ -53,11 +56,13 @@
 #define DCF_TIME_COL        24
 #define TIM_TIME_COL        24
 
-#define MODE_COL            0
+#define ANIMATION_MODE_COL  0
+#define DISPLAY_MODE_COL    0
 
 #define MENU_1_COL          0
 #define MENU_2_COL          0
 #define MENU_3_COL          0
+#define MENU_4_COL          0
 #define LOG_COL             0
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -67,9 +72,9 @@
 extern void         monitor_show_letter (uint_fast8_t, uint_fast8_t, uint_fast8_t);
 extern void         monitor_show_all_letters_off (void);
 extern void         monitor_show_clock (uint_fast8_t, uint_fast8_t, uint_fast8_t, uint_fast8_t);
-extern void         monitor_show_mode (uint_fast8_t);
+extern void         monitor_show_modes (uint_fast8_t, uint_fast8_t);
 extern void         monitor_show_menu (void);
 extern void         monitor_show_status (ESP8266_CONNECTION_INFO *);
-extern void         monitor_show_screen (uint_fast8_t, ESP8266_CONNECTION_INFO *);
+extern void         monitor_show_screen (uint_fast8_t, uint_fast8_t, ESP8266_CONNECTION_INFO *);
 
 #endif

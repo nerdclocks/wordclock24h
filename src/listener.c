@@ -28,7 +28,9 @@
  *
  *  Command       Length    description
  *  -----------------------------------------------------
- *  <M>m            2       Set display mode
+ *  <D>m            2       Set display mode
+ *  <M>m            2       Set display mode (deprecated)
+ *  <A>m            2       Set animation mode
  *  <C>rgb          4       RGB values (0..31)
  *  <T>ymdhms       7       Date/time
  *  <P>p            2       Power on/off
@@ -71,7 +73,9 @@ listener (LISTENER_DATA * ld)
 
         switch (l.data[0])
         {
-            case 'M':
+            case 'A':                                           // Set Animation Mode
+            case 'D':                                           // Set Display Mode
+            case 'M':                                           // Set Display Mode (deprecated)
             {
                 if (l.length == 2)
                 {
@@ -81,7 +85,7 @@ listener (LISTENER_DATA * ld)
                 break;
             }
 
-            case 'C':
+            case 'C':                                           // Set RGB Colors
             {
                 if (l.length == 4)
                 {
@@ -93,7 +97,7 @@ listener (LISTENER_DATA * ld)
                 break;
             }
 
-            case 'T':
+            case 'T':                                           // Set Date/Time
             {
                 if (l.length == 7)
                 {
@@ -108,7 +112,7 @@ listener (LISTENER_DATA * ld)
                 break;
             }
 
-            case 'P':
+            case 'P':                                           // Power on/off
             {
                 if (l.length == 2)
                 {
@@ -118,16 +122,8 @@ listener (LISTENER_DATA * ld)
                 break;
             }
 
-            case 'N':
-            {
-                if (l.length == 1)
-                {
-                    rtc = l.data[0];
-                }
-                break;
-            }
-
-            case 'S':
+            case 'N':                                           // Get Net Time
+            case 'S':                                           // Save Settings
             {
                 if (l.length == 1)
                 {

@@ -12,7 +12,7 @@
 #ifndef EEPROM_DATA_H
 #define EEPROM_DATA_H
 
-#define EEPROM_VERSION                      0x00010000          // version 1.0.0
+#define EEPROM_VERSION                      0x00010100          // version 1.1.0
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * Some packed structures to minimize used EEPROM space
@@ -40,6 +40,7 @@ typedef struct __attribute__ ((__packed__))
  *      IRMP data           160 Bytes   (32 *  5)
  *      RGB brightness        3 Bytes   ( 3 *  1)
  *      Display mode          1 Byte    ( 1 *  1)
+ *      Animation mode        1 Byte    ( 1 *  1)
  *      NTP protocol flag     1 Byte    ( 1 *  1)
  *      Time server          16 Bytes   ( 1 * 16)
  *      Time zone             2 Bytes   ( 1 *  2)
@@ -58,7 +59,8 @@ typedef struct __attribute__ ((__packed__))
 #define EEPROM_DATA_SIZE_VERSION            sizeof (uint32_t)
 #define EEPROM_DATA_SIZE_IRMP_DATA          (EEPROM_MAX_IR_CODES * sizeof (PACKED_IRMP_DATA))
 #define EEPROM_DATA_SIZE_RGB_BRIGHTNESS     sizeof (PACKED_RGB_BRIGHTNESS)
-#define EEPROM_DATA_SIZE_MODE               sizeof (uint8_t)
+#define EEPROM_DATA_SIZE_DISPLAY_MODE       sizeof (uint8_t)
+#define EEPROM_DATA_SIZE_ANIMATION_MODE     sizeof (uint8_t)
 #define EEPROM_DATA_SIZE_NTP_PROTOCOL       sizeof (uint8_t)
 #define EEPROM_DATA_SIZE_TIMESERVER         (EEPROM_MAX_IPADDR_LEN)
 #define EEPROM_DATA_SIZE_TIMEZONE           (EEPROM_MAX_TIMEZONE_LEN)
@@ -66,8 +68,9 @@ typedef struct __attribute__ ((__packed__))
 #define EEPROM_DATA_OFFSET_VERSION          0
 #define EEPROM_DATA_OFFSET_IRMP_DATA        (EEPROM_DATA_OFFSET_VERSION         + EEPROM_DATA_SIZE_VERSION)
 #define EEPROM_DATA_OFFSET_RGB_BRIGHTNESS   (EEPROM_DATA_OFFSET_IRMP_DATA       + EEPROM_DATA_SIZE_IRMP_DATA)
-#define EEPROM_DATA_OFFSET_MODE             (EEPROM_DATA_OFFSET_RGB_BRIGHTNESS  + EEPROM_DATA_SIZE_RGB_BRIGHTNESS)
-#define EEPROM_DATA_OFFSET_NTP_PROTOCOL     (EEPROM_DATA_OFFSET_MODE            + EEPROM_DATA_SIZE_MODE)
+#define EEPROM_DATA_OFFSET_DISPLAY_MODE     (EEPROM_DATA_OFFSET_RGB_BRIGHTNESS  + EEPROM_DATA_SIZE_RGB_BRIGHTNESS)
+#define EEPROM_DATA_OFFSET_ANIMATION_MODE   (EEPROM_DATA_OFFSET_DISPLAY_MODE    + EEPROM_DATA_SIZE_DISPLAY_MODE)
+#define EEPROM_DATA_OFFSET_NTP_PROTOCOL     (EEPROM_DATA_OFFSET_ANIMATION_MODE  + EEPROM_DATA_SIZE_ANIMATION_MODE)
 #define EEPROM_DATA_OFFSET_TIMESERVER       (EEPROM_DATA_OFFSET_NTP_PROTOCOL    + EEPROM_DATA_SIZE_NTP_PROTOCOL)
 #define EEPROM_DATA_OFFSET_TIMEZONE         (EEPROM_DATA_OFFSET_TIMESERVER      + EEPROM_DATA_SIZE_TIMESERVER)
 

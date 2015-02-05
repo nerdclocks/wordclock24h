@@ -90,7 +90,7 @@ remote_ir_learn (void)
 
     for (i = 0; i < N_CMDS; i++)
     {
-        dsp_all_leds_off ();                                    // switch LEDs off
+        reset_led_states ();                                    // switch LEDs off
         dsp_led_on (0, i);                                      // switch one LED on
 
         if (mcurses_is_up)
@@ -104,8 +104,10 @@ remote_ir_learn (void)
             {
                 case CMD_POWER:                         addstr ("IRMP: press key for power off/on");                break;
                 case CMD_OK:                            addstr ("IRMP: press key for OK");                          break;
-                case CMD_DECREMENT_MODE:                addstr ("IRMP: press key for decrement mode");              break;
-                case CMD_INCREMENT_MODE:                addstr ("IRMP: press key for increment mode");              break;
+                case CMD_DECREMENT_DISPLAY_MODE:        addstr ("IRMP: press key for decrement display mode");      break;
+                case CMD_INCREMENT_DISPLAY_MODE:        addstr ("IRMP: press key for increment display mode");      break;
+                case CMD_DECREMENT_ANIMATION_MODE:      addstr ("IRMP: press key for decrement animation mode");    break;
+                case CMD_INCREMENT_ANIMATION_MODE:      addstr ("IRMP: press key for increment animation mode");    break;
                 case CMD_DECREMENT_HOUR:                addstr ("IRMP: press key for decrement hour");              break;
                 case CMD_INCREMENT_HOUR:                addstr ("IRMP: press key for increment hour");              break;
                 case CMD_DECREMENT_MINUTE:              addstr ("IRMP: press key for decrement minute");            break;
@@ -125,7 +127,7 @@ remote_ir_learn (void)
 
         while (1)
         {
-            dsp_fade (0);
+            dsp_animation ();
 
             if (irmp_get_data (&irmp_data_array[i]))                                            // read ir data
             {
@@ -140,8 +142,8 @@ remote_ir_learn (void)
         }
     }
 
-    dsp_all_leds_off ();                                        // switch LEDs off
-    dsp_fade (0);
+    reset_led_states ();                                        // switch LEDs off
+    dsp_animation ();
 
     if (mcurses_is_up)
     {

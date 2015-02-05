@@ -270,6 +270,7 @@
 			<Add directory=".\SPL\inc" />
 			<Add directory=".\SPL\src" />
 		</Compiler>
+		<Unit filename="README.txt" />
 		<Unit filename="SPL\inc\misc.h" />
 		<Unit filename="SPL\inc\stm32f4xx_adc.h" />
 		<Unit filename="SPL\inc\stm32f4xx_can.h" />
@@ -398,7 +399,6 @@
 		<Unit filename="inc\stm32f4xx.h" />
 		<Unit filename="inc\stm32f4xx_conf.h" />
 		<Unit filename="inc\system_stm32f4xx.h" />
-		<Unit filename="readme.txt" />
 		<Unit filename="src\button.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -408,7 +408,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\dcf77.h" />
-		<Unit filename="src\display.h" />
 		<Unit filename="src\dsp.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -465,6 +464,9 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\system_stm32f4xx.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\tables.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\tables.h" />

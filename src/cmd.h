@@ -17,26 +17,29 @@
 #define CMD_POWER                        0
 #define CMD_OK                           1
 
-#define CMD_DECREMENT_MODE               2
-#define CMD_INCREMENT_MODE               3
+#define CMD_DECREMENT_DISPLAY_MODE       2
+#define CMD_INCREMENT_DISPLAY_MODE       3
 
-#define CMD_DECREMENT_HOUR               4
-#define CMD_INCREMENT_HOUR               5
+#define CMD_DECREMENT_ANIMATION_MODE     4
+#define CMD_INCREMENT_ANIMATION_MODE     5
 
-#define CMD_DECREMENT_MINUTE             6
-#define CMD_INCREMENT_MINUTE             7
+#define CMD_DECREMENT_HOUR               6
+#define CMD_INCREMENT_HOUR               7
 
-#define CMD_DECREMENT_BRIGHTNESS_RED     8
-#define CMD_INCREMENT_BRIGHTNESS_RED     9
+#define CMD_DECREMENT_MINUTE             8
+#define CMD_INCREMENT_MINUTE             9
 
-#define CMD_DECREMENT_BRIGHTNESS_GREEN  10
-#define CMD_INCREMENT_BRIGHTNESS_GREEN  11
+#define CMD_DECREMENT_BRIGHTNESS_RED    10
+#define CMD_INCREMENT_BRIGHTNESS_RED    11
 
-#define CMD_DECREMENT_BRIGHTNESS_BLUE   12
-#define CMD_INCREMENT_BRIGHTNESS_BLUE   13
+#define CMD_DECREMENT_BRIGHTNESS_GREEN  12
+#define CMD_INCREMENT_BRIGHTNESS_GREEN  13
 
-#define CMD_GET_NET_TIME                14
+#define CMD_DECREMENT_BRIGHTNESS_BLUE   14
+#define CMD_INCREMENT_BRIGHTNESS_BLUE   15
 
-#define N_CMDS                          15
+#define CMD_GET_NET_TIME                16
+
+#define N_CMDS                          17
 
 #endif

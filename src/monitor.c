@@ -19,9 +19,7 @@
 #include "esp8266.h"
 #include "eeprom.h"
 #include "rtc.h"
-
-#define TABLES_EXTERN
-#include "display.h"
+#include "dsp.h"
 #include "tables.h"
 
 
@@ -115,6 +113,9 @@ monitor_show_clock (uint_fast8_t mode, uint_fast8_t hour, uint_fast8_t minute, u
 
         mvprintw (TIM_TIME_LINE, TIM_TIME_COL, "%02d:%02d:%02d", hour, minute, second);
 
+        words[WP_ES] = 1;
+        words[WP_IST] = 1;
+
         for (idx = 0; idx < MAX_MINUTE_WORDS && tbl_minute->wordIdx[idx] != 0; idx++)
         {
             words[tbl_minute->wordIdx[idx]] = 1;
@@ -146,12 +147,15 @@ monitor_show_clock (uint_fast8_t mode, uint_fast8_t hour, uint_fast8_t minute, u
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-monitor_show_mode (uint_fast8_t mode)
+monitor_show_modes (uint_fast8_t display_mode, uint_fast8_t animation_mode)
 {
     if (mcurses_is_up)
     {
-        mvprintw (MODE_LINE, MODE_COL, "Mode %2d: ", mode);
-        addstr (tbl_modes[mode].description);
+        mvprintw (ANIMATION_MODE_LINE, ANIMATION_MODE_COL, "Animation Mode: %2d: ", animation_mode);
+        addstr (animation_modes[animation_mode]);
+        clrtoeol ();
+        mvprintw (DISPLAY_MODE_LINE, DISPLAY_MODE_COL,     "Display   Mode: %2d: ", display_mode);
+        addstr (tbl_modes[display_mode].description);
         clrtoeol ();
     }
 }
@@ -166,9 +170,10 @@ monitor_show_menu (void)
     if (mcurses_is_up)
     {
         attrset (A_REVERSE);
-        mvaddstr (MENU_1_LINE, MENU_1_COL, " h/H: inc/dec hour     m/M: inc/dec minute    x/X: inc/dec mode   n: net time  ");
-        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red      g/G: inc/dec green     b/B: inc/dec blue   c: configure ");
-        mvaddstr (MENU_3_LINE, MENU_3_COL, " o:   okay, save       p:   power on/off      e:   eeprom dump    l: logout    ");
+        mvaddstr (MENU_1_LINE, MENU_1_COL, " h/H: inc/dec hour              m/M: inc/dec minute           n: net time       ");
+        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red               g/G: inc/dec green            b/B: inc/dec blue ");
+        mvaddstr (MENU_3_LINE, MENU_3_COL, " a/A: inc/dec animation mode    d/D: inc/dec display mode     c: configure      ");
+        mvaddstr (MENU_4_LINE, MENU_4_COL, " s:   save       p:   power on/off      e:   eeprom dump      l: logout         ");
         attrset (A_NORMAL);
     }
 }
@@ -208,13 +213,13 @@ monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-monitor_show_screen (uint_fast8_t mode, ESP8266_CONNECTION_INFO * esp8266_connection_infop)
+monitor_show_screen (uint_fast8_t display_mode, uint_fast8_t animation_mode, ESP8266_CONNECTION_INFO * esp8266_connection_infop)
 {
     if (mcurses_is_up)
     {
         clear ();
         monitor_show_all_letters_off ();                        // show display off
-        monitor_show_mode (mode);                               // show current mode
+        monitor_show_modes (display_mode, animation_mode);      // show current mode
         monitor_show_menu ();                                   // show menu
         monitor_show_status (esp8266_connection_infop);
     }
