@@ -122,9 +122,16 @@
  * Change hardware pin here for ARM STM32
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
-#elif defined (ARM_STM32)                                               // use C13 as IR input on STM32
+#elif defined (ARM_STM32)                                               // STM32
+#if defined (STM32F407VG)                                               // STM32F4 Discovery Board: we use C14
 #  define IRMP_PORT_LETTER                      C
-#  define IRMP_BIT_NUMBER                       13
+#  define IRMP_BIT_NUMBER                       14
+#elif defined (STM32F401RE) || defined (STM32F411RE)                    // STM32F401/STM32F411 Nucleo Board: we use C10
+#  define IRMP_PORT_LETTER                      C
+#  define IRMP_BIT_NUMBER                       10
+#else
+#error unknown STM32
+#endif
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * Change hardware pin here for Stellaris ARM Cortex M4
