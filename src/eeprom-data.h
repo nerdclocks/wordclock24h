@@ -64,6 +64,7 @@ typedef struct __attribute__ ((__packed__))
 #define EEPROM_DATA_SIZE_NTP_PROTOCOL       sizeof (uint8_t)
 #define EEPROM_DATA_SIZE_TIMESERVER         (EEPROM_MAX_IPADDR_LEN)
 #define EEPROM_DATA_SIZE_TIMEZONE           (EEPROM_MAX_TIMEZONE_LEN)
+#define EEPROM_DATA_SIZE_DS18XX_TYPE        sizeof (uint8_t)
 
 #define EEPROM_DATA_OFFSET_VERSION          0
 #define EEPROM_DATA_OFFSET_IRMP_DATA        (EEPROM_DATA_OFFSET_VERSION         + EEPROM_DATA_SIZE_VERSION)

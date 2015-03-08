@@ -195,7 +195,7 @@ timeserver_cmd (void)
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-timeserver_configure (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
+timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_connection_infop)
 {
     static char     ssid[MAX_SSID_LEN + 1];
     static char     key[MAX_KEY_LEN + 1];
@@ -203,17 +203,15 @@ timeserver_configure (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
     static char     answer[ESP8266_MAX_ANSWER_LEN + 1];
     uint8_t         ch;
     uint_fast8_t    i;
-    uint_fast8_t    next_line;
+
     uint_fast8_t    rtc = 0;
 
-    clear ();
+    mvaddstr (next_line, 10, "1. Configure access to AP");  next_line++;
+    mvaddstr (next_line, 10, "2. Configure time server");   next_line++;
+    mvaddstr (next_line, 10, "3. Configure time zone");     next_line++;
+    mvaddstr (next_line, 10, "0. Exit");                    next_line += 2;
 
-    mvaddstr (3, 10, "1. Configure access to AP");
-    mvaddstr (4, 10, "2. Configure time server");
-    mvaddstr (5, 10, "3. Configure time zone");
-    mvaddstr (6, 10, "0. Exit");
-    move (7, 10);
-    next_line = 9;
+    move (next_line, 10);
     refresh ();
 
     while ((ch = getch()) < '0' || ch > '3')
@@ -272,7 +270,7 @@ timeserver_configure (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
     }
     else if (ch == '3')
     {
-        uint8_t         tz[EEPROM_DATA_SIZE_TIMEZONE];
+        uint8_t         tz[4];
 
         move (next_line, 10);
         addstr ("current time zone: GMT");
@@ -285,7 +283,7 @@ timeserver_configure (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
 
         move (next_line + 1, 10);
         addstr ("new time zone:     GMT");
-        getnstr ((char *) tz, EEPROM_DATA_SIZE_TIMEZONE);
+        getnstr ((char *) tz, 3);
 
         if (*tz)
         {
@@ -320,13 +318,17 @@ timeserver_get_time (struct tm * tmp)
         mytm = localtime (&curtime);
 
         // calculate summer time:
-        if (mytm->tm_mon >= 2 && mytm->tm_mon <= 9)                             // month: march - october
+        if (mytm->tm_mon >= 3 && mytm->tm_mon <= 8)             // april to september
         {
-            if (mytm->tm_mon == 2 && mytm->tm_mday - mytm->tm_wday >= 25)       // after or equal last sunday in march
+            summertime = 1;
+        }
+        else if (mytm->tm_mon == 2)                             // march
+        {
+            if (mytm->tm_mday - mytm->tm_wday >= 25)            // after or equal last sunday in march
             {
-                if (mytm->tm_wday == 0)                                         // today last sunday?
+                if (mytm->tm_wday == 0)                         // today last sunday?
                 {
-                    if (mytm->tm_hour >= 2)                                     // after 02:00 we have summer time
+                    if (mytm->tm_hour >= 2)                     // after 02:00 we have summer time
                     {
                         summertime = 1;
                     }
@@ -336,28 +338,24 @@ timeserver_get_time (struct tm * tmp)
                     summertime = 1;
                 }
             }
-            else if (mytm->tm_mon == 9)                                         // it's october
-            {
-                summertime = 1;
+        }
+        else if (mytm->tm_mon == 9)                             // it's october
+        {
+            summertime = 1;
 
-                if (mytm->tm_mday - mytm->tm_wday >= 25)                        // it's after or equal last sunday in october...
+            if (mytm->tm_mday - mytm->tm_wday >= 25)            // it's after or equal last sunday in october...
+            {
+                if (mytm->tm_wday == 0)                         // today last sunday?
                 {
-                    if (mytm->tm_wday == 0)                                     // today last sunday?
-                    {
-                        if (mytm->tm_hour >= 3)                                 // after 03:00 we have winter time
-                        {
-                            summertime = 0;
-                        }
-                    }
-                    else
+                    if (mytm->tm_hour >= 3)                     // after 03:00 we have winter time
                     {
                         summertime = 0;
                     }
                 }
-            }
-            else
-            {
-                summertime = 1;
+                else
+                {
+                    summertime = 0;
+                }
             }
         }
 

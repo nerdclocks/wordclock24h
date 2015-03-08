@@ -126,6 +126,8 @@ char *                              animation_modes[ANIMATION_MODES] =
     "Random"
 };
 
+static uint_fast8_t                 last_display_mode   = 0xff;
+
 static uint_fast8_t                 animation_mode = ANIMATION_MODE_FADE;
 static uint_fast8_t                 animation_start_flag;
 static uint_fast8_t                 animation_stop_flag;
@@ -1127,6 +1129,60 @@ dsp_animation (void)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
+ * display temperature
+ *
+ *   index ==   0  ->   0°C
+ *   index == 250  -> 125°C
+ *
+ * the first temperature we can show is 10,0°C (index =  0, temperature_index ==  20)
+ * the last  temperature we can show is 39,5°C (index = 79, temperature_index == 159)
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+dsp_temperature (uint_fast8_t power_is_on, uint_fast8_t temperature_index)
+{
+    uint_fast8_t   temp_mode = MODES_COUNT - 1;
+
+    if (temperature_index >= 20 && temperature_index < 80)
+    {
+        uint8_t                         minute_mode;
+        const struct MinuteDisplay *    tbl_minute;
+        uint_fast16_t                   idx;
+
+        last_display_mode = temp_mode;
+
+        temperature_index -= 20;                                            // subtract 10°C (20 units)
+
+        // Perhaps not all LEDs have reached the desired brightness yet.
+        // This happens when we change the time faster than LED fading is.
+        // Then we have to flush the target states:
+
+        dsp_animation_flush ();
+
+        // Now all LEDs have the desired brightness of last time.
+        // We can now set the new values:
+
+        minute_mode = tbl_modes[temp_mode].minute_txt;
+        tbl_minute  = &tbl_minutes[minute_mode][temperature_index];
+
+        reset_led_states ();
+
+        if (power_is_on)
+        {
+            dsp_word_on (WP_ES);
+            dsp_word_on (WP_IST);
+
+            for (idx = 0; idx < MAX_MINUTE_WORDS && tbl_minute->wordIdx[idx] != 0; idx++)
+            {
+                dsp_word_on (tbl_minute->wordIdx[idx]);
+            }
+        }
+
+        animation_start_flag = 1;
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
  * display clock time
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -1143,8 +1199,9 @@ dsp_clock (uint_fast8_t power_is_on, uint_fast8_t hour, uint_fast8_t minute)
     const uint8_t *                 word_idx_p;
     uint_fast16_t                   idx;
 
-    if (last_hour != hour || last_minute != minute || last_power_is_on != power_is_on)
+    if (last_display_mode != display_mode || last_hour != hour || last_minute != minute || last_power_is_on != power_is_on)
     {
+        last_display_mode       = display_mode;
         last_hour               = hour;
         last_minute             = minute;
         last_power_is_on        = power_is_on;

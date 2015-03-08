@@ -33,12 +33,12 @@
  *
  * Internal devices used:
  *
- *    +-------------------------+-------------------------+-------------------------+
- *    | Device                  | STM32F4 Discovery       | STM32F4x1 Nucleo        |
- *    +-------------------------+-------------------------+-------------------------+
- *    | User button             | GPIO:   PA0             | GPIO:   PC13            |
- *    | Green LED               | GPIO:   PD12            | GPIO:   PA5             |
- *    +-------------------------+-------------------------+-------------------------+
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | Device                  | STM32F4 Discovery         | STM32F4x1 Nucleo          |
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | User button             | GPIO:   PA0               | GPIO:   PC13              |
+ *    | Green LED               | GPIO:   PD12              | GPIO:   PA5               |
+ *    +-------------------------+---------------------------+---------------------------+
  *
  * External devices:
  *
@@ -52,6 +52,17 @@
  *    | ESP8266 GPIO            | GPIO:   RST=PC5 CH_PD=PC4 | GPIO:   RST=PA7 CH_PD=PA6 |
  *    | I2C DS3231 & EEPROM     | I2C3:   SCL=PA8 SDA=PC9   | I2C3:   SCL=PA8 SDA=PC9   |
  *    | WS2812                  | DMA1:   PC6               | DMA1:   PC6               |
+ *    | DS18xx (OneWire)        | GPIO:   PD2               | GPIO:   PD2               |
+ *    +-------------------------+---------------------------+---------------------------+
+ *
+ * Timers:
+ *
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | Device                  | STM32F4 Discovery         | STM32F4x1 Nucleo          |
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | General (IRMP etc.)     | TIM2                      | TIM2                      |
+ *    | WS2812                  | TIM3                      | TIM3                      |
+ *    | DS18xx (OneWire)        | TIM4                      | TIM4                      |
  *    +-------------------------+---------------------------+---------------------------+
  *
  * This program is free software; you can redistribute it and/or modify
@@ -79,6 +90,8 @@
 #include "button.h"
 #include "eeprom.h"
 #include "eeprom-data.h"
+#include "tempsensor.h"
+#include "ds18xx.h"
 #include "rtc.h"
 
 #if defined (STM32F407VG)                                       // STM32F4 Discovery Board: VCP via USB
@@ -299,10 +312,12 @@ main ()
     struct tm               tm;
     LISTENER_DATA           lis;
     uint_fast8_t            do_display          = 1;
+    uint_fast8_t            show_temperature    = 0;
     uint_fast8_t            update_leds_only    = 0;
     uint_fast8_t            time_changed        = 0;
     uint_fast8_t            power_is_on         = 1;
     uint_fast8_t            night_power_is_on   = 1;
+    uint_fast8_t            temperature_index   = 0xFF;
     uint_fast8_t            cmd;
     uint8_t                 ch;
 
@@ -335,6 +350,7 @@ main ()
 
     dsp_init ();                                                // initialize display
     dcf77_init ();                                              // initialize DCF77
+    temp_init ();                                               // initialize DS18xx
 
     reset_led_states ();
     display_mode = dsp_get_display_mode ();
@@ -521,7 +537,7 @@ main ()
 
             if (mcurses_is_up)
             {
-                mvprintw (DCF_TIME_LINE, DCF_TIME_COL, "Last DCF77  TIME: %02d.%02d.%04d %02d:%02d",
+                mvprintw (DCF_TIME_LINE, DCF_TIME_COL, "%02d.%02d.%04d %02d:%02d",
                           tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min);
             }
         }
@@ -539,7 +555,7 @@ main ()
 
                     if (mcurses_is_up)
                     {
-                        mvprintw (RTC_TIME_LINE, RTC_TIME_COL, "Last DS3231 TIME: %02d.%02d.%04d %02d:%02d:%02d",
+                        mvprintw (RTC_TIME_LINE, RTC_TIME_COL, "%02d.%02d.%04d %02d:%02d:%02d",
                                   tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
                         clrtoeol ();
                     }
@@ -568,7 +584,7 @@ main ()
 
                     if (mcurses_is_up)
                     {
-                        mvprintw (NET_TIME_LINE, NET_TIME_COL, "Last NET    TIME: %02d.%02d.%04d %02d:%02d:%02d",
+                        mvprintw (NET_TIME_LINE, NET_TIME_COL, "%02d.%02d.%04d %02d:%02d:%02d",
                                   tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec);
                         clrtoeol ();
                     }
@@ -620,6 +636,39 @@ main ()
                     night_power_is_on = 1;
                     do_display = 1;
                 }
+            }
+        }
+
+        if (show_temperature)
+        {
+            show_temperature = 0;
+
+            if (ds18xx_is_up)
+            {
+                uint8_t stop_sec;
+                uint_fast8_t on = power_is_on ? night_power_is_on : power_is_on;
+
+                temperature_index = temp_read_temp_index ();
+                monitor_show_temperature (temperature_index);
+                dsp_temperature (on, temperature_index);
+
+                stop_sec = second + 5;
+
+                if (stop_sec >= 60)
+                {
+                    stop_sec -= 60;
+                }
+
+                while (second >= 60 - 5 || second < stop_sec)
+                {
+                    if (animation_flag)
+                    {
+                        animation_flag = 0;
+                        dsp_animation ();
+                    }
+                }
+
+                do_display = 1;                                         // force update
             }
         }
 
@@ -676,6 +725,7 @@ main ()
                     case CMD_INCREMENT_BRIGHTNESS_GREEN:    addstr ("IRMP: increment green brightness");    break;
                     case CMD_DECREMENT_BRIGHTNESS_BLUE:     addstr ("IRMP: decrement blue brightness");     break;
                     case CMD_INCREMENT_BRIGHTNESS_BLUE:     addstr ("IRMP: increment blue brightness");     break;
+                    case CMD_GET_TEMPERATURE:               addstr ("IRMP: get temperature");               break;
                     case CMD_GET_NET_TIME:                  addstr ("IRMP: get net time");                  break;
                 }
 
@@ -703,6 +753,7 @@ main ()
                     case 'g':   cmd = CMD_INCREMENT_BRIGHTNESS_GREEN;   break;
                     case 'B':   cmd = CMD_DECREMENT_BRIGHTNESS_BLUE;    break;
                     case 'b':   cmd = CMD_INCREMENT_BRIGHTNESS_BLUE;    break;
+                    case 't':   cmd = CMD_GET_TEMPERATURE;              break;
                     case 'n':   cmd = CMD_GET_NET_TIME;                 break;
 
                     case 'l':
@@ -719,11 +770,29 @@ main ()
 
                     case 'c':
                     {
-                        timeserver_configure (&esp8266_connection_info);
+                        uint_fast8_t next_line;
+                        clear ();
 
-                        if (esp8266_is_online)
+                        mvaddstr (3, 10, "1. Configure Network Module ESP8266");
+                        mvaddstr (5, 10, "0. Exit");
+
+                        next_line = 7;
+                        move (next_line, 10);
+                        refresh ();
+
+                        while ((ch = getch()) < '0' || ch > '1')
                         {
-                            net_time_flag = 1;                                  // get time now!
+                            ;
+                        }
+
+                        if (ch == '1')
+                        {
+                            timeserver_configure (next_line, &esp8266_connection_info);
+
+                            if (esp8266_is_online)
+                            {
+                                net_time_flag = 1;                                  // get time now!
+                            }
                         }
 
                         repaint_screen ();
@@ -917,6 +986,12 @@ main ()
                 dsp_increment_brightness_blue ();
                 do_display          = 1;
                 update_leds_only    = 1;
+                break;
+            }
+
+            case CMD_GET_TEMPERATURE:                           // get net time
+            {
+                show_temperature    = 1;
                 break;
             }
 

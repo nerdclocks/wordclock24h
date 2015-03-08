@@ -11,15 +11,20 @@
  */
 
 #if defined (STM32F407VG)                               // STM32F4 Discovery Board: we use 0 for USB via VCP
+
 #define MCURSES_UART_NUMBER         0                   // UART number on STM32Fxx (1-6 for UART, 0 for USB), ignored on other µCs
 #define MCURSES_BAUD                115200L             // UART baudrate
+
 #elif defined (STM32F401RE) || defined (STM32F411RE)    // STM32F401/STM32F411 Nucleo Board: we use USART2 connected to ST-Link (USB)
+
 #define MCURSES_UART_NUMBER         2                   // UART number on STM32Fxx (1-6 for UART, 0 for USB), ignored on other µCs
 #define MCURSES_BAUD                115200              // UART baudrate
+
 #else
 #errror unknown STM32
 #endif
 
+#define MCURSES_HALFDELAY            0                  // set to 1 if you need halfdelay() - costs one timer
 
-#define MCURSES_LINES               24              // 24 lines
-#define MCURSES_COLS                80              // 80 columns
+#define MCURSES_LINES               24                  // 24 lines
+#define MCURSES_COLS                80                  // 80 columns

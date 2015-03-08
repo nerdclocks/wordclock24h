@@ -249,7 +249,7 @@
 	"stm32f4xx_gpio.h"
 	"stm32f4xx_rcc.h"
 
-1423154674 source:c:\emblocksprojects\wclock24h\src\dsp.c
+1425575546 source:c:\emblocksprojects\wclock24h\src\dsp.c
 	<string.h>
 	<stdio.h>
 	<stdlib.h>
@@ -273,14 +273,14 @@
 	<avr/pgmspace.h>
 	"mcurses-config.h"
 
-1420753376 c:\emblocksprojects\wclock24h\src\mcurses\mcurses-config.h
+1425634605 c:\emblocksprojects\wclock24h\src\mcurses\mcurses-config.h
 
 1421054717 c:\emblocksprojects\wclock24h\src\display.h
 
 1423143713 c:\emblocksprojects\wclock24h\src\tables.h
 	<stdint.h>
 
-1422882525 c:\emblocksprojects\wclock24h\src\dsp.h
+1425505673 c:\emblocksprojects\wclock24h\src\dsp.h
 
 1421251029 c:\emblocksprojects\wclock24h\src\ws2812\ws2812.h
 	"stm32f4xx.h"
@@ -361,7 +361,7 @@
 
 1410773381 c:\emblocksprojects\wclock24h\src\irmp\irsndconfig.h
 
-1422964798 source:c:\emblocksprojects\wclock24h\src\main.c
+1425811353 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -381,14 +381,16 @@
 	"button.h"
 	"eeprom.h"
 	"eeprom-data.h"
+	"tempsensor.h"
+	"ds18xx.h"
 	"rtc.h"
 	"usbd_cdc_vcp.h"
 
 1421233160 c:\emblocksprojects\wclock24h\src\remote-ir.h
 
-1422617795 c:\emblocksprojects\wclock24h\src\cmd.h
+1425476507 c:\emblocksprojects\wclock24h\src\cmd.h
 
-1422448748 source:c:\emblocksprojects\wclock24h\src\mcurses\mcurses.c
+1425634813 source:c:\emblocksprojects\wclock24h\src\mcurses\mcurses.c
 	<stdio.h>
 	<stdlib.h>
 	<string.h>
@@ -460,7 +462,7 @@
 1378103901 c:\emblocksprojects\wclock24h\src\usb_lib\otg\usb_dcd_int.h
 	"usb_dcd.h"
 
-1422882593 source:c:\emblocksprojects\wclock24h\src\remote-ir.c
+1425476795 source:c:\emblocksprojects\wclock24h\src\remote-ir.c
 	"wclock24h-config.h"
 	"irmp.h"
 	"remote-ir.h"
@@ -632,7 +634,7 @@
 1421767030 source:c:\emblocksprojects\wclock24h\src\uart\uart.c
 	"uart.h"
 
-1423156856 source:c:\emblocksprojects\wclock24h\src\monitor.c
+1425575546 source:c:\emblocksprojects\wclock24h\src\monitor.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -642,22 +644,23 @@
 	"dcf77.h"
 	"esp8266.h"
 	"eeprom.h"
+	"ds18xx.h"
 	"rtc.h"
 	"dsp.h"
 	"tables.h"
 
-1422898537 c:\emblocksprojects\wclock24h\src\monitor.h
+1425496509 c:\emblocksprojects\wclock24h\src\monitor.h
 	"esp8266.h"
 
-1423154361 c:\emblocksprojects\wclock24h\src\eeprom-data.h
+1425559146 c:\emblocksprojects\wclock24h\src\eeprom-data.h
 
-1422261862 c:\emblocksprojects\wclock24h\src\timeserver.h
+1425484108 c:\emblocksprojects\wclock24h\src\timeserver.h
 	<string.h>
 	<stdint.h>
 	<time.h>
 	"esp8266.h"
 
-1422261835 source:c:\emblocksprojects\wclock24h\src\timeserver.c
+1425544720 source:c:\emblocksprojects\wclock24h\src\timeserver.c
 	<stdio.h>
 	<stdlib.h>
 	"wclock24h-config.h"
@@ -697,4 +700,60 @@
 
 1423153770 source:c:\emblocksprojects\wclock24h\src\tables.c
 	"tables.h"
+
+1425731277 source:c:\emblocksprojects\wclock24h\src\onewire\onewire.c
+	"onewire.h"
+	"onewire-config.h"
+	"delay.h"
+
+1425559657 c:\emblocksprojects\wclock24h\src\onewire\onewire.h
+	"stm32f4xx.h"
+	"stm32f4xx_gpio.h"
+	"stm32f4xx_rcc.h"
+	"stm32f4xx_tim.h"
+	"misc.h"
+	<string.h>
+
+1425647952 c:\emblocksprojects\wclock24h\src\onewire\onewire-config.h
+
+1425480025 source:c:\emblocksprojects\wclock24h\src\ds18xx.c
+	"onewire.h"
+	"ds18xx.h"
+	"eeprom.h"
+	"eeprom-data.h"
+
+1425480025 c:\emblocksprojects\wclock24h\src\ds18xx.h
+	"stm32f4xx.h"
+	"onewire.h"
+
+1425559350 c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx.h
+	"stm32f4xx.h"
+	"onewire.h"
+
+1425648331 source:c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx.c
+	"onewire.h"
+	"ds18xx.h"
+	"ds18xx-config.h"
+	"eeprom.h"
+	"eeprom-data.h"
+
+1425559146 c:\emblocksprojects\wclock24h\src\tempsensor.h
+	"stm32f4xx.h"
+
+1425559146 source:c:\emblocksprojects\wclock24h\src\tempsensor.c
+	"ds18xx.h"
+	"tempsensor.h"
+	"eeprom.h"
+	"eeprom-data.h"
+	"mcurses.h"
+
+1425634333 source:c:\emblocksprojects\wclock24h\src\delay\delay.c
+	<stdint.h>
+	"delay.h"
+
+1425577790 c:\emblocksprojects\wclock24h\src\delay\delay.h
+	"stm32f4xx.h"
+	"stm32f4xx_rcc.h"
+
+1425731461 c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx-config.h
 

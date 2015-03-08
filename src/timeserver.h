@@ -20,7 +20,7 @@
 extern uint_fast8_t     timeserver_read_data_from_eeprom (void);
 extern uint_fast8_t     timeserver_write_data_to_eeprom (void);
 extern void             timeserver_cmd (void);
-extern uint_fast8_t     timeserver_configure (ESP8266_CONNECTION_INFO *);
+extern uint_fast8_t     timeserver_configure (uint_fast8_t, ESP8266_CONNECTION_INFO *);
 extern uint_fast8_t     timeserver_get_time (struct tm *);
 extern uint_fast8_t     timeserver_init (void);
 

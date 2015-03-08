@@ -118,6 +118,7 @@ remote_ir_learn (void)
                 case CMD_INCREMENT_BRIGHTNESS_GREEN:    addstr ("IRMP: press key for increment green brightness");  break;
                 case CMD_DECREMENT_BRIGHTNESS_BLUE:     addstr ("IRMP: press key for decrement blue brightness");   break;
                 case CMD_INCREMENT_BRIGHTNESS_BLUE:     addstr ("IRMP: press key for increment blue brightness");   break;
+                case CMD_GET_TEMPERATURE:               addstr ("IRMP: press key for get temperature");             break;
                 case CMD_GET_NET_TIME:                  addstr ("IRMP: press key for get net time");                break;
             }
 

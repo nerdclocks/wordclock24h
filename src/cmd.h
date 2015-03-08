@@ -38,8 +38,10 @@
 #define CMD_DECREMENT_BRIGHTNESS_BLUE   14
 #define CMD_INCREMENT_BRIGHTNESS_BLUE   15
 
-#define CMD_GET_NET_TIME                16
+#define CMD_GET_TEMPERATURE             16
 
-#define N_CMDS                          17
+#define CMD_GET_NET_TIME                17
+
+#define N_CMDS                          18
 
 #endif

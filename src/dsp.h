@@ -23,6 +23,7 @@ extern char *       animation_modes[];
 
 extern void         reset_led_states (void);
 extern void         dsp_led_on (uint_fast8_t, uint_fast8_t);
+extern void         dsp_temperature (uint_fast8_t, uint_fast8_t);
 extern void         dsp_clock (uint_fast8_t, uint_fast8_t, uint_fast8_t);
 extern void         dsp_animation (void);
 extern uint_fast8_t dsp_get_display_mode (void);
