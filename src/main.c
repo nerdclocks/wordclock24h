@@ -3,16 +3,6 @@
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
- * System Clocks on STM32F4 Discovery Board:
- *
- *    External 8MHz crystal
- *    Main clock:  168MHz ((HSE_VALUE / PLL_M) * PLL_N) / PLL_P = ((8MHz / 8) * 336) / 2 = 168MHz
- *    AHB clock:   168MHz (Prescaler = 1)
- *    APB1 clock:   42MHz (Prescaler = 4)
- *    APB2 clock:   84MHz (Prescaler = 2)
- *    Timer clock:  84MHz
- *    SDIO clock:   48MHz ((HSE_VALUE / PLL_M) * PLL_N) / PLL_Q = ((8000000 / 8) * 336) / 7 = 48MHz
- *
  * System Clocks configured on STM32F401 and STM32F411 Nucleo Board (see changes in system_stm32f4xx.c):
  *
  *    External 8MHz crystal
@@ -33,37 +23,37 @@
  *
  * Internal devices used:
  *
- *    +-------------------------+---------------------------+---------------------------+
- *    | Device                  | STM32F4 Discovery         | STM32F4x1 Nucleo          |
- *    +-------------------------+---------------------------+---------------------------+
- *    | User button             | GPIO:   PA0               | GPIO:   PC13              |
- *    | Green LED               | GPIO:   PD12              | GPIO:   PA5               |
- *    +-------------------------+---------------------------+---------------------------+
+ *    +-------------------------+---------------------------+
+ *    | Device                  | STM32F4x1 Nucleo          |
+ *    +-------------------------+---------------------------+
+ *    | User button             | GPIO:   PC13              |
+ *    | Green LED               | GPIO:   PA5               |
+ *    +-------------------------+---------------------------+
  *
  * External devices:
  *
- *    +-------------------------+---------------------------+---------------------------+
- *    | Device                  | STM32F4 Discovery         | STM32F4x1 Nucleo          |
- *    +-------------------------+---------------------------+---------------------------+
- *    | TSOP31238 (IRMP)        | GPIO:   PC14              | GPIO:   PC10              |
- *    | DCF77                   | GPIO:   PC15              | GPIO:   PC11              |
- *    | MCURSES terminal (USB)  | USB:    OTG               | USART2: TX=PA2  RX=PA3    |
- *    | ESP8266 USART           | USART2: TX=PA2  RX=PA3    | USART6: TX=PA11 RX=PA12   |
- *    | ESP8266 GPIO            | GPIO:   RST=PC5 CH_PD=PC4 | GPIO:   RST=PA7 CH_PD=PA6 |
- *    | I2C DS3231 & EEPROM     | I2C3:   SCL=PA8 SDA=PC9   | I2C3:   SCL=PA8 SDA=PC9   |
- *    | WS2812                  | DMA1:   PC6               | DMA1:   PC6               |
- *    | DS18xx (OneWire)        | GPIO:   PD2               | GPIO:   PD2               |
- *    +-------------------------+---------------------------+---------------------------+
+ *    +-------------------------+---------------------------+
+ *    | Device                  | STM32F4x1 Nucleo          |
+ *    +-------------------------+---------------------------+
+ *    | TSOP31238 (IRMP)        | GPIO:   PC10              |
+ *    | DCF77                   | GPIO:   PC11              |
+ *    | MCURSES terminal (USB)  | USART2: TX=PA2  RX=PA3    |
+ *    | ESP8266 USART           | USART6: TX=PA11 RX=PA12   |
+ *    | ESP8266 GPIO            | GPIO:   RST=PA7 CH_PD=PA6 |
+ *    | I2C DS3231 & EEPROM     | I2C3:   SCL=PA8 SDA=PC9   |
+ *    | WS2812                  | DMA1:   PC6               |
+ *    | DS18xx (OneWire)        | GPIO:   PD2               |
+ *    +-------------------------+---------------------------+
  *
  * Timers:
  *
- *    +-------------------------+---------------------------+---------------------------+
- *    | Device                  | STM32F4 Discovery         | STM32F4x1 Nucleo          |
- *    +-------------------------+---------------------------+---------------------------+
- *    | General (IRMP etc.)     | TIM2                      | TIM2                      |
- *    | WS2812                  | TIM3                      | TIM3                      |
- *    | DS18xx (OneWire)        | TIM4                      | TIM4                      |
- *    +-------------------------+---------------------------+---------------------------+
+ *    +-------------------------+---------------------------+
+ *    | Device                  | STM32F4x1 Nucleo          |
+ *    +-------------------------+---------------------------+
+ *    | General (IRMP etc.)     | TIM2                      |
+ *    | WS2812                  | TIM3                      |
+ *    | DS18xx (OneWire)        | TIM4                      |
+ *    +-------------------------+---------------------------+
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -94,10 +84,6 @@
 #include "ds18xx.h"
 #include "rtc.h"
 
-#if defined (STM32F407VG)                                       // STM32F4 Discovery Board: VCP via USB
-#include "usbd_cdc_vcp.h"
-#endif
-
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * global variables
  *-------------------------------------------------------------------------------------------------------------------------------------------
@@ -107,6 +93,7 @@ static volatile uint_fast8_t    dcf77_flag          = 0;        // flag: check D
 static volatile uint_fast8_t    ds3231_flag         = 0;        // flag: read date/time from RTC DS3231
 static volatile uint_fast8_t    net_time_flag       = 0;        // flag: read date/time from time server
 static volatile uint_fast8_t    show_time_flag      = 0;        // flag: update time on display
+static volatile uint_fast8_t    short_isr           = 0;        // flag: run TIM2_IRQHandler() in short version
 static volatile uint32_t        uptime              = 0;        // uptime in seconds
 
 static ESP8266_CONNECTION_INFO  esp8266_connection_info;        // ESP8266 connection info: SSID & IP address
@@ -123,12 +110,23 @@ static int_fast16_t             hour_night_on       = -1;       // time when clo
 static int_fast16_t             minute_night_on     = -1;
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * timer definitions
+ * timer definitions:
+ *
+ *      F_INTERRUPTS      = TIM_CLK / (TIM_PRESCALER + 1) / (TIM_PERIOD + 1)
+ * <==> TIM_PRESCALER     = TIM_CLK / F_INTERRUPTS / (TIM_PERIOD + 1) - 1
+ *
+ * with TIM_PRESCALER = 699 and TIM_PERIOD = 7, the result is exactly F_INTERRUPTS = 15000.
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-#define TIM_CLK                 84000000L                       // timer clock, 84MHz on STM32F4-Discovery & STM32F401/411 Nucleo Board
-#define TIM_PERIOD              8
-#define TIM_PRESCALER           ((TIM_CLK / F_INTERRUPTS) / TIM_PERIOD)
+#if defined (STM32F401RE) || defined (STM32F411RE)              // STM32F401/STM32F411 Nucleo Board PC13
+#define TIM_CLK                 84000000L                       // timer clock, 84MHz on STM32F401/411 Nucleo Board
+#define TIM_PERIOD              7
+#else
+#error STM32 unknown
+#endif
+
+#define TIM_PRESCALER           ((TIM_CLK / F_INTERRUPTS) / (TIM_PERIOD + 1) - 1)
+
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * EEPROM version
@@ -150,8 +148,8 @@ timer2_init (void)
 
     tim.TIM_ClockDivision   = TIM_CKD_DIV1;
     tim.TIM_CounterMode     = TIM_CounterMode_Up;
-    tim.TIM_Period          = TIM_PERIOD - 1;
-    tim.TIM_Prescaler       = TIM_PRESCALER - 1;
+    tim.TIM_Period          = TIM_PERIOD;
+    tim.TIM_Prescaler       = TIM_PRESCALER;
     TIM_TimeBaseInit (TIM2, &tim);
 
     TIM_ITConfig(TIM2, TIM_IT_Update, ENABLE);
@@ -180,78 +178,113 @@ TIM2_IRQHandler (void)
 
     TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
 
-    (void) irmp_ISR ();                                         // call irmp ISR
-
-    animation_cnt++;
-
-    if (animation_cnt == F_INTERRUPTS / 20)                     // set animation_flag every 1/20 of a second
+    if (short_isr)                                              // run this handler in short version?
     {
-        animation_flag = 1;
-        animation_cnt = 0;
-    }
+        clk_cnt++;
 
-    dcf77_cnt++;
-
-    if (dcf77_cnt == F_INTERRUPTS / 100)                        // set dcf77_flag every 1/100 of a second
-    {
-        dcf77_flag = 1;
-        dcf77_cnt = 0;
-    }
-
-    net_time_cnt++;
-
-    if (net_time_cnt == F_INTERRUPTS / 100)                     // call esp8266_ISR() every 1/100 of a second
-    {
-        esp8266_ISR ();
-        net_time_cnt = 0;
-    }
-
-    eeprom_cnt++;
-
-    if (eeprom_cnt == F_INTERRUPTS / 1000)                     // call eeprom_ISR() every 1/1000 of a second
-    {
-        eeprom_ISR ();
-        eeprom_cnt = 0;
-    }
-
-    clk_cnt++;
-
-    if (clk_cnt == F_INTERRUPTS)
-    {
-        clk_cnt = 0;
-
-        uptime++;
-
-        second++;
-
-        if (second == 30)
+        if (clk_cnt == F_INTERRUPTS)                            // increment internal clock every second
         {
-            ds3231_flag = 1;                                    // check rtc every hh:mm:30
-        }
-        else if (second == 60)
-        {
-            second = 0;
-            minute++;
+            clk_cnt = 0;
 
-            if (minute == 60)
+            uptime++;
+
+            second++;
+
+            if (second == 60)
             {
-                minute = 0;
-                hour++;
+                second = 0;
+                minute++;
 
-                if (hour == 24)
+                if (minute == 60)
                 {
-                    hour = 0;
+                    minute = 0;
+                    hour++;
+
+                    if (hour == 24)
+                    {
+                        hour = 0;
+                    }
                 }
             }
+
+            // show_time_flag = 1;
+        }
+    }
+    else
+    {                                                               // no short version, run all
+        (void) irmp_ISR ();                                         // call irmp ISR
+
+        animation_cnt++;
+
+        if (animation_cnt == F_INTERRUPTS / 20)                     // set animation_flag every 1/20 of a second
+        {
+            animation_flag = 1;
+            animation_cnt = 0;
         }
 
-        show_time_flag = 1;
+        dcf77_cnt++;
 
-        if (esp8266_is_online)
+        if (dcf77_cnt == F_INTERRUPTS / 100)                        // set dcf77_flag every 1/100 of a second
         {
-            if ((minute % 10) == 0 && second == 17)             // net time update every 10 minutes, at hh:m0:17
+            dcf77_flag = 1;
+            dcf77_cnt = 0;
+        }
+
+        net_time_cnt++;
+
+        if (net_time_cnt == F_INTERRUPTS / 100)                     // call esp8266_ISR() every 1/100 of a second
+        {
+            esp8266_ISR ();
+            net_time_cnt = 0;
+        }
+
+        eeprom_cnt++;
+
+        if (eeprom_cnt == F_INTERRUPTS / 1000)                      // call eeprom_ISR() every 1/1000 of a second
+        {
+            eeprom_ISR ();
+            eeprom_cnt = 0;
+        }
+
+        clk_cnt++;
+
+        if (clk_cnt == F_INTERRUPTS)                                // increment internal clock every second
+        {
+            clk_cnt = 0;
+
+            uptime++;
+
+            second++;
+
+            if (second == 30)
             {
-                net_time_flag = 1;
+                ds3231_flag = 1;                                    // check rtc every hh:mm:30
+            }
+            else if (second == 60)
+            {
+                second = 0;
+                minute++;
+
+                if (minute == 60)
+                {
+                    minute = 0;
+                    hour++;
+
+                    if (hour == 24)
+                    {
+                        hour = 0;
+                    }
+                }
+            }
+
+            show_time_flag = 1;
+
+            if (esp8266_is_online)
+            {
+                if ((minute % 10) == 0 && second == 17)             // net time update every 10 minutes, at hh:m0:17
+                {
+                    net_time_flag = 1;
+                }
             }
         }
     }
@@ -350,7 +383,10 @@ main ()
 
     dsp_init ();                                                // initialize display
     dcf77_init ();                                              // initialize DCF77
+
+    short_isr = 1;
     temp_init ();                                               // initialize DS18xx
+    short_isr = 0;
 
     reset_led_states ();
     display_mode = dsp_get_display_mode ();
@@ -391,13 +427,7 @@ main ()
     {
         if (! mcurses_is_up)
         {
-#if defined (STM32F407VG)                                       // STM32F4 Discovery Board: VCP via USB
-            if (VCP_get_char (&ch) && ch == '\r')
-#elif defined (STM32F401RE) || defined (STM32F411RE)            // STM32F401/STM32F411 Nucleo Board: USART via USB-VCP
             if (getch () == '\r')
-#else
-#error unknown STM32
-#endif
             {
                 initscr ();
                 nodelay (TRUE);
@@ -645,21 +675,19 @@ main ()
 
             if (ds18xx_is_up)
             {
-                uint8_t stop_sec;
+                uint32_t stop_time;
                 uint_fast8_t on = power_is_on ? night_power_is_on : power_is_on;
 
+                short_isr = 1;
                 temperature_index = temp_read_temp_index ();
+                short_isr = 0;
+
                 monitor_show_temperature (temperature_index);
                 dsp_temperature (on, temperature_index);
 
-                stop_sec = second + 5;
+                stop_time = uptime + 5;
 
-                if (stop_sec >= 60)
-                {
-                    stop_sec -= 60;
-                }
-
-                while (second >= 60 - 5 || second < stop_sec)
+                while (uptime < stop_time)
                 {
                     if (animation_flag)
                     {

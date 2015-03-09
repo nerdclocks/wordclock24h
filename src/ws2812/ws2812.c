@@ -9,14 +9,14 @@
  *   0 => HI:0.35us , LO:0.90us
  *   1 => HI:0.90us , LO:0.35us
  *
- * WS23812 format : (8G8R8B)
- *   24bit per LED  (30us per LED)
+ * WS23812 format : (8G 8R 8B)
+ *   24bit per LED  (24 * 1.25 = 30us per LED)
  *    8bit per color (MSB first)
  *
  * After each frame of n LEDs there has to be a pause of >= 50us
  *
  * base frequency (TIM3) = 2 * APB1 (APB1 = 42MHz) => TIM_CLK = 84MHz
- * PWM frequency = TIM_CLK/(period + 1)/(prescale + 1) = (84MHz / 105 / 1) = 0.8 MHz = 1.25 us
+ * PWM frequency = TIM_CLK / (period + 1) / (prescaler + 1) = (84MHz / 105 / 1) = 0.8 MHz = 1.25 us
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,14 +28,26 @@
 #include "ws2812.h"
 #include "ws2812-config.h"
 
-#define  WS2812_TIM_PRESCALE          0                         // F_T3  = 84 MHz (11.9ns)
-#define  WS2812_TIM_PERIOD          104                         // F_PWM = 80 kHz (1.25us)
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * timer calculation:
+ *
+ *      freq = WS2812_TIM_CLK / (WS2812_TIM_PRESCALER + 1) / (WS2812_TIM_PERIOD + 1)
+ * <==> freq = 84000000 / (0 + 1) / (104 + 1) = 800 kHz = 1.25 us
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+#if defined (STM32F401RE) || defined (STM32F411RE)              // STM32F401/STM32F411 Nucleo Board PC13
+#define WS2812_TIM_CLK              84000000L                   // 84 MHz = 11.9ns
+#define WS2812_TIM_PRESCALER        0
+#define WS2812_TIM_PERIOD           104
+#else
+#error STM32 unknown
+#endif
 
-#define  WS2812_LO_TIME              29                         // 29 * 11.9ns = 0.34us
-#define  WS2812_HI_TIME              76                         // 76 * 11.9ns = 0.90us
+#define  WS2812_LO_TIME              29                         // 29 * 11.9ns = 0.345us
+#define  WS2812_HI_TIME              76                         // 76 * 11.9ns = 0.905us
 
-#define  WS2812_BIT_PER_LED          24                         // 3 * 8bit per LED
-#define  WS2812_PAUSE                 2                         // pause (2 * 30us)
+#define  WS2812_BIT_PER_LED          24                         // 3 * 8bit per LED, each bit costs 1.25us time
+#define  WS2812_PAUSE_LEN            (2 * WS2812_BIT_PER_LED)   // pause, should be longer than 50us (2 * 24 * 1.25us = 60us)
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
  * Timer for data: TIM3
@@ -77,7 +89,7 @@
  * DMA buffer
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
-#define  WS2812_TIMER_BUF_LEN       ((WS2812_LEDS + WS2812_PAUSE) * WS2812_BIT_PER_LED)     // DMA buffer length
+#define  WS2812_TIMER_BUF_LEN       (WS2812_LEDS * WS2812_BIT_PER_LED + WS2812_PAUSE_LEN)   // DMA buffer length
 
 static volatile uint32_t            ws2812_dma_status;                                      // DMA status
 static WS2812_RGB                   rgb_buf[WS2812_LEDS];                                   // RGB values
@@ -156,52 +168,34 @@ ws2812_setup_timer_buf (void)
 	uint_fast8_t    i;
 	uint32_t		n;
 	uint32_t		pos;
-	WS2812_RGB	    led;
+	WS2812_RGB *    led;
 
 	pos = 0;
+    led = rgb_buf;
 
 	for (n = 0; n < WS2812_LEDS; n++)
 	{
-		led = rgb_buf[n];
-
 		for (i = 0x80; i != 0; i >>= 1)                         // color green
 		{
-			timer_buf[pos] = WS2812_LO_TIME;
-
-			if (led.green & i)
-			{
-				timer_buf[pos] = WS2812_HI_TIME;
-			}
-			pos++;
+			timer_buf[pos++] = (led->green & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
 		}
 
 		for (i = 0x80; i != 0; i >>= 1)                         // color red
 		{
-			timer_buf[pos] = WS2812_LO_TIME;
-
-			if (led.red & i)
-			{
-				timer_buf[pos] = WS2812_HI_TIME;
-			}
-			pos++;
+			timer_buf[pos++] = (led->red & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
 		}
 
 		for (i = 0x80; i != 0; i >>= 1)                         // color blue
 		{
-			timer_buf[pos] = WS2812_LO_TIME;
-
-			if (led.blue & i)
-			{
-				timer_buf[pos] = WS2812_HI_TIME;
-			}
-			pos++;
+			timer_buf[pos++] = (led->blue & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
 		}
+
+		led++;
 	}
 
-	for (n = 0; n < WS2812_PAUSE * WS2812_BIT_PER_LED; n++)     // Pause (2*30ms)
+	for (n = 0; n < WS2812_PAUSE_LEN; n++)                      // Pause (2 * 24 * 1.25us = 60us)
 	{
-		timer_buf[pos] = 0;
-		pos++;
+		timer_buf[pos++] = 0;
 	}
 }
 
@@ -250,7 +244,7 @@ ws2812_init_timer (void)
 
 	// Timer init
 	tb.TIM_Period           = WS2812_TIM_PERIOD;
-	tb.TIM_Prescaler        = WS2812_TIM_PRESCALE;
+	tb.TIM_Prescaler        = WS2812_TIM_PRESCALER;
 	tb.TIM_ClockDivision    = TIM_CKD_DIV1;
 	tb.TIM_CounterMode      = TIM_CounterMode_Up;
 	TIM_TimeBaseInit (WS2812_TIM, &tb);

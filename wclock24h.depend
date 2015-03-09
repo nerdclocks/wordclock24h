@@ -361,7 +361,7 @@
 
 1410773381 c:\emblocksprojects\wclock24h\src\irmp\irsndconfig.h
 
-1425811353 source:c:\emblocksprojects\wclock24h\src\main.c
+1425919714 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -384,7 +384,6 @@
 	"tempsensor.h"
 	"ds18xx.h"
 	"rtc.h"
-	"usbd_cdc_vcp.h"
 
 1421233160 c:\emblocksprojects\wclock24h\src\remote-ir.h
 
@@ -545,7 +544,7 @@
 	"usb_conf.h"
 	"usb_dcd_int.h"
 
-1422875005 source:c:\emblocksprojects\wclock24h\src\ws2812\ws2812.c
+1425911938 source:c:\emblocksprojects\wclock24h\src\ws2812\ws2812.c
 	"ws2812.h"
 	"ws2812-config.h"
 
@@ -701,7 +700,7 @@
 1423153770 source:c:\emblocksprojects\wclock24h\src\tables.c
 	"tables.h"
 
-1425731277 source:c:\emblocksprojects\wclock24h\src\onewire\onewire.c
+1425843432 source:c:\emblocksprojects\wclock24h\src\onewire\onewire.c
 	"onewire.h"
 	"onewire-config.h"
 	"delay.h"
@@ -730,7 +729,7 @@
 	"stm32f4xx.h"
 	"onewire.h"
 
-1425648331 source:c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx.c
+1425920534 source:c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx.c
 	"onewire.h"
 	"ds18xx.h"
 	"ds18xx-config.h"
@@ -755,5 +754,5 @@
 	"stm32f4xx.h"
 	"stm32f4xx_rcc.h"
 
-1425731461 c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx-config.h
+1425919998 c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx-config.h
 
