@@ -20,7 +20,7 @@
 typedef union
 {
     uint_fast8_t    mode;
-    RGB_BRIGHTNESS  rgb;
+    DSP_COLORS      rgb;
     struct tm       tm;
     uint_fast8_t    power;
 } LISTENER_DATA;

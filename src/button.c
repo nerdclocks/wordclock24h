@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * button.c - read user button of STM32F4 Discovery
+ * button.c - read user button of STM32F4 Discovery / STM32F4xx Nucleo / STM32F103
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -25,6 +25,14 @@
 #define BUTTON_PIN                  GPIO_Pin_13
 #define BUTTON_PRESSED              Bit_RESET                           // pressed if low
 
+#elif defined (STM32F103)                                               // STM32F103 Mini Development Board PA6
+
+#define BUTTON_PERIPH_CLOCK_CMD     RCC_APB2PeriphClockCmd
+#define BUTTON_PERIPH               RCC_APB2Periph_GPIOA
+#define BUTTON_PORT                 GPIOA
+#define BUTTON_PIN                  GPIO_Pin_6
+#define BUTTON_PRESSED              Bit_RESET                           // pressed if low
+
 #else
 #error STM32 unknown
 #endif
@@ -40,9 +48,15 @@ button_init (void)
 
     BUTTON_PERIPH_CLOCK_CMD (BUTTON_PERIPH, ENABLE);
 
-    gpio.GPIO_Mode = GPIO_Mode_IN;              // use pin as input
-    gpio.GPIO_PuPd = GPIO_PuPd_NOPULL;
     gpio.GPIO_Pin = BUTTON_PIN;
+
+#if defined (STM32F10X)
+    gpio.GPIO_Mode = GPIO_Mode_IPU;                         // use pin as input, use internal pull up
+#elif defined (STM32F4XX)
+    gpio.GPIO_Mode = GPIO_Mode_IN;                          // use pin as input, has already pull up
+    gpio.GPIO_PuPd = GPIO_PuPd_NOPULL;
+#endif
+
     GPIO_Init(BUTTON_PORT, &gpio);
 }
 

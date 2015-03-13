@@ -49,6 +49,7 @@ typedef struct
 
 extern uint_fast8_t             esp8266_is_up;
 extern uint_fast8_t             esp8266_is_online;
+extern volatile uint_fast8_t    esp8266_ten_ms_tick;
 
 extern uint_fast8_t             esp8266_get_answer (char *, uint_fast8_t, uint_fast8_t, uint_fast16_t);
 uint_fast8_t                    esp8266_listen (ESP8266_LISTEN_DATA *);
@@ -61,6 +62,4 @@ extern uint_fast8_t             esp8266_disconnect_from_access_point (void);
 extern uint_fast8_t             esp8266_init (void);
 extern uint_fast8_t             esp8266_check_online_status (ESP8266_CONNECTION_INFO *);
 extern uint_fast8_t             esp8266_get_time (char *, time_t *);
-extern void                     esp8266_ISR (void);                 // should be called every 10 ms
-
 #endif

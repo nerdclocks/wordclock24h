@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * @file mcurses.h - include file for mcurses lib
+ * mcurses.h - include file for mcurses lib
  *
  * Copyright (c) 2011-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -16,12 +16,17 @@
 #if defined(unix)
 #elif defined(__SDCC_z80)
 #elif defined(STM32F4XX)
-#ifndef HSE_VALUE
-#define HSE_VALUE ((uint32_t)8000000) /* STM32F4 discovery uses a 8Mhz external crystal */
-#endif
-#include "stm32f4xx.h"
+#  ifndef HSE_VALUE
+#    define HSE_VALUE ((uint32_t)8000000) /* STM32F4 discovery uses a 8Mhz external crystal */
+#   endif
+#   include "stm32f4xx.h"
+#elif defined(STM32F10X)
+#   ifndef HSE_VALUE
+#     define HSE_VALUE ((uint32_t)8000000) /* STM32F4 discovery uses a 8Mhz external crystal */
+#   endif
+#   include "stm32f10x.h"
 #else
-#include <avr/pgmspace.h>
+#   include <avr/pgmspace.h>
 #endif
 
 #include "mcurses-config.h"
@@ -94,7 +99,7 @@ extern void                     addch (uint_fast8_t);                           
 extern void                     addstr (const char *);                              // add a string
 extern void                     addstr_P (const char *);                            // add a string (PROGMEM)
 
-#if defined(unix) || defined(STM32F4XX)
+#if defined(unix) || defined(STM32F4XX) || defined(STM32F10X)
 extern void                     vprintw (const char *, va_list);                    // add a string (PROGMEM)
 extern void                     printw (const char *, ...);                         // add a string (PROGMEM)
 #endif
@@ -125,7 +130,7 @@ extern void                     endwin (void);                                  
 #define mvaddstr(y,x,s)         move((y),(x)), addstr((s))                          // move cursor, then add string
 #define mvaddstr_P(y,x,s)       move((y),(x)), addstr_P((s))                        // move cursor, then add string (PROGMEM)
 
-#if defined(unix) || defined(STM32F4XX)
+#if defined(unix) || defined(STM32F4XX) || defined(STM32F10X)
 #define mvvprintw(y,x,fmt,v)    move((y),(x)), vprintw(fmt, v)                      // move cursor, then add formatted string
 #define mvprintw(y,x,fmt, ...)  move((y),(x)), printw(fmt, __VA_ARGS__)             // move cursor, then add formatted string
 #endif

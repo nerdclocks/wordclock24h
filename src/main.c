@@ -43,6 +43,7 @@
  *    | I2C DS3231 & EEPROM     | I2C3:   SCL=PA8 SDA=PC9   |
  *    | WS2812                  | DMA1:   PC6               |
  *    | DS18xx (OneWire)        | GPIO:   PD2               |
+ *    | LDR                     | ADC:    ACD1_IN14=PC4     |
  *    +-------------------------+---------------------------+
  *
  * Timers:
@@ -83,6 +84,8 @@
 #include "tempsensor.h"
 #include "ds18xx.h"
 #include "rtc.h"
+#include "ldr.h"
+#include "delay.h"
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * global variables
@@ -92,6 +95,7 @@ static volatile uint_fast8_t    animation_flag      = 0;        // flag: animate
 static volatile uint_fast8_t    dcf77_flag          = 0;        // flag: check DCF77 signal
 static volatile uint_fast8_t    ds3231_flag         = 0;        // flag: read date/time from RTC DS3231
 static volatile uint_fast8_t    net_time_flag       = 0;        // flag: read date/time from time server
+static volatile uint_fast8_t    ldr_conversion_flag = 0;        // flag: read LDR value
 static volatile uint_fast8_t    show_time_flag      = 0;        // flag: update time on display
 static volatile uint_fast8_t    short_isr           = 0;        // flag: run TIM2_IRQHandler() in short version
 static volatile uint32_t        uptime              = 0;        // uptime in seconds
@@ -112,15 +116,26 @@ static int_fast16_t             minute_night_on     = -1;
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * timer definitions:
  *
- *      F_INTERRUPTS      = TIM_CLK / (TIM_PRESCALER + 1) / (TIM_PERIOD + 1)
- * <==> TIM_PRESCALER     = TIM_CLK / F_INTERRUPTS / (TIM_PERIOD + 1) - 1
+ *      F_INTERRUPTS    = TIM_CLK / (TIM_PRESCALER + 1) / (TIM_PERIOD + 1)
+ * <==> TIM_PRESCALER   = TIM_CLK / F_INTERRUPTS / (TIM_PERIOD + 1) - 1
  *
- * with TIM_PRESCALER = 699 and TIM_PERIOD = 7, the result is exactly F_INTERRUPTS = 15000.
+ * STM32F4x1:
+ *      TIM_PERIOD      =   8 - 1 =   7
+ *      TIM_PRESCALER   = 700 - 1 = 699
+ *      F_INTERRUPTS    = 84000000 / 700 / 8 = 15000
+ * STM32F103:
+ *      TIM_PERIOD      =   6 - 1 =   5
+ *      TIM_PRESCALER   = 800 - 1 = 799
+ *      F_INTERRUPTS    = 72000000 / 800 / 6 = 15000
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 #if defined (STM32F401RE) || defined (STM32F411RE)              // STM32F401/STM32F411 Nucleo Board PC13
 #define TIM_CLK                 84000000L                       // timer clock, 84MHz on STM32F401/411 Nucleo Board
 #define TIM_PERIOD              7
+
+#elif defined (STM32F103)
+#define TIM_CLK                 72000000L                       // timer clock, 72MHz on STM32F103
+#define TIM_PERIOD              5
 #else
 #error STM32 unknown
 #endif
@@ -170,6 +185,7 @@ timer2_init (void)
 void
 TIM2_IRQHandler (void)
 {
+    static uint_fast16_t ldr_cnt;
     static uint_fast16_t animation_cnt;
     static uint_fast16_t clk_cnt;
     static uint_fast16_t dcf77_cnt;
@@ -214,9 +230,17 @@ TIM2_IRQHandler (void)
     {                                                               // no short version, run all
         (void) irmp_ISR ();                                         // call irmp ISR
 
+        ldr_cnt++;
+
+        if (ldr_cnt == F_INTERRUPTS / 4)                            // start LDR conversion every 1/4 seconds
+        {
+            ldr_conversion_flag = 1;
+            ldr_cnt = 0;
+        }
+
         animation_cnt++;
 
-        if (animation_cnt == F_INTERRUPTS / 20)                     // set animation_flag every 1/20 of a second
+        if (animation_cnt == F_INTERRUPTS / 40)                     // set animation_flag every 1/40 of a second
         {
             animation_flag = 1;
             animation_cnt = 0;
@@ -232,17 +256,17 @@ TIM2_IRQHandler (void)
 
         net_time_cnt++;
 
-        if (net_time_cnt == F_INTERRUPTS / 100)                     // call esp8266_ISR() every 1/100 of a second
+        if (net_time_cnt == F_INTERRUPTS / 100)                     // set esp8266_ten_ms_tick every 1/100 of a second
         {
-            esp8266_ISR ();
+            esp8266_ten_ms_tick = 1;
             net_time_cnt = 0;
         }
 
         eeprom_cnt++;
 
-        if (eeprom_cnt == F_INTERRUPTS / 1000)                      // call eeprom_ISR() every 1/1000 of a second
+        if (eeprom_cnt == F_INTERRUPTS / 1000)                      // set eeprom_ms_tick every 1/1000 of a second
         {
-            eeprom_ISR ();
+            eeprom_ms_tick = 1;
             eeprom_cnt = 0;
         }
 
@@ -258,7 +282,7 @@ TIM2_IRQHandler (void)
 
             if (second == 30)
             {
-                ds3231_flag = 1;                                    // check rtc every hh:mm:30
+                ds3231_flag = 1;                                    // check RTC every hh:mm:30
             }
             else if (second == 60)
             {
@@ -344,6 +368,7 @@ main ()
 {
     struct tm               tm;
     LISTENER_DATA           lis;
+    uint_fast8_t            status_led_cnt      = 0;
     uint_fast8_t            do_display          = 1;
     uint_fast8_t            show_temperature    = 0;
     uint_fast8_t            update_leds_only    = 0;
@@ -352,6 +377,7 @@ main ()
     uint_fast8_t            night_power_is_on   = 1;
     uint_fast8_t            temperature_index   = 0xFF;
     uint_fast8_t            cmd;
+    uint_fast8_t            ldr_value;
     uint8_t                 ch;
 
     SystemInit ();
@@ -364,6 +390,7 @@ main ()
 
     irmp_init ();                                               // initialize IRMP
     timer2_init ();                                             // initialize timer2 for IRMP, DCF77 & EEPROM
+    delay_init (DELAY_RESOLUTION_1_US);                         // initialize delay functions with granularity of 1 us
     led_green_init ();                                          // initialize GPIO for green LED on disco or nucleo board
     button_init ();                                             // initialize GPIO for user button on disco or nucleo board
     rtc_init ();                                                // initialize I2C RTC
@@ -381,6 +408,7 @@ main ()
         }
     }
 
+    ldr_init ();
     dsp_init ();                                                // initialize display
     dcf77_init ();                                              // initialize DCF77
 
@@ -389,8 +417,8 @@ main ()
     short_isr = 0;
 
     reset_led_states ();
-    display_mode = dsp_get_display_mode ();
-    animation_mode = dsp_get_animation_mode ();
+    display_mode    = dsp_get_display_mode ();
+    animation_mode  = dsp_get_animation_mode ();
 
     if (eeprom_is_up)
     {
@@ -425,6 +453,28 @@ main ()
 
     while (1)
     {
+        if (status_led_cnt)
+        {
+            status_led_cnt--;
+
+            if (! status_led_cnt)
+            {
+                dsp_set_led0 (0, 0, 0);
+            }
+        }
+
+        if (ldr_is_up && ldr_poll_brightness (&ldr_value))
+        {
+            static uint_fast8_t last_ldr_value = 0xFF;
+
+            if (ldr_value < last_ldr_value - 1 || ldr_value > last_ldr_value + 1)           // difference greater than 2
+            {
+                last_ldr_value = ldr_value;
+                dsp_set_brightness (ldr_value);
+                monitor_show_brightness (ldr_value);
+            }
+        }
+
         if (! mcurses_is_up)
         {
             if (getch () == '\r')
@@ -435,30 +485,30 @@ main ()
             }
         }
 
-        if (! esp8266_is_up)                                        // esp8266 not up yet?
+        if (! esp8266_is_up)                                            // esp8266 not up yet?
         {
             static int timeserver_init_already_called = 0;
 
-            if (uptime == 2 && ! timeserver_init_already_called)    // 2 seconds gone after boot?
+            if (uptime == 2 && ! timeserver_init_already_called)        // 2 seconds gone after boot?
             {
-                timeserver_init ();                                 // yes, initialize ESP8266
+                timeserver_init ();                                     // yes, initialize ESP8266
                 timeserver_init_already_called = 1;
 
-                if (esp8266_is_up)                                  // now up?
+                if (esp8266_is_up)                                      // now up?
                 {
                     monitor_show_status (&esp8266_connection_info);
                 }
             }
         }
         else
-        {                                                       // esp8266 is up...
-            if (! esp8266_is_online)                            // but not online yet...
+        {                                                               // esp8266 is up...
+            if (! esp8266_is_online)                                    // but not online yet...
             {
-                if ((uptime % 60) == 25)                        // check online status every minute at xx:25 after boot
+                if ((uptime % 60) == 25)                                // check online status every minute at xx:25 after boot
                 {
                     esp8266_check_online_status (&esp8266_connection_info);
 
-                    if (esp8266_is_online)                      // now online?
+                    if (esp8266_is_online)                              // now online?
                     {
                         if (mcurses_is_up)
                         {
@@ -481,15 +531,18 @@ main ()
 
                 if ((code = listener (&lis)) != 0)
                 {
+                    dsp_set_led0 (1, 0, 0);                     // got net command, light red status LED
+                    status_led_cnt = 50;
+
                     switch (code)
                     {
-                        case 'C':                               // Set Color
+                        case 'C':                               // set color
                         {
-                            dsp_set_brightness(&(lis.rgb));
+                            dsp_set_colors (&(lis.rgb));
                             break;
                         }
 
-                        case 'P':                               // Power on/off
+                        case 'P':                               // power on/off
                         {
                             if (power_is_on != lis.power)
                             {
@@ -501,7 +554,7 @@ main ()
                             break;
                         }
 
-                        case 'D':                               // Set Display Mode
+                        case 'D':                               // set display mode
                         case 'M':                               // M is deprecated
                         {
                             if (display_mode != lis.mode)
@@ -513,7 +566,7 @@ main ()
                             break;
                         }
 
-                        case 'A':                               // Set Animation Mode
+                        case 'A':                               // set animation mode
                         {
                             if (animation_mode != lis.mode)
                             {
@@ -524,7 +577,7 @@ main ()
                             break;
                         }
 
-                        case 'T':                               // Set Date/Time
+                        case 'T':                               // set date/time
                         {
                             if (rtc_is_up)
                             {
@@ -537,13 +590,13 @@ main ()
                             do_display  = 1;
                         }
 
-                        case 'N':                               // Get Net Time
+                        case 'N':                               // Get net time
                         {
                             net_time_flag = 1;
                             break;
                         }
 
-                        case 'S':                               // Save configuration
+                        case 'S':                               // save configuration
                         {
                             dsp_write_config_to_eeprom ();
                             break;
@@ -555,6 +608,9 @@ main ()
 
         if (dcf77_time(&tm))
         {
+            dsp_set_led0 (1, 1, 0);                             // got DCF77 time, light yellow = green + red LED
+            status_led_cnt = 50;
+
             if (rtc_is_up)
             {
                 rtc_set_date_time (&tm);
@@ -595,10 +651,19 @@ main ()
             ds3231_flag = 0;
         }
 
+        if (ldr_is_up && ldr_conversion_flag)
+        {
+            ldr_start_conversion ();
+            ldr_conversion_flag = 0;
+        }
+
         if (net_time_flag)
         {
             if (esp8266_is_online)
             {
+                dsp_set_led0 (0, 0, 1);                     // got NET time, light blue status LED
+                status_led_cnt = 50;
+
                 if (timeserver_get_time (&tm))
                 {
                     if (rtc_is_up)
@@ -729,6 +794,12 @@ main ()
 
         cmd = remote_ir_get_cmd ();                             // get IR command
 
+        if (cmd != CMD_INVALID)                                 // got IR command, light green LED
+        {
+            dsp_set_led0 (1, 0, 0);
+            status_led_cnt = 50;
+        }
+
         if (mcurses_is_up)
         {
             if (cmd != CMD_INVALID)                             // if command valid, print command code (mcurses)
@@ -760,8 +831,8 @@ main ()
                 clrtoeol ();
             }
             else
-            {
-                ch = getch ();                                  // no valid IR command, read terminal keyboard
+            {                                                   // no valid IR command, read terminal keyboard
+                ch = getch ();
 
                 switch (ch)                                     // map keys to commands
                 {
@@ -796,19 +867,26 @@ main ()
                         break;
                     }
 
+                    case 'T':
+                    {
+                        dsp_test ();
+                        break;
+                    }
+
                     case 'c':
                     {
                         uint_fast8_t next_line;
                         clear ();
 
                         mvaddstr (3, 10, "1. Configure Network Module ESP8266");
-                        mvaddstr (5, 10, "0. Exit");
+                        mvaddstr (4, 10, "2. Configure LDR");
+                        mvaddstr (6, 10, "0. Exit");
 
-                        next_line = 7;
+                        next_line = 8;
                         move (next_line, 10);
                         refresh ();
 
-                        while ((ch = getch()) < '0' || ch > '1')
+                        while ((ch = getch()) < '0' || ch > '2')
                         {
                             ;
                         }
@@ -821,6 +899,10 @@ main ()
                             {
                                 net_time_flag = 1;                                  // get time now!
                             }
+                        }
+                        else if (ch == '2')
+                        {
+                            ldr_configure (next_line);
                         }
 
                         repaint_screen ();
@@ -971,7 +1053,7 @@ main ()
 
             case CMD_DECREMENT_BRIGHTNESS_RED:                  // decrement red brightness
             {
-                dsp_decrement_brightness_red ();
+                dsp_decrement_color_red ();
                 do_display          = 1;
                 update_leds_only    = 1;
                 break;
@@ -979,7 +1061,7 @@ main ()
 
             case CMD_INCREMENT_BRIGHTNESS_RED:                  // increment red brightness
             {
-                dsp_increment_brightness_red ();
+                dsp_increment_color_red ();
                 do_display          = 1;
                 update_leds_only    = 1;
                 break;
@@ -987,7 +1069,7 @@ main ()
 
             case CMD_DECREMENT_BRIGHTNESS_GREEN:                // decrement green brightness
             {
-                dsp_decrement_brightness_green ();
+                dsp_decrement_color_green ();
                 do_display          = 1;
                 update_leds_only    = 1;
                 break;
@@ -995,7 +1077,7 @@ main ()
 
             case CMD_INCREMENT_BRIGHTNESS_GREEN:                // increment green brightness
             {
-                dsp_increment_brightness_green ();
+                dsp_increment_color_green ();
                 do_display          = 1;
                 update_leds_only    = 1;
                 break;
@@ -1003,7 +1085,7 @@ main ()
 
             case CMD_DECREMENT_BRIGHTNESS_BLUE:                 // decrement blue brightness
             {
-                dsp_decrement_brightness_blue ();
+                dsp_decrement_color_blue ();
                 do_display          = 1;
                 update_leds_only    = 1;
                 break;
@@ -1011,7 +1093,7 @@ main ()
 
             case CMD_INCREMENT_BRIGHTNESS_BLUE:                 // increment blue brightness
             {
-                dsp_increment_brightness_blue ();
+                dsp_increment_color_blue ();
                 do_display          = 1;
                 update_leds_only    = 1;
                 break;

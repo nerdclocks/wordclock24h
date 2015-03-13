@@ -13,18 +13,29 @@
 #ifndef DS18XX_H
 #define DS18XX_H
 
-#include "stm32f4xx.h"
+#if defined (STM32F1XX)
+#  include "stm32f10x.h"
+#elif defined (STM32F4XX)
+#  include "stm32f4xx.h"
+#endif
+
 #include "onewire.h"
 
-#define DS_RESOLUTION_9_BIT     9
-#define DS_RESOLUTION_10_BIT    10
-#define DS_RESOLUTION_11_BIT    11
-#define DS_RESOLUTION_12_BIT    12
+#define DS_RESOLUTION_9_BIT         9
+#define DS_RESOLUTION_10_BIT        10
+#define DS_RESOLUTION_11_BIT        11
+#define DS_RESOLUTION_12_BIT        12
 
-extern uint_fast8_t             ds18xx_is_up;
+#define DS1820_FAMILY_CODE          0x10
+#define DS1822_FAMILY_CODE          0x22
+#define DS18B20_FAMILY_CODE         0x28
 
-extern uint_fast8_t             ds18xx_read_raw_temp (uint_fast8_t *, uint_fast8_t *, uint_fast16_t *);
-extern uint_fast8_t             ds18xx_read_temp (float *);
-extern uint_fast8_t             ds18xx_init (uint_fast8_t);
+
+extern uint_fast8_t                 ds18xx_is_up;
+
+extern uint_fast8_t                 ds18xx_read_raw_temp (uint_fast8_t *, uint_fast8_t *, uint_fast16_t *);
+extern uint_fast8_t                 ds18xx_read_temp (float *);
+extern uint_fast8_t                 ds18xx_get_family_code (void);
+extern uint_fast8_t                 ds18xx_init (uint_fast8_t);
 
 #endif

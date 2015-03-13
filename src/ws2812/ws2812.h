@@ -12,11 +12,20 @@
 #ifndef WS2812_H
 #define WS2812_H
 
-#include "stm32f4xx.h"
-#include "stm32f4xx_gpio.h"
-#include "stm32f4xx_rcc.h"
-#include "stm32f4xx_tim.h"
-#include "stm32f4xx_dma.h"
+#if defined (STM32F10X)
+#  include "stm32f10x.h"
+#  include "stm32f10x_gpio.h"
+#  include "stm32f10x_rcc.h"
+#  include "stm32f10x_tim.h"
+#  include "stm32f10x_dma.h"
+#elif defined (STM32F4XX)
+#  include "stm32f4xx.h"
+#  include "stm32f4xx_gpio.h"
+#  include "stm32f4xx_rcc.h"
+#  include "stm32f4xx_tim.h"
+#  include "stm32f4xx_dma.h"
+#endif
+
 #include "misc.h"
 
 #include "ws2812-config.h"

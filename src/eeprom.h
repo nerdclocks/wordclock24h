@@ -12,15 +12,19 @@
 #ifndef EEPROM_H
 #define EEPROM_H
 
+#if defined (STM32F10X)
+#include "stm32f10x.h"
+#elif defined (STM32F4XX)
 #include "stm32f4xx.h"
+#endif
 
-extern uint_fast8_t eeprom_is_up;
+extern uint_fast8_t             eeprom_is_up;
+extern volatile uint_fast8_t    eeprom_ms_tick;
 
-extern uint_fast8_t eeprom_init (void);
-extern uint_fast8_t eeprom_get_address (void);
-extern uint_fast8_t eeprom_read (uint_fast16_t, uint8_t *, uint_fast16_t);
-extern uint_fast8_t eeprom_write (uint_fast16_t, uint8_t *, uint_fast16_t);
-extern void         eeprom_dump (void);
-extern void         eeprom_ISR (void);
+extern uint_fast8_t             eeprom_init (void);
+extern uint_fast8_t             eeprom_get_address (void);
+extern uint_fast8_t             eeprom_read (uint_fast16_t, uint8_t *, uint_fast16_t);
+extern uint_fast8_t             eeprom_write (uint_fast16_t, uint8_t *, uint_fast16_t);
+extern void                     eeprom_dump (void);
 
 #endif

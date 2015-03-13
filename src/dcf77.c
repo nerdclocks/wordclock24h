@@ -17,20 +17,27 @@
 
 #if defined (STM32F407VG)                                   // STM32F4 Discovery Board PC15
 
-#define DCF77_PERIPH_CLOCK_CMD  RCC_AHB1PeriphClockCmd
-#define DCF77_PERIPH            RCC_AHB1Periph_GPIOC
-#define DCF77_PORT              GPIOC
-#define DCF77_PIN               GPIO_Pin_15
+#  define DCF77_PERIPH_CLOCK_CMD  RCC_AHB1PeriphClockCmd
+#  define DCF77_PERIPH            RCC_AHB1Periph_GPIOC
+#  define DCF77_PORT              GPIOC
+#  define DCF77_PIN               GPIO_Pin_15
 
 #elif defined (STM32F401RE) || defined (STM32F411RE)        // STM32F401 / STM32F411 Nucleo Board PC11
 
-#define DCF77_PERIPH_CLOCK_CMD  RCC_AHB1PeriphClockCmd
-#define DCF77_PERIPH            RCC_AHB1Periph_GPIOC
-#define DCF77_PORT              GPIOC
-#define DCF77_PIN               GPIO_Pin_11
+#  define DCF77_PERIPH_CLOCK_CMD  RCC_AHB1PeriphClockCmd
+#  define DCF77_PERIPH            RCC_AHB1Periph_GPIOC
+#  define DCF77_PORT              GPIOC
+#  define DCF77_PIN               GPIO_Pin_11
+
+#elif defined (STM32F103)
+
+#  define DCF77_PERIPH_CLOCK_CMD  RCC_APB2PeriphClockCmd
+#  define DCF77_PERIPH            RCC_APB2Periph_GPIOA
+#  define DCF77_PORT              GPIOA
+#  define DCF77_PIN               GPIO_Pin_4
 
 #else
-#error STM32 unknown
+#  error STM32 unknown
 #endif
 
 uint_fast8_t                    dcf77_is_up = 0;
@@ -47,11 +54,16 @@ void dcf77_init (void)
 
     DCF77_PERIPH_CLOCK_CMD (DCF77_PERIPH, ENABLE);
 
-    gpio.GPIO_Mode  = GPIO_Mode_IN;              // use pin as input
-    gpio.GPIO_Speed = GPIO_Speed_2MHz;
-    gpio.GPIO_OType = GPIO_OType_PP;
-    gpio.GPIO_PuPd  = GPIO_PuPd_NOPULL;          // possible values: GPIO_PuPd__NOPULL  GPIO_PuPd__UP   GPIO_PuPd__DOWN
     gpio.GPIO_Pin   = DCF77_PIN;
+    gpio.GPIO_Speed = GPIO_Speed_2MHz;
+
+#if defined (STM32F10X)
+    gpio.GPIO_Mode  = GPIO_Mode_IN_FLOATING;     // use pin as input, no pullup
+#elif defined (STM32F4XX)
+    gpio.GPIO_Mode  = GPIO_Mode_IN;              // use pin as input, no pullup
+    gpio.GPIO_PuPd  = GPIO_PuPd_NOPULL;          // possible values: GPIO_PuPd__NOPULL  GPIO_PuPd__UP   GPIO_PuPd__DOWN
+#endif
+
     GPIO_Init(DCF77_PORT, &gpio);
 }
 

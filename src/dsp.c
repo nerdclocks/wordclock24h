@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * dsp.c - routines for display (LEDs & mcurses)
+ * dsp.c - routines for LED display
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -20,6 +20,7 @@
 #include "ws2812.h"
 #include "eeprom.h"
 #include "eeprom-data.h"
+#include "delay.h"
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -38,7 +39,7 @@ HERE IS A SHORT PROGRAM TO CALCULATE THE PWM TABLE:
 #include <stdio.h>
 #include <math.h>
 
-#define STEPS       (32)            // CHANGE HERE
+#define STEPS       (64)            // CHANGE HERE
 #define PWMBITS     (8)             // CHANGE HERE
 
 // GAMMA:
@@ -81,29 +82,39 @@ int main ()
  *+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  */
 
-#define MAX_BRIGHTNESS      32
+#define MAX_COLOR_STEPS     64
+
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * 8-Bit PWM with 64 different settings:
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-static const uint16_t pwmtable8[MAX_BRIGHTNESS]  =
+static const uint16_t pwmtable8[MAX_COLOR_STEPS]  =
 {
-        0,     1,     2,     3,     4,     5,     7,    10,
-       13,    17,    21,    26,    32,    38,    44,    52,
-       60,    68,    77,    87,    97,   108,   120,   132,
-      145,   159,   173,   188,   204,   220,   237,   255
+    0,     1,     1,     2,     2,     3,     3,     4,
+    4,     5,     5,     6,     7,     8,     9,    11,
+   13,    14,    16,    18,    20,    23,    25,    28,
+   31,    33,    36,    40,    43,    46,    50,    54,
+   57,    61,    66,    70,    74,    79,    84,    89,
+   94,    99,   105,   110,   116,   122,   128,   134,
+  140,   147,   153,   160,   167,   174,   182,   189,
+  197,   205,   213,   221,   229,   238,   246,   255
 };
 
-static RGB_BRIGHTNESS   current_brightness =
+static DSP_COLORS   current_colors =
 {
-    MAX_BRIGHTNESS / 2, 0, 0
+    MAX_COLOR_STEPS / 2, 0, 0
+};
+
+static DSP_COLORS   dimmed_colors =
+{
+    MAX_COLOR_STEPS / 2, 0, 0
 };
 
 static uint_fast8_t                 display_mode;
 
-static RGB_BRIGHTNESS               current_brightness_up;
-static RGB_BRIGHTNESS               current_brightness_down;
+static DSP_COLORS                   dimmed_colors_up;
+static DSP_COLORS                   dimmed_colors_down;
 
 #define CURRENT_STATE               0x01
 #define TARGET_STATE                0x02
@@ -142,10 +153,24 @@ static uint_fast8_t                 red_step;
 static uint_fast8_t                 green_step;
 static uint_fast8_t                 blue_step;
 
+void
+dsp_set_led0 (uint_fast8_t r_flag, uint_fast8_t g_flag, uint_fast8_t b_flag)
+{
+    WS2812_RGB rgb;
+
+    rgb.red     = r_flag ? pwmtable8[MAX_COLOR_STEPS - 1] : 0;
+    rgb.green   = g_flag ? pwmtable8[MAX_COLOR_STEPS - 1] : 0;
+    rgb.blue    = b_flag ? pwmtable8[MAX_COLOR_STEPS - 1] : 0;
+
+    ws2812_set_led (0, &rgb, 1);
+}
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * set LED to RGB
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
+static uint_fast8_t    brightness = 15;
+
 static void
 dsp_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
 {
@@ -159,10 +184,10 @@ dsp_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
         if (y & 0x01)                                       // snake: odd row: count from right to left
         {
             x = n % WC_COLUMNS;
-            n = y * 18 + (WC_COLUMNS - 1 - x);
+            n = y * WC_COLUMNS + (WC_COLUMNS - 1 - x);
         }
 
-        ws2812_set_led (n, rgb, refresh);
+        ws2812_set_led (n + 1, rgb, refresh);
 	}
 }
 
@@ -227,9 +252,9 @@ dsp_animation_flush (void)
     WS2812_RGB      rgb0;
     uint_fast16_t    idx;
 
-    rgb.red         = pwmtable8[current_brightness.red];
-    rgb.green       = pwmtable8[current_brightness.green];
-    rgb.blue        = pwmtable8[current_brightness.blue];
+    rgb.red         = pwmtable8[dimmed_colors.red];
+    rgb.green       = pwmtable8[dimmed_colors.green];
+    rgb.blue        = pwmtable8[dimmed_colors.blue];
 
     rgb0.red        = 0;
     rgb0.green      = 0;
@@ -279,101 +304,101 @@ dsp_animation_fade (void)
         animation_start_flag = 0;
         animation_stop_flag = 0;
 
-        red_step = current_brightness.red / 5;
+        red_step = dimmed_colors.red / 5;
 
-        if (red_step == 0 && current_brightness.red > 0)
+        if (red_step == 0 && dimmed_colors.red > 0)
         {
             red_step = 1;
         }
 
-        green_step = current_brightness.green / 5;
+        green_step = dimmed_colors.green / 5;
 
-        if (green_step == 0 && current_brightness.green > 0)
+        if (green_step == 0 && dimmed_colors.green > 0)
         {
             green_step = 1;
         }
 
-        blue_step = current_brightness.blue / 5;
+        blue_step = dimmed_colors.blue / 5;
 
-        if (blue_step == 0 && current_brightness.blue > 0)
+        if (blue_step == 0 && dimmed_colors.blue > 0)
         {
             blue_step = 1;
         }
 
-        current_brightness_up.red       = 0;
-        current_brightness_up.green     = 0;
-        current_brightness_up.blue      = 0;
+        dimmed_colors_up.red       = 0;
+        dimmed_colors_up.green     = 0;
+        dimmed_colors_up.blue      = 0;
 
-        current_brightness_down.red     = current_brightness.red;
-        current_brightness_down.green   = current_brightness.green;
-        current_brightness_down.blue    = current_brightness.blue;
+        dimmed_colors_down.red     = dimmed_colors.red;
+        dimmed_colors_down.green   = dimmed_colors.green;
+        dimmed_colors_down.blue    = dimmed_colors.blue;
     }
 
     if (! animation_stop_flag)
     {
-        if (current_brightness_down.red >= red_step)
+        if (dimmed_colors_down.red >= red_step)
         {
-            current_brightness_down.red -= red_step;
+            dimmed_colors_down.red -= red_step;
             changed = 1;
         }
-        else if (current_brightness_down.red != 0)
+        else if (dimmed_colors_down.red != 0)
         {
-            current_brightness_down.red = 0;
-            changed = 1;
-        }
-
-        if (current_brightness_down.green >= green_step)
-        {
-            current_brightness_down.green -= green_step;
-            changed = 1;
-        }
-        else if (current_brightness_down.green != 0)
-        {
-            current_brightness_down.green = 0;
+            dimmed_colors_down.red = 0;
             changed = 1;
         }
 
-        if (current_brightness_down.blue >= blue_step)
+        if (dimmed_colors_down.green >= green_step)
         {
-            current_brightness_down.blue -= blue_step;
+            dimmed_colors_down.green -= green_step;
             changed = 1;
         }
-        else if (current_brightness_down.blue != 0)
+        else if (dimmed_colors_down.green != 0)
         {
-            current_brightness_down.blue = 0;
-            changed = 1;
-        }
-
-        if (current_brightness_up.red + red_step <= current_brightness.red)
-        {
-            current_brightness_up.red += red_step;
-            changed = 1;
-        }
-        else if (current_brightness_up.red != current_brightness.red)
-        {
-            current_brightness_up.red = current_brightness.red;
+            dimmed_colors_down.green = 0;
             changed = 1;
         }
 
-        if (current_brightness_up.green + green_step <= current_brightness.green)
+        if (dimmed_colors_down.blue >= blue_step)
         {
-            current_brightness_up.green += green_step;
+            dimmed_colors_down.blue -= blue_step;
             changed = 1;
         }
-        else if (current_brightness_up.green != current_brightness.green)
+        else if (dimmed_colors_down.blue != 0)
         {
-            current_brightness_up.green = current_brightness.green;
+            dimmed_colors_down.blue = 0;
             changed = 1;
         }
 
-        if (current_brightness_up.blue + blue_step <= current_brightness.blue)
+        if (dimmed_colors_up.red + red_step <= dimmed_colors.red)
         {
-            current_brightness_up.blue += blue_step;
+            dimmed_colors_up.red += red_step;
             changed = 1;
         }
-        else if (current_brightness_up.blue != current_brightness.blue)
+        else if (dimmed_colors_up.red != dimmed_colors.red)
         {
-            current_brightness_up.blue = current_brightness.blue;
+            dimmed_colors_up.red = dimmed_colors.red;
+            changed = 1;
+        }
+
+        if (dimmed_colors_up.green + green_step <= dimmed_colors.green)
+        {
+            dimmed_colors_up.green += green_step;
+            changed = 1;
+        }
+        else if (dimmed_colors_up.green != dimmed_colors.green)
+        {
+            dimmed_colors_up.green = dimmed_colors.green;
+            changed = 1;
+        }
+
+        if (dimmed_colors_up.blue + blue_step <= dimmed_colors.blue)
+        {
+            dimmed_colors_up.blue += blue_step;
+            changed = 1;
+        }
+        else if (dimmed_colors_up.blue != dimmed_colors.blue)
+        {
+            dimmed_colors_up.blue = dimmed_colors.blue;
             changed = 1;
         }
 
@@ -383,17 +408,17 @@ dsp_animation_fade (void)
             WS2812_RGB  rgb_up;
             WS2812_RGB  rgb_down;
 
-            rgb.red         = pwmtable8[current_brightness.red];
-            rgb.green       = pwmtable8[current_brightness.green];
-            rgb.blue        = pwmtable8[current_brightness.blue];
+            rgb.red         = pwmtable8[dimmed_colors.red];
+            rgb.green       = pwmtable8[dimmed_colors.green];
+            rgb.blue        = pwmtable8[dimmed_colors.blue];
 
-            rgb_up.red      = pwmtable8[current_brightness_up.red];
-            rgb_up.green    = pwmtable8[current_brightness_up.green];
-            rgb_up.blue     = pwmtable8[current_brightness_up.blue];
+            rgb_up.red      = pwmtable8[dimmed_colors_up.red];
+            rgb_up.green    = pwmtable8[dimmed_colors_up.green];
+            rgb_up.blue     = pwmtable8[dimmed_colors_up.blue];
 
-            rgb_down.red    = pwmtable8[current_brightness_down.red];
-            rgb_down.green  = pwmtable8[current_brightness_down.green];
-            rgb_down.blue   = pwmtable8[current_brightness_down.blue];
+            rgb_down.red    = pwmtable8[dimmed_colors_down.red];
+            rgb_down.green  = pwmtable8[dimmed_colors_down.green];
+            rgb_down.blue   = pwmtable8[dimmed_colors_down.blue];
 
             for (idx = 0; idx < WS2812_LEDS; idx++)
             {
@@ -423,9 +448,9 @@ dsp_show_new_display (void)
     WS2812_RGB          rgb0;
     uint_fast16_t       idx;
 
-    rgb.red         = pwmtable8[current_brightness.red];
-    rgb.green       = pwmtable8[current_brightness.green];
-    rgb.blue        = pwmtable8[current_brightness.blue];
+    rgb.red         = pwmtable8[dimmed_colors.red];
+    rgb.green       = pwmtable8[dimmed_colors.green];
+    rgb.blue        = pwmtable8[dimmed_colors.blue];
 
     rgb0.red        = 0;
     rgb0.green      = 0;
@@ -1153,13 +1178,13 @@ dsp_temperature (uint_fast8_t power_is_on, uint_fast8_t temperature_index)
 
         temperature_index -= 20;                                            // subtract 10°C (20 units)
 
-        // Perhaps not all LEDs have reached the desired brightness yet.
+        // Perhaps not all LEDs have reached the desired colors yet.
         // This happens when we change the time faster than LED fading is.
         // Then we have to flush the target states:
 
         dsp_animation_flush ();
 
-        // Now all LEDs have the desired brightness of last time.
+        // Now all LEDs have the desired colors of last time.
         // We can now set the new values:
 
         minute_mode = tbl_modes[temp_mode].minute_txt;
@@ -1206,13 +1231,13 @@ dsp_clock (uint_fast8_t power_is_on, uint_fast8_t hour, uint_fast8_t minute)
         last_minute             = minute;
         last_power_is_on        = power_is_on;
 
-        // Perhaps not all LEDs have reached the desired brightness yet.
+        // Perhaps not all LEDs have reached the desired colors yet.
         // This happens when we change the time faster than LED fading is.
         // Then we have to flush the target states:
 
         dsp_animation_flush ();
 
-        // Now all LEDs have the desired brightness of last time.
+        // Now all LEDs have the desired colors of last time.
         // We can now set the new values:
 
         hour_mode   = tbl_modes[display_mode].hour_txt;
@@ -1381,101 +1406,224 @@ dsp_decrement_animation_mode (void)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * increment red brightness
+ * calculate dimmed colors
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+dsp_calc_dimmed_colors ()
+{
+    uint_fast8_t    factor;
+
+    factor = (brightness & 0x0F);
+
+    dimmed_colors.red = (current_colors.red * factor) / 15;
+
+    if (current_colors.red > 0 && dimmed_colors.red == 0)
+    {
+        dimmed_colors.red = 1;
+    }
+
+    dimmed_colors.green = (current_colors.green * factor) / 15;
+
+    if (current_colors.green > 0 && dimmed_colors.green == 0)
+    {
+        dimmed_colors.green = 1;
+    }
+
+
+    dimmed_colors.blue = (current_colors.blue * factor) / 15;
+
+    if (current_colors.blue > 0 && dimmed_colors.blue == 0)
+    {
+        dimmed_colors.blue = 1;
+    }
+
+
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * increment red color by 2
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_increment_brightness_red (void)
+dsp_increment_color_red (void)
 {
-    if (current_brightness.red < MAX_BRIGHTNESS - 1)
+    if (current_colors.red < MAX_COLOR_STEPS - 1)
     {
-        current_brightness.red++;
+        current_colors.red++;
+
+        if (current_colors.red < MAX_COLOR_STEPS - 1)
+        {
+            current_colors.red++;
+        }
+
+        dsp_calc_dimmed_colors ();
         dsp_animation_flush ();
     }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * decrement red brightness
+ * decrement red color by 2
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_decrement_brightness_red (void)
+dsp_decrement_color_red (void)
 {
-    if (current_brightness.red > 0)
+    if (current_colors.red > 0)
     {
-        current_brightness.red--;
+        current_colors.red--;
+
+        if (current_colors.red > 0)
+        {
+            current_colors.red--;
+        }
+
+        dsp_calc_dimmed_colors ();
         dsp_animation_flush ();
     }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * increment green brightness
+ * increment green color by 2
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_increment_brightness_green (void)
+dsp_increment_color_green (void)
 {
-    if (current_brightness.green < MAX_BRIGHTNESS - 1)
+    if (current_colors.green < MAX_COLOR_STEPS - 1)
     {
-        current_brightness.green++;
+        current_colors.green++;
+
+        if (current_colors.green < MAX_COLOR_STEPS - 1)
+        {
+            current_colors.green++;
+        }
+
+        dsp_calc_dimmed_colors ();
         dsp_animation_flush ();
     }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * decrement green brightness
+ * decrement green color by 2
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_decrement_brightness_green (void)
+dsp_decrement_color_green (void)
 {
-    if (current_brightness.green > 0)
+    if (current_colors.green > 0)
     {
-        current_brightness.green--;
+        current_colors.green--;
+
+        if (current_colors.green > 0)
+        {
+            current_colors.green--;
+        }
+
+        dsp_calc_dimmed_colors ();
         dsp_animation_flush ();
     }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * increment blue brightness
+ * increment blue color by 2
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_increment_brightness_blue (void)
+dsp_increment_color_blue (void)
 {
-    if (current_brightness.blue < MAX_BRIGHTNESS - 1)
+    if (current_colors.blue < MAX_COLOR_STEPS - 1)
     {
-        current_brightness.blue++;
+        current_colors.blue++;
+
+        if (current_colors.blue < MAX_COLOR_STEPS - 1)
+        {
+            current_colors.blue++;
+        }
+
+        dsp_calc_dimmed_colors ();
         dsp_animation_flush ();
     }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * decrement blue brightness
+ * decrement blue color by 2
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_decrement_brightness_blue (void)
+dsp_decrement_color_blue (void)
 {
-    if (current_brightness.blue > 0)
+    if (current_colors.blue > 0)
     {
-        current_brightness.blue--;
+        current_colors.blue--;
+
+        if (current_colors.blue > 0)
+        {
+            current_colors.blue--;
+        }
+
+        dsp_calc_dimmed_colors ();
         dsp_animation_flush ();
     }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * set colors
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+dsp_set_colors  (DSP_COLORS * rgb)
+{
+    current_colors.red      = (rgb->red < MAX_COLOR_STEPS)   ? rgb->red : MAX_COLOR_STEPS;
+    current_colors.green    = (rgb->green < MAX_COLOR_STEPS) ? rgb->green : MAX_COLOR_STEPS;
+    current_colors.blue     = (rgb->blue < MAX_COLOR_STEPS)  ? rgb->blue : MAX_COLOR_STEPS;
+
+    dsp_calc_dimmed_colors ();
+    dsp_animation_flush ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * set brightness
+ *  15 = full brightness
+ *   0 = low brigtness
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_set_brightness (RGB_BRIGHTNESS * rgb)
+dsp_set_brightness  (uint_fast8_t new_brightness)
 {
-    current_brightness.red      = (rgb->red < MAX_BRIGHTNESS)   ? rgb->red : MAX_BRIGHTNESS;
-    current_brightness.green    = (rgb->green < MAX_BRIGHTNESS) ? rgb->green : MAX_BRIGHTNESS;
-    current_brightness.blue     = (rgb->blue < MAX_BRIGHTNESS)  ? rgb->blue : MAX_BRIGHTNESS;
+    brightness = new_brightness;
 
+    dsp_calc_dimmed_colors ();
     dsp_animation_flush ();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * Test all LEDs
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+dsp_test (void)
+{
+    WS2812_RGB      rgb;
+    uint_fast16_t   i;
+    uint_fast16_t   j;
+
+    for (i = 1; i < 8; i++)
+    {
+        rgb.red     = (i & 0x01) ? pwmtable8[MAX_COLOR_STEPS / 2] : 0;
+        rgb.green   = (i & 0x02) ? pwmtable8[MAX_COLOR_STEPS / 2] : 0;
+        rgb.blue    = (i & 0x04) ? pwmtable8[MAX_COLOR_STEPS / 2] : 0;
+
+        for (j = 0; j < WS2812_LEDS; j++)
+        {
+            ws2812_set_led (j, &rgb, 0);
+        }
+
+        ws2812_refresh ();
+        delay_sec (3);
+    }
+    dsp_animation_flush ();
+    dsp_set_led0 (0, 0, 0);
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -1486,13 +1634,13 @@ uint_fast8_t
 dsp_read_config_from_eeprom (void)
 {
     uint_fast8_t            rtc = 0;
-    PACKED_RGB_BRIGHTNESS   packed_rgb_brightness;
+    PACKED_DSP_COLORS       packed_rgb_color;
     uint8_t                 display_mode8;
     uint8_t                 animation_mode8;
 
     if (eeprom_is_up)
     {
-        if (eeprom_read (EEPROM_DATA_OFFSET_RGB_BRIGHTNESS, (uint8_t *) &packed_rgb_brightness, sizeof(PACKED_RGB_BRIGHTNESS)) &&
+        if (eeprom_read (EEPROM_DATA_OFFSET_DSP_COLORS, (uint8_t *) &packed_rgb_color, sizeof(PACKED_DSP_COLORS)) &&
             eeprom_read (EEPROM_DATA_OFFSET_DISPLAY_MODE, &display_mode8, sizeof(display_mode8)) &&
             eeprom_read (EEPROM_DATA_OFFSET_ANIMATION_MODE, &animation_mode8, sizeof(animation_mode8)))
         {
@@ -1506,11 +1654,11 @@ dsp_read_config_from_eeprom (void)
                 animation_mode8 = 0;
             }
 
-            current_brightness.red      = packed_rgb_brightness.red;
-            current_brightness.green    = packed_rgb_brightness.green;
-            current_brightness.blue     = packed_rgb_brightness.blue;
-            display_mode                = display_mode8;
-            animation_mode              = animation_mode8;
+            current_colors.red      = packed_rgb_color.red;
+            current_colors.green    = packed_rgb_color.green;
+            current_colors.blue     = packed_rgb_color.blue;
+            display_mode            = display_mode8;
+            animation_mode          = animation_mode8;
 
             rtc = 1;
         }
@@ -1527,20 +1675,20 @@ uint_fast8_t
 dsp_write_config_to_eeprom (void)
 {
     uint_fast8_t            rtc = 0;
-    PACKED_RGB_BRIGHTNESS   packed_rgb_brightness;
+    PACKED_DSP_COLORS       packed_rgb_color;
     uint8_t                 display_mode8;
     uint8_t                 animation_mode8;
 
-    packed_rgb_brightness.red   = current_brightness.red;
-    packed_rgb_brightness.green = current_brightness.green;
-    packed_rgb_brightness.blue  = current_brightness.blue;
+    packed_rgb_color.red   = current_colors.red;
+    packed_rgb_color.green = current_colors.green;
+    packed_rgb_color.blue  = current_colors.blue;
 
     display_mode8               = display_mode;
     animation_mode8             = animation_mode;
 
     if (eeprom_is_up)
     {
-        if (eeprom_write (EEPROM_DATA_OFFSET_RGB_BRIGHTNESS, (uint8_t *) &packed_rgb_brightness, sizeof(PACKED_RGB_BRIGHTNESS)) &&
+        if (eeprom_write (EEPROM_DATA_OFFSET_DSP_COLORS, (uint8_t *) &packed_rgb_color, sizeof(PACKED_DSP_COLORS)) &&
             eeprom_write (EEPROM_DATA_OFFSET_DISPLAY_MODE, &display_mode8, sizeof(display_mode8)) &&
             eeprom_write (EEPROM_DATA_OFFSET_ANIMATION_MODE, &animation_mode8, sizeof(animation_mode8)))
         {

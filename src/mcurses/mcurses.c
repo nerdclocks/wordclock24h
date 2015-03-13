@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * @file mcurses.c - mcurses lib
+ * mcurses.c - mcurses lib
  *
  * Copyright (c) 2011-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -24,6 +24,7 @@
 #define PROGMEM
 #define PSTR(x)                                 (x)
 #define pgm_read_byte(s)                        (*s)
+
 #elif (defined STM32F4XX)
 #ifndef HSE_VALUE
 #define HSE_VALUE                               ((uint32_t)8000000)         /* STM32F4 discovery uses a 8Mhz external crystal */
@@ -36,6 +37,20 @@
 #define PROGMEM
 #define PSTR(x)                                 (x)
 #define pgm_read_byte(s)                        (*s)
+
+#elif (defined STM32F10X)
+#ifndef HSE_VALUE
+#define HSE_VALUE                               ((uint32_t)8000000)         /* STM32F4 discovery uses a 8Mhz external crystal */
+#endif
+#include "stm32f10x.h"
+#include "stm32f10x_gpio.h"
+#include "stm32f10x_usart.h"
+#include "stm32f10x_rcc.h"
+#include "misc.h"
+#define PROGMEM
+#define PSTR(x)                                 (x)
+#define pgm_read_byte(s)                        (*s)
+
 #else // AVR
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -288,7 +303,7 @@ mcurses_phyio_flush_output ()
 {
 }
 
-#elif defined(STM32F4XX)
+#elif defined(STM32F4XX) || defined(STM32F10X)
 
 #if MCURSES_UART_NUMBER == 0        // USB
 
@@ -514,17 +529,20 @@ static volatile uint_fast8_t    uart_rxsize = 0;                                
 #define _CONCAT(a,b)            a##b
 #define CONCAT(a,b)             _CONCAT(a,b)
 
+#if defined(STM32F4XX)
+
 #if UART_NUMBER == 1
 
 #define UART_TX_PORT_LETTER         A       // A9/A10 or B6/B7
 #define UART_TX_PIN_NUMBER          9
 #define UART_RX_PORT_LETTER         A
 #define UART_RX_PIN_NUMBER          10
+#define UART_GPIO_CLOCK_CMD         RCC_AHB2PeriphClockCmd
+#define UART_GPIO                   RCC_AHB2Periph_GPIO
 
-#define UART_AHB_CLOCK_CMD(c,e)     RCC_AHB2PeriphClockCmd(c,e)
-#define UART_APB_CLOCK_CMD(c,e)     RCC_APB2PeriphClockCmd(c,e)
 #define UART_NAME                   USART1
-#define UART_APB_CLOCK_USART        RCC_APB2Periph_USART1
+#define UART_USART_CLOCK_CMD        RCC_APB2PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB2Periph_USART1
 #define UART_GPIO_AF_UART           GPIO_AF_USART1
 #define UART_IRQ_HANDLER            USART1_IRQHandler
 #define UART_IRQ_CHANNEL            USART1_IRQn
@@ -535,11 +553,12 @@ static volatile uint_fast8_t    uart_rxsize = 0;                                
 #define UART_TX_PIN_NUMBER          2
 #define UART_RX_PORT_LETTER         A
 #define UART_RX_PIN_NUMBER          3
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
 
-#define UART_AHB_CLOCK_CMD(c,e)     RCC_AHB1PeriphClockCmd(c,e)
-#define UART_APB_CLOCK_CMD(c,e)     RCC_APB1PeriphClockCmd(c,e)
 #define UART_NAME                   USART2
-#define UART_APB_CLOCK_USART        RCC_APB1Periph_USART2
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART2
 #define UART_GPIO_AF_UART           GPIO_AF_USART2
 #define UART_IRQ_HANDLER            USART2_IRQHandler
 #define UART_IRQ_CHANNEL            USART2_IRQn
@@ -550,11 +569,12 @@ static volatile uint_fast8_t    uart_rxsize = 0;                                
 #define UART_TX_PIN_NUMBER          8
 #define UART_RX_PORT_LETTER         D
 #define UART_RX_PIN_NUMBER          9
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
 
-#define UART_AHB_CLOCK_CMD(c,e)     RCC_AHB1PeriphClockCmd(c,e)
-#define UART_APB_CLOCK_CMD(c,e)     RCC_APB1PeriphClockCmd(c,e)
 #define UART_NAME                   USART3
-#define UART_APB_CLOCK_USART        RCC_APB1Periph_USART3
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART3
 #define UART_GPIO_AF_UART           GPIO_AF_USART3
 #define UART_IRQ_HANDLER            USART3_IRQHandler
 #define UART_IRQ_CHANNEL            USART3_IRQn
@@ -565,14 +585,15 @@ static volatile uint_fast8_t    uart_rxsize = 0;                                
 #define UART_TX_PIN_NUMBER          0
 #define UART_RX_PORT_LETTER         A
 #define UART_RX_PIN_NUMBER          1
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
 
-#define UART_AHB_CLOCK_CMD(c,e)     RCC_AHB1PeriphClockCmd(c,e)
-#define UART_APB_CLOCK_CMD(c,e)     RCC_APB1PeriphClockCmd(c,e)
-#define UART_NAME                   UART4
-#define UART_APB_CLOCK_USART        RCC_APB1Periph_UART4
-#define UART_GPIO_AF_UART           GPIO_AF_UART4
-#define UART_IRQ_HANDLER            UART4_IRQHandler
-#define UART_IRQ_CHANNEL            UART4_IRQn
+#define UART_NAME                   USART4
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART4
+#define UART_GPIO_AF_UART           GPIO_AF_USART4
+#define UART_IRQ_HANDLER            USART4_IRQHandler
+#define UART_IRQ_CHANNEL            USART4_IRQn
 
 #elif UART_NUMBER == 5
 
@@ -580,14 +601,15 @@ static volatile uint_fast8_t    uart_rxsize = 0;                                
 #define UART_TX_PIN_NUMBER          12
 #define UART_RX_PORT_LETTER         D
 #define UART_RX_PIN_NUMBER          2
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
 
-#define UART_AHB_CLOCK_CMD(c,e)     RCC_AHB1PeriphClockCmd(c,e)
-#define UART_APB_CLOCK_CMD(c,e)     RCC_APB1PeriphClockCmd(c,e)
-#define UART_NAME                   UART5
-#define UART_APB_CLOCK_USART        RCC_APB1Periph_UART5
-#define UART_GPIO_AF_UART           GPIO_AF_UART5
-#define UART_IRQ_HANDLER            UART5_IRQHandler
-#define UART_IRQ_CHANNEL            UART5_IRQn
+#define UART_NAME                   USART5
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART5
+#define UART_GPIO_AF_UART           GPIO_AF_USART5
+#define UART_IRQ_HANDLER            USART5_IRQHandler
+#define UART_IRQ_CHANNEL            USART5_IRQn
 
 #elif UART_NUMBER == 6
 
@@ -595,11 +617,12 @@ static volatile uint_fast8_t    uart_rxsize = 0;                                
 #define UART_TX_PIN_NUMBER          6
 #define UART_RX_PORT_LETTER         C
 #define UART_RX_PIN_NUMBER          7
+#define UART_GPIO_CLOCK_CMD         RCC_AHB2PeriphClockCmd
+#define UART_GPIO                   RCC_AHB2Periph_GPIO
 
-#define UART_AHB_CLOCK_CMD(c,e)     RCC_AHB2PeriphClockCmd(c,e)
-#define UART_APB_CLOCK_CMD(c,e)     RCC_APB2PeriphClockCmd(c,e)
 #define UART_NAME                   USART6
-#define UART_APB_CLOCK_USART        RCC_APB2Periph_USART6
+#define UART_USART_CLOCK_CMD        RCC_APB2PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB2Periph_USART6
 #define UART_GPIO_AF_UART           GPIO_AF_USART6
 #define UART_IRQ_HANDLER            USART6_IRQHandler
 #define UART_IRQ_CHANNEL            USART6_IRQn
@@ -608,13 +631,68 @@ static volatile uint_fast8_t    uart_rxsize = 0;                                
 #error wrong number for UART_NUMBER, choose 1-6
 #endif
 
+#elif defined(STM32F10X)
+
+#if UART_NUMBER == 1
+
+#define UART_TX_PORT_LETTER     A
+#define UART_TX_PIN_NUMBER      9
+#define UART_RX_PORT_LETTER     A
+#define UART_RX_PIN_NUMBER      10
+#define UART_GPIO_CLOCK_CMD     RCC_APB2PeriphClockCmd
+#define UART_GPIO               RCC_APB2Periph_GPIO
+
+#define UART_NAME               USART1
+#define UART_USART_CLOCK_CMD    RCC_APB2PeriphClockCmd
+#define UART_USART_CLOCK        RCC_APB2Periph_USART1
+#define UART_GPIO_AF_UART       GPIO_AF_USART1
+#define UART_IRQ_HANDLER        USART1_IRQHandler
+#define UART_IRQ_CHANNEL        USART1_IRQn
+
+#elif UART_NUMBER == 2
+
+#define UART_TX_PORT_LETTER     A
+#define UART_TX_PIN_NUMBER      2
+#define UART_RX_PORT_LETTER     A
+#define UART_RX_PIN_NUMBER      3
+#define UART_GPIO_CLOCK_CMD     RCC_APB2PeriphClockCmd
+#define UART_GPIO               RCC_APB2Periph_GPIO
+
+#define UART_NAME               USART2
+#define UART_USART_CLOCK_CMD    RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK        RCC_APB1Periph_USART2
+#define UART_GPIO_AF_UART       GPIO_AF_USART2
+#define UART_IRQ_HANDLER        USART2_IRQHandler
+#define UART_IRQ_CHANNEL        USART2_IRQn
+
+#elif UART_NUMBER == 3
+
+#define UART_TX_PORT_LETTER     B
+#define UART_TX_PIN_NUMBER      10
+#define UART_RX_PORT_LETTER     B
+#define UART_RX_PIN_NUMBER      11
+#define UART_GPIO_CLOCK_CMD     RCC_APB2PeriphClockCmd
+#define UART_GPIO               RCC_APB2Periph_GPIO
+
+#define UART_NAME               USART3
+#define UART_USART_CLOCK_CMD    RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK        RCC_APB1Periph_USART3
+#define UART_GPIO_AF_UART       GPIO_AF_USART3
+#define UART_IRQ_HANDLER        USART3_IRQHandler
+#define UART_IRQ_CHANNEL        USART3_IRQn
+
+#else
+#error wrong number for UART_NUMBER, choose 1-3
+#endif
+
+#endif
+
 #define UART_TX_PORT                CONCAT(GPIO, UART_TX_PORT_LETTER)
-#define UART_TX_AHB_CLOCK_PORT      CONCAT(RCC_AHB1Periph_GPIO, UART_TX_PORT_LETTER)
+#define UART_TX_GPIO_CLOCK          CONCAT(UART_GPIO, UART_TX_PORT_LETTER)
 #define UART_TX_PIN                 CONCAT(GPIO_Pin_, UART_TX_PIN_NUMBER)
 #define UART_TX_PINSOURCE           CONCAT(GPIO_PinSource,  UART_TX_PIN_NUMBER)
-
 #define UART_RX_PORT                CONCAT(GPIO, UART_RX_PORT_LETTER)
-#define UART_RX_AHB_CLOCK_PORT      CONCAT(RCC_AHB1Periph_GPIO, UART_RX_PORT_LETTER)
+#define UART_RX_GPIO_CLOCK          CONCAT(UART_GPIO, UART_RX_PORT_LETTER)
 #define UART_RX_PIN                 CONCAT(GPIO_Pin_, UART_RX_PIN_NUMBER)
 #define UART_RX_PINSOURCE           CONCAT(GPIO_PinSource, UART_RX_PIN_NUMBER)
 
@@ -636,24 +714,43 @@ mcurses_phyio_init (void)
         USART_InitTypeDef   uart;
         NVIC_InitTypeDef    nvic;
 
-        UART_AHB_CLOCK_CMD (UART_TX_AHB_CLOCK_PORT, ENABLE);
-        UART_AHB_CLOCK_CMD (UART_RX_AHB_CLOCK_PORT, ENABLE);
+        UART_GPIO_CLOCK_CMD (UART_TX_GPIO_CLOCK, ENABLE);
+        UART_GPIO_CLOCK_CMD (UART_RX_GPIO_CLOCK, ENABLE);
 
-        UART_APB_CLOCK_CMD (UART_APB_CLOCK_USART, ENABLE);
+        UART_USART_CLOCK_CMD (UART_USART_CLOCK, ENABLE);
 
-        GPIO_PinAFConfig (UART_TX_PORT, UART_TX_PINSOURCE, UART_GPIO_AF_UART);  // TX
-        GPIO_PinAFConfig (UART_RX_PORT, UART_RX_PINSOURCE, UART_GPIO_AF_UART);  // RX
+        // connect UART functions with IO-Pins
+#if defined (STM32F4XX)
+        GPIO_PinAFConfig (UART_TX_PORT, UART_TX_PINSOURCE, UART_GPIO_AF_UART);      // TX
+        GPIO_PinAFConfig (UART_RX_PORT, UART_RX_PINSOURCE, UART_GPIO_AF_UART);      // RX
 
+        // UART as alternate function with PushPull
         gpio.GPIO_Mode  = GPIO_Mode_AF;
         gpio.GPIO_Speed = GPIO_Speed_100MHz;
         gpio.GPIO_OType = GPIO_OType_PP;
-        gpio.GPIO_PuPd  = GPIO_PuPd_UP;                                         // fm: perhaps better: GPIO_PuPd_NOPULL
+        gpio.GPIO_PuPd  = GPIO_PuPd_UP;                                             // fm: perhaps better: GPIO_PuPd_NOPULL
 
         gpio.GPIO_Pin = UART_TX_PIN;
         GPIO_Init(UART_TX_PORT, &gpio);
 
         gpio.GPIO_Pin = UART_RX_PIN;
         GPIO_Init(UART_RX_PORT, &gpio);
+
+#elif defined (STM32F10X)
+
+        /* TX Pin */
+        gpio.GPIO_Pin = UART_TX_PIN;
+        gpio.GPIO_Mode = GPIO_Mode_AF_PP;
+        gpio.GPIO_Speed = GPIO_Speed_50MHz;
+        GPIO_Init(GPIOA, &gpio);
+
+        /* RX Pin */
+        gpio.GPIO_Pin = UART_RX_PIN;
+        gpio.GPIO_Mode = GPIO_Mode_IPU;
+        gpio.GPIO_Speed = GPIO_Speed_50MHz;
+        GPIO_Init(GPIOA, &gpio);
+
+#endif
 
         USART_OverSampling8Cmd(UART_NAME, ENABLE);
 
@@ -1420,7 +1517,7 @@ addstr_P (const char * str)
     }
 }
 
-#if defined(unix) || defined(STM32F4XX)
+#if defined(unix) || defined(STM32F4XX) || defined(STM32F10X)
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  *  MCURSES: add formatted string (va_list)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1436,7 +1533,7 @@ vprintw (const char * fmt, va_list ap)
 
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- *  MCURSES: add formatted string (variable numer of arguments)
+ *  MCURSES: add formatted string (variable number of arguments)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void

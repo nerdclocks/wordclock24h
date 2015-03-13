@@ -17,9 +17,10 @@
 #define EEPROM_WAITSTATES       15                              // we have to wait 15ms after each write cycle
 
 uint_fast8_t                    eeprom_is_up = 0;
+volatile uint_fast8_t           eeprom_ms_tick;                 // should be set every 1 ms by IRQ, see main.c
+
 static  uint_fast8_t            eeprom_addr;
 
-static volatile uint_fast8_t    ms_tick;
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * eeprom_waitstates() - wait 15 ms after each write cycle
@@ -32,9 +33,9 @@ eeprom_waitstates (void)
 
     while (1)
     {
-        if (ms_tick)
+        if (eeprom_ms_tick)
         {
-            ms_tick = 0;
+            eeprom_ms_tick = 0;
 
             cnt++;
 
@@ -197,14 +198,4 @@ eeprom_dump (void)
     {
         ;
     }
-}
-
-/*--------------------------------------------------------------------------------------------------------------------------------------
- * this function should be called every 1 msec, see IRQ in main.c
- *--------------------------------------------------------------------------------------------------------------------------------------
- */
-void
-eeprom_ISR (void)
-{
-    ms_tick = 1;
 }

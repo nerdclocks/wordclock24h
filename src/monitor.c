@@ -20,6 +20,7 @@
 #include "eeprom.h"
 #include "ds18xx.h"
 #include "rtc.h"
+#include "ldr.h"
 #include "dsp.h"
 #include "tables.h"
 
@@ -205,6 +206,19 @@ monitor_show_clock (uint_fast8_t mode, uint_fast8_t hour, uint_fast8_t minute, u
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
+ * show brightness
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+monitor_show_brightness (uint_fast8_t brightness)
+{
+    if (mcurses_is_up)
+    {
+        mvprintw (LDR_BRIGHTNESS_LINE, LDR_BRIGHTNESS_COL, "%02u", brightness);
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
  * show mode
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -235,11 +249,23 @@ monitor_show_menu (void)
         //                                           1         2         3         4         5         6         7         8
         //                                  12345678901234567890123456789012345678901234567890123456789012345678901234567890
         mvaddstr (MENU_1_LINE, MENU_1_COL, " h/H: inc/dec hour   m/M: inc/dec min    a/A: inc/dec anim   d/D: inc/dec mode  ");
-        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red    g/G: inc/dec green  b/B: inc/dec blue   p:   power on/off  ");
-        mvaddstr (MENU_3_LINE, MENU_3_COL, " t:   get temp       n: get net time     c:   configure      s:   save          ");
-        mvaddstr (MENU_4_LINE, MENU_4_COL, " e:   eeprom dump    l: logout                                                  ");
+        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red    g/G: inc/dec green  b/B: inc/dec blue     p: power on/off  ");
+        mvaddstr (MENU_3_LINE, MENU_3_COL, "   t: get temp         n: get net time     c: configure        s: save          ");
+        mvaddstr (MENU_4_LINE, MENU_4_COL, "   e: eeprom dump      T: test                                 l: logout        ");
         attrset (A_NORMAL);
     }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * show status of device
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+monitor_show_device_status (uint_fast8_t line, uint_fast8_t column, char * device, char * status)
+{
+    mvaddstr (line,  column, device);
+    mvaddstr (line,  column + 10, status);
+    clrtoeol ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -249,6 +275,9 @@ monitor_show_menu (void)
 void
 monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
 {
+    char * ds18xx_type;
+    char * esp_status;
+
     if (mcurses_is_up)
     {
         if (esp8266_is_online)
@@ -260,11 +289,43 @@ monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
             addstr (esp8266_connection_infop->ipaddress);
             clrtoeol ();
         }
-        mvaddstr (EEPROM_STAT_LINE, EEPROM_STAT_COL, eeprom_is_up    ? "EEPROM  up    " : "EEPROM  off   ");
-        mvaddstr (DS18XX_STAT_LINE, DS18XX_STAT_COL, ds18xx_is_up    ? "DS18xx  up    " : "DS18xx  off   ");
-        mvaddstr (DS3231_STAT_LINE, DS3231_STAT_COL, rtc_is_up       ? "RTC     up    " : "RTC     off   ");
-        mvaddstr (ESP8266_STAT_LINE, ESP8266_STAT_COL, esp8266_is_up ? (esp8266_is_online ? "ESP8266 online" : "ESP8266 up    ") : "ESP8266 off   ");
-        mvaddstr (DCF77_STAT_LINE, DCF77_STAT_COL, dcf77_is_up       ? "DCF77   up    " : "DCF77   off   ");
+
+        if (ds18xx_is_up)
+        {
+            switch (ds18xx_get_family_code())
+            {
+                case DS1822_FAMILY_CODE:    ds18xx_type = "DS1822";     break;
+                case DS18B20_FAMILY_CODE:   ds18xx_type = "DS18B20";    break;
+                default:                    ds18xx_type = "DS18(S)20";  break;
+            }
+        }
+        else
+        {
+            ds18xx_type = "DS18xx";
+        }
+
+        if (esp8266_is_up)
+        {
+            if (esp8266_is_online)
+            {
+                esp_status = "online";
+            }
+            else
+            {
+                esp_status = "up";
+            }
+        }
+        else
+        {
+            esp_status = "off";
+        }
+
+        monitor_show_device_status (EEPROM_STAT_LINE,  EEPROM_STAT_COL,  "EEPROM",    eeprom_is_up  ? "up" : "off");
+        monitor_show_device_status (DS18XX_STAT_LINE,  DS18XX_STAT_COL,  ds18xx_type, ds18xx_is_up  ? "up" : "off");
+        monitor_show_device_status (DS3231_STAT_LINE,  DS3231_STAT_COL,  "RTC",       rtc_is_up     ? "up" : "off");
+        monitor_show_device_status (ESP8266_STAT_LINE, ESP8266_STAT_COL, "ESP8266",   esp_status);
+        monitor_show_device_status (DCF77_STAT_LINE,   DCF77_STAT_COL,   "DCF77",     dcf77_is_up   ? "up" : "off");
+        monitor_show_device_status (LDR_STAT_LINE,     LDR_STAT_COL,     "LDR",       ldr_is_up     ? "up" : "off");
     }
 }
 

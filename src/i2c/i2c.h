@@ -9,10 +9,19 @@
  * (at your option) any later version.
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-#include "stm32f4xx.h"
-#include "stm32f4xx_gpio.h"
-#include "stm32f4xx_rcc.h"
-#include "stm32f4xx_i2c.h"
+#if defined (STM32F10X)
+#  include "stm32f10x.h"
+#  include "stm32f10x_gpio.h"
+#  include "stm32f10x_rcc.h"
+#  include "stm32f10x_i2c.h"
+#define I2C_CHANNEL     I2C1
+#elif defined (STM32F4XX)
+#  include "stm32f4xx.h"
+#  include "stm32f4xx_gpio.h"
+#  include "stm32f4xx_rcc.h"
+#  include "stm32f4xx_i2c.h"
+#define I2C_CHANNEL     I2C3
+#endif
 
 #define I2C_OK                  (0)
 #define I2C_ERROR_NO_FLAG_SB    (-1)

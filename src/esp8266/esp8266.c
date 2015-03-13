@@ -30,9 +30,9 @@
  */
 uint_fast8_t                    esp8266_is_up       = 0;
 uint_fast8_t                    esp8266_is_online   = 0;
+volatile uint_fast8_t           esp8266_ten_ms_tick;            // should be set every 10 msec to 1, see IRQ in main.c
 
 static time_t                   curtime;
-static volatile uint_fast8_t    ten_ms_tick;
 
 #if defined (STM32F407VG)                                       // STM32F4 Discovery Board PD12
 
@@ -58,6 +58,18 @@ static volatile uint_fast8_t    ten_ms_tick;
 #define ESP8266_CH_PD_PORT              GPIOA
 #define ESP8266_CH_PD_PIN               GPIO_Pin_6
 
+#elif defined (STM32F103)
+
+#define ESP8266_RST_PERIPH_CLOCK_CMD    RCC_APB2PeriphClockCmd
+#define ESP8266_RST_PERIPH              RCC_APB2Periph_GPIOA
+#define ESP8266_RST_PORT                GPIOA
+#define ESP8266_RST_PIN                 GPIO_Pin_0
+
+#define ESP8266_CH_PD_PERIPH_CLOCK_CMD  RCC_APB2PeriphClockCmd
+#define ESP8266_CH_PD_PERIPH            RCC_APB2Periph_GPIOA
+#define ESP8266_CH_PD_PORT              GPIOA
+#define ESP8266_CH_PD_PIN               GPIO_Pin_1
+
 #else
 #error STM32 unknown
 #endif
@@ -70,20 +82,30 @@ esp8266_gpio_init (void)
     ESP8266_RST_PERIPH_CLOCK_CMD (ESP8266_RST_PERIPH, ENABLE);      // enable clock for ESP8266 RST
 
     gpio.GPIO_Pin   = ESP8266_RST_PIN;
+    gpio.GPIO_Speed = GPIO_Speed_2MHz;
+
+#if defined (STM32F10X)
+    gpio.GPIO_Mode  = GPIO_Mode_Out_PP;
+#elif defined (STM32F4XX)
     gpio.GPIO_Mode  = GPIO_Mode_OUT;
     gpio.GPIO_OType = GPIO_OType_PP;
     gpio.GPIO_PuPd  = GPIO_PuPd_NOPULL;
-    gpio.GPIO_Speed = GPIO_Speed_50MHz;
+#endif
 
     GPIO_Init(ESP8266_RST_PORT, &gpio);
 
     ESP8266_RST_PERIPH_CLOCK_CMD (ESP8266_CH_PD_PERIPH, ENABLE);    // enable clock for ESP8266 CH_PD
 
     gpio.GPIO_Pin   = ESP8266_CH_PD_PIN;
+    gpio.GPIO_Speed = GPIO_Speed_2MHz;
+
+#if defined (STM32F10X)
+    gpio.GPIO_Mode  = GPIO_Mode_Out_PP;
+#elif defined (STM32F4XX)
     gpio.GPIO_Mode  = GPIO_Mode_OUT;
     gpio.GPIO_OType = GPIO_OType_PP;
     gpio.GPIO_PuPd  = GPIO_PuPd_NOPULL;
-    gpio.GPIO_Speed = GPIO_Speed_50MHz;
+#endif
 
     GPIO_Init(ESP8266_CH_PD_PORT, &gpio);
 
@@ -106,9 +128,9 @@ esp8266_poll (uint8_t * chp, uint_fast16_t ten_ms)
             return 1;
         }
 
-        if (ten_ms_tick)
+        if (esp8266_ten_ms_tick)
         {
-            ten_ms_tick = 0;
+            esp8266_ten_ms_tick = 0;
 
             cnt++;
 
@@ -503,9 +525,9 @@ esp8266_wait (uint_fast16_t ten_ms)
 
     while (1)
     {
-        if (ten_ms_tick)
+        if (esp8266_ten_ms_tick)
         {
-            ten_ms_tick = 0;
+            esp8266_ten_ms_tick = 0;
 
             cnt++;
 
@@ -834,11 +856,11 @@ esp8266_get_time (char * timeserver, time_t * curtime_p)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
- * this function should be called every 10 msec, see IRQ in main.c
+
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 void
 esp8266_ISR (void)
 {
-    ten_ms_tick = 1;
+    esp8266_ten_ms_tick = 1;
 }

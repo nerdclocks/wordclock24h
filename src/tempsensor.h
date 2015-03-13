@@ -13,7 +13,11 @@
 #ifndef TEMPSENSOR_H
 #define TEMPSENSOR_H
 
-#include "stm32f4xx.h"
+#if defined (STM32F10X)
+#  include "stm32f10x.h"
+#elif defined (STM32F4XX)
+#  include "stm32f4xx.h"
+#endif
 
 extern uint_fast8_t             temp_read_temp_index (void);
 extern uint_fast8_t             temp_init (void);

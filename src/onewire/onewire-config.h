@@ -9,14 +9,23 @@
  * (at your option) any later version.
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
-#ifndef _ONEWIRE_CONFIG_H_
-#define _ONEWIRE_CONFIG_H_
+#ifndef ONEWIRE_CONFIG_H
+#define ONEWIRE_CONFIG_H
 
 //-----------------------------------------------------------------------------------------------------------------------------------------------
 // OneWire data pin:
 //-----------------------------------------------------------------------------------------------------------------------------------------------
-#define ONE_WIRE_PIN                GPIO_Pin_2
-#define ONE_WIRE_PORT               GPIOD
-#define ONE_WIRE_CLK                RCC_AHB1Periph_GPIOD
 
+#if defined (STM32F4XX)
+#  define ONE_WIRE_PIN              GPIO_Pin_2
+#  define ONE_WIRE_PORT             GPIOD
+#  define ONE_WIRE_CLK_CMD          RCC_AHB1PeriphClockCmd
+#  define ONE_WIRE_CLK              RCC_AHB1Periph_GPIOD
+#elif defined (STM32F10X)
+#  define ONE_WIRE_PIN              GPIO_Pin_2
+#  define ONE_WIRE_PORT             GPIOD
+#  define ONE_WIRE_CLK_CMD          RCC_APB2PeriphClockCmd
+#  define ONE_WIRE_CLK              RCC_APB2Periph_GPIOD
 #endif
+
+#endif // ONEWIRE_CONFIG_H

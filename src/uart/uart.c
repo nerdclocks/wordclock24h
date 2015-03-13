@@ -2,8 +2,9 @@
  * uart.c - UART routines for STM32F4 Discovery and STM32F401 Nucleo
  *
  * Ports/Pins:
- *  STM32F4 Discovery: USART2, TX=PA2,  RX=PA3
- *  STM32Fx1 Nucleo:   USART6, TX=PA11, RX=PA12
+ *  STM32F4   Discovery:  USART2, TX=PA2,  RX=PA3
+ *  STM32F4x1 Nucleo:     USART6, TX=PA11, RX=PA12
+ *  STM32F103 Mini-Board: UASRT3, TX=PB10, RX=PB11
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -27,11 +28,12 @@
 #define UART_TX_PIN_NUMBER      2
 #define UART_RX_PORT_LETTER     A
 #define UART_RX_PIN_NUMBER      3
-#define UART_AHB_CLOCK_CMD(c,e) RCC_AHB1PeriphClockCmd(c,e)
-#define UART_APB_CLOCK_CMD(c,e) RCC_APB1PeriphClockCmd(c,e)
+#define UART_GPIO_CLOCK_CMD     RCC_AHB1PeriphClockCmd
+#define UART_GPIO               RCC_AHB1Periph_GPIO
 
 #define UART_NAME               USART2
-#define UART_APB_CLOCK_USART    RCC_APB1Periph_USART2
+#define UART_USART_CLOCK_CMD    RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK        RCC_APB1Periph_USART2
 #define UART_GPIO_AF_UART       GPIO_AF_USART2
 #define UART_IRQ_HANDLER        USART2_IRQHandler
 #define UART_IRQ_CHANNEL        USART2_IRQn
@@ -42,27 +44,45 @@
 #define UART_TX_PIN_NUMBER      11
 #define UART_RX_PORT_LETTER     A
 #define UART_RX_PIN_NUMBER      12
-#define UART_AHB_CLOCK_CMD(c,e) RCC_AHB1PeriphClockCmd(c,e)
-#define UART_APB_CLOCK_CMD(c,e) RCC_APB2PeriphClockCmd(c,e)
+#define UART_GPIO_CLOCK_CMD     RCC_AHB1PeriphClockCmd
+#define UART_GPIO               RCC_AHB1Periph_GPIO
 
 #define UART_NAME               USART6
-#define UART_APB_CLOCK_USART    RCC_APB2Periph_USART6
+#define UART_USART_CLOCK_CMD    RCC_APB2PeriphClockCmd
+#define UART_USART_CLOCK        RCC_APB2Periph_USART6
 #define UART_GPIO_AF_UART       GPIO_AF_USART6
 #define UART_IRQ_HANDLER        USART6_IRQHandler
 #define UART_IRQ_CHANNEL        USART6_IRQn
+
+#elif defined (STM32F103)                                       // STM32F103 Mini Development Board TX3 = PB10, RX3 = PB11
+
+#define UART_TX_PORT_LETTER     B
+#define UART_TX_PIN_NUMBER      10
+#define UART_RX_PORT_LETTER     B
+#define UART_RX_PIN_NUMBER      11
+#define UART_GPIO_CLOCK_CMD     RCC_APB2PeriphClockCmd
+#define UART_GPIO               RCC_APB2Periph_GPIO
+
+#define UART_NAME               USART3
+#define UART_USART_CLOCK_CMD    RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK        RCC_APB1Periph_USART3
+#define UART_GPIO_AF_UART       GPIO_AF_USART3
+#define UART_IRQ_HANDLER        USART3_IRQHandler
+#define UART_IRQ_CHANNEL        USART3_IRQn
 
 #else
 #error unknown STM32
 #endif
 
 #define UART_TX_PORT            CONCAT(GPIO, UART_TX_PORT_LETTER)
-#define UART_TX_AHB_CLOCK_PORT  CONCAT(RCC_AHB1Periph_GPIO, UART_TX_PORT_LETTER)
+#define UART_TX_GPIO_CLOCK      CONCAT(UART_GPIO, UART_TX_PORT_LETTER)
 #define UART_TX_PIN             CONCAT(GPIO_Pin_, UART_TX_PIN_NUMBER)
 #define UART_TX_PINSOURCE       CONCAT(GPIO_PinSource,  UART_TX_PIN_NUMBER)
 #define UART_RX_PORT            CONCAT(GPIO, UART_RX_PORT_LETTER)
-#define UART_RX_AHB_CLOCK_PORT  CONCAT(RCC_AHB1Periph_GPIO, UART_RX_PORT_LETTER)
+#define UART_RX_GPIO_CLOCK      CONCAT(UART_GPIO, UART_RX_PORT_LETTER)
 #define UART_RX_PIN             CONCAT(GPIO_Pin_, UART_RX_PIN_NUMBER)
 #define UART_RX_PINSOURCE       CONCAT(GPIO_PinSource, UART_RX_PIN_NUMBER)
+
 
 static volatile uint8_t         uart_txbuf[UART_TXBUFLEN];      // tx ringbuffer
 static volatile uint_fast8_t    uart_txsize = 0;                // tx size
@@ -81,12 +101,13 @@ uart_init (uint32_t baudrate)
     USART_InitTypeDef   uart;
     NVIC_InitTypeDef    nvic;
 
-    UART_AHB_CLOCK_CMD (UART_TX_AHB_CLOCK_PORT, ENABLE);
-    UART_AHB_CLOCK_CMD (UART_RX_AHB_CLOCK_PORT, ENABLE);
+    UART_GPIO_CLOCK_CMD (UART_TX_GPIO_CLOCK, ENABLE);
+    UART_GPIO_CLOCK_CMD (UART_RX_GPIO_CLOCK, ENABLE);
 
-    UART_APB_CLOCK_CMD (UART_APB_CLOCK_USART, ENABLE);
+    UART_USART_CLOCK_CMD (UART_USART_CLOCK, ENABLE);
 
     // connect UART functions with IO-Pins
+#if defined (STM32F4XX)
     GPIO_PinAFConfig (UART_TX_PORT, UART_TX_PINSOURCE, UART_GPIO_AF_UART);      // TX
     GPIO_PinAFConfig (UART_RX_PORT, UART_RX_PINSOURCE, UART_GPIO_AF_UART);      // RX
 
@@ -101,6 +122,22 @@ uart_init (uint32_t baudrate)
 
     gpio.GPIO_Pin = UART_RX_PIN;
     GPIO_Init(UART_RX_PORT, &gpio);
+
+#elif defined (STM32F10X)
+
+  /* TX Pin */
+  gpio.GPIO_Pin = UART_TX_PIN;
+  gpio.GPIO_Mode = GPIO_Mode_AF_PP;
+  gpio.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init(GPIOA, &gpio);
+
+  /* RX Pin */
+  gpio.GPIO_Pin = UART_RX_PIN;
+  gpio.GPIO_Mode = GPIO_Mode_IPU;
+  gpio.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init(GPIOA, &gpio);
+
+#endif
 
     USART_OverSampling8Cmd(UART_NAME, ENABLE);
 

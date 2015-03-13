@@ -9,10 +9,18 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
-#include "stm32f4xx.h"
-#include "stm32f4xx_gpio.h"
-#include "stm32f4xx_usart.h"
-#include "stm32f4xx_rcc.h"
+#if defined (STM32F10X)
+#  include "stm32f10x.h"
+#  include "stm32f10x_gpio.h"
+#  include "stm32f10x_usart.h"
+#  include "stm32f10x_rcc.h"
+#elif defined (STM32F4XX)
+#  include "stm32f4xx.h"
+#  include "stm32f4xx_gpio.h"
+#  include "stm32f4xx_usart.h"
+#  include "stm32f4xx_rcc.h"
+#endif
+
 #include "misc.h"
 
 extern void             uart_init (uint32_t);

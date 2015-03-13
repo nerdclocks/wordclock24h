@@ -12,10 +12,18 @@
 #ifndef _ONEWIRE_H_
 #define _ONEWIRE_H_
 
+#if defined (STM32F1XX)
+#include "stm32f10x.h"
+#include "stm32f10x_gpio.h"
+#include "stm32f10x_rcc.h"
+#include "stm32f10x_tim.h"
+#elif defined (STM32F4XX)
 #include "stm32f4xx.h"
 #include "stm32f4xx_gpio.h"
 #include "stm32f4xx_rcc.h"
 #include "stm32f4xx_tim.h"
+#endif
+
 #include "misc.h"
 #include <string.h>
 

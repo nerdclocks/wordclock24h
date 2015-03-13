@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * button.h - declaration of user button functions (STM32F4 Discovery)
+ * button.h - declaration of user button functions (STM32F4 Discovery / STM32F4xx Nucleo / STM32F103)
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -12,10 +12,15 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
-#include <stdint.h>
-#include "stm32f4xx.h"
-#include "stm32f4xx_gpio.h"
-#include "stm32f4xx_rcc.h"
+#ifdef STM32F10X
+#  include "stm32f10x.h"
+#  include "stm32f10x_gpio.h"
+#  include "stm32f10x_rcc.h"
+#elif defined STM32F4XX
+#  include "stm32f4xx.h"
+#  include "stm32f4xx_gpio.h"
+#  include "stm32f4xx_rcc.h"
+#endif
 
 extern void         button_init (void);
 extern uint_fast8_t button_pressed (void);

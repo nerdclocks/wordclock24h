@@ -13,8 +13,13 @@
 #include "onewire-config.h"
 #include "delay.h"
 
-#define DATA_LOW                    ONE_WIRE_PORT->BSRRH = ONE_WIRE_PIN
-#define DATA_HIGH                   ONE_WIRE_PORT->BSRRL = ONE_WIRE_PIN
+#if defined (STM32F4XX)
+#  define DATA_LOW                  ONE_WIRE_PORT->BSRRH = ONE_WIRE_PIN
+#  define DATA_HIGH                 ONE_WIRE_PORT->BSRRL = ONE_WIRE_PIN
+#elif defined (STM32F10X)
+#  define DATA_LOW                  GPIO_WriteBit(ONE_WIRE_PORT, ONE_WIRE_PIN, RESET)
+#  define DATA_HIGH                 GPIO_WriteBit(ONE_WIRE_PORT, ONE_WIRE_PIN, SET)
+#endif
 
 static uint32_t
 onewire_get_time_of_low_pulse (uint32_t timeout)
@@ -235,18 +240,20 @@ onewire_init (void)
 
     already_called = 1;
 
-    // initialize GPIO
-    RCC_AHB1PeriphClockCmd(ONE_WIRE_CLK, ENABLE);                       // clock enable
-
-    // Configure as OpenDrain
+    ONE_WIRE_CLK_CMD (ONE_WIRE_CLK, ENABLE);                        // clock enable
     gpio.GPIO_Pin       = ONE_WIRE_PIN;
+
+#if defined (STM32F4XX)
     gpio.GPIO_Mode      = GPIO_Mode_OUT;
-    gpio.GPIO_OType     = GPIO_OType_OD;
+    gpio.GPIO_OType     = GPIO_OType_OD;                            // configure as OpenDrain
     gpio.GPIO_PuPd      = GPIO_PuPd_UP;
+#elif defined (STM32F10X)
+    gpio.GPIO_Mode      = GPIO_Mode_Out_OD;                         // configure as OpenDrain
+#endif
+
     gpio.GPIO_Speed     = GPIO_Speed_50MHz;
+
     GPIO_Init (ONE_WIRE_PORT, &gpio);
 
     DATA_HIGH;
-
-    delay_init (DELAY_RESOLUTION_1_US);
 }

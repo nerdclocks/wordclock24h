@@ -24,10 +24,6 @@
 #include "eeprom.h"
 #include "eeprom-data.h"
 
-#define DS1820_FAMILY_CODE          0x10
-#define DS1822_FAMILY_CODE          0x22
-#define DS18B20_FAMILY_CODE         0x28
-
 #define ONEWIRE_CONVERT_CMD         0x44                                        // start temperature conversion
 #define ONEWIRE_RD_SCRATCH_CMD      0xBE                                        // read temperature
 #define ONEWIRE_WR_SCRATCH_CMD      0x4E                                        // write configuration register
@@ -243,6 +239,19 @@ ds18xx_read_temp (float * temperature_p)
     }
 
     return rtc;
+}
+
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+ * ds18xx_get_family_code () - get family code of DS18xx
+ *
+ * Return values:
+ *
+ *-----------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+ds18xx_get_family_code (void)
+{
+    return family_code;
 }
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------

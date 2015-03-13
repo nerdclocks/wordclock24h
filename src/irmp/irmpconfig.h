@@ -129,8 +129,11 @@
 #elif defined (STM32F401RE) || defined (STM32F411RE)                    // STM32F401/STM32F411 Nucleo Board: we use C10
 #  define IRMP_PORT_LETTER                      C
 #  define IRMP_BIT_NUMBER                       10
+#elif defined (STM32F103)
+#  define IRMP_PORT_LETTER                      C
+#  define IRMP_BIT_NUMBER                       10
 #else
-#error unknown STM32
+#  error unknown STM32
 #endif
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------

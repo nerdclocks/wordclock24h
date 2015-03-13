@@ -9,8 +9,13 @@
  * (at your option) any later version.
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
+#if defined (STM32F10X)
+#include "stm32f10x.h"
+#include "stm32f10x_rcc.h"
+#elif defined (STM32F4XX)
 #include "stm32f4xx.h"
 #include "stm32f4xx_rcc.h"
+#endif
 
 #define DELAY_RESOLUTION_1_US           1
 #define DELAY_RESOLUTION_10_US          2
