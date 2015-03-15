@@ -1664,6 +1664,7 @@ dsp_read_config_from_eeprom (void)
             current_colors.red      = packed_rgb_color.red;
             current_colors.green    = packed_rgb_color.green;
             current_colors.blue     = packed_rgb_color.blue;
+            dsp_calc_dimmed_colors ();
             display_mode            = display_mode8;
             animation_mode          = animation_mode8;
 
