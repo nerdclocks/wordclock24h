@@ -230,12 +230,16 @@ TIM2_IRQHandler (void)
     {                                                               // no short version, run all
         (void) irmp_ISR ();                                         // call irmp ISR
 
-        ldr_cnt++;
 
-        if (ldr_cnt == F_INTERRUPTS / 4)                            // start LDR conversion every 1/4 seconds
+        if (uptime > 1)
         {
-            ldr_conversion_flag = 1;
-            ldr_cnt = 0;
+            ldr_cnt++;
+
+            if (ldr_cnt == F_INTERRUPTS / 4)                      // start LDR conversion every 1/4 seconds
+            {
+                ldr_conversion_flag = 1;
+                ldr_cnt = 0;
+            }
         }
 
         animation_cnt++;
@@ -903,6 +907,11 @@ main ()
                         else if (ch == '2')
                         {
                             ldr_configure (next_line);
+
+                            if (! ldr_is_up)
+                            {
+                                dsp_set_brightness (MAX_BRIGHTNESS);
+                            }
                         }
 
                         repaint_screen ();

@@ -169,7 +169,7 @@ dsp_set_led0 (uint_fast8_t r_flag, uint_fast8_t g_flag, uint_fast8_t b_flag)
  * set LED to RGB
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-static uint_fast8_t    brightness = 15;
+static uint_fast8_t    brightness = MAX_BRIGHTNESS;
 
 static void
 dsp_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
@@ -1412,33 +1412,40 @@ dsp_decrement_animation_mode (void)
 static void
 dsp_calc_dimmed_colors ()
 {
+    static uint8_t  b[16] = { 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15};
     uint_fast8_t    factor;
 
-    factor = (brightness & 0x0F);
-
-    dimmed_colors.red = (current_colors.red * factor) / 15;
-
-    if (current_colors.red > 0 && dimmed_colors.red == 0)
+    if (brightness == MAX_BRIGHTNESS)
     {
-        dimmed_colors.red = 1;
+        dimmed_colors.red   = current_colors.red;
+        dimmed_colors.green = current_colors.green;
+        dimmed_colors.blue  = current_colors.blue;
     }
-
-    dimmed_colors.green = (current_colors.green * factor) / 15;
-
-    if (current_colors.green > 0 && dimmed_colors.green == 0)
+    else
     {
-        dimmed_colors.green = 1;
+        factor = b[brightness];
+
+        dimmed_colors.red = (current_colors.red * factor) / MAX_BRIGHTNESS;
+
+        if (current_colors.red > 0 && dimmed_colors.red == 0)
+        {
+            dimmed_colors.red = 1;
+        }
+
+        dimmed_colors.green = (current_colors.green * factor) / MAX_BRIGHTNESS;
+
+        if (current_colors.green > 0 && dimmed_colors.green == 0)
+        {
+            dimmed_colors.green = 1;
+        }
+
+        dimmed_colors.blue = (current_colors.blue * factor) / MAX_BRIGHTNESS;
+
+        if (current_colors.blue > 0 && dimmed_colors.blue == 0)
+        {
+            dimmed_colors.blue = 1;
+        }
     }
-
-
-    dimmed_colors.blue = (current_colors.blue * factor) / 15;
-
-    if (current_colors.blue > 0 && dimmed_colors.blue == 0)
-    {
-        dimmed_colors.blue = 1;
-    }
-
-
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -1584,8 +1591,8 @@ dsp_set_colors  (DSP_COLORS * rgb)
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * set brightness
- *  15 = full brightness
- *   0 = low brigtness
+ *  MAX_BRIGHTNESS  = full brightness
+ *   0              = lowest brightness
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void

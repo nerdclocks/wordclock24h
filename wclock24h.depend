@@ -251,7 +251,7 @@
 	"stm32f4xx_gpio.h"
 	"stm32f4xx_rcc.h"
 
-1426266744 source:c:\emblocksprojects\wclock24h\src\dsp.c
+1426343302 source:c:\emblocksprojects\wclock24h\src\dsp.c
 	<string.h>
 	<stdio.h>
 	<stdlib.h>
@@ -284,7 +284,7 @@
 1423143713 c:\emblocksprojects\wclock24h\src\tables.h
 	<stdint.h>
 
-1426240311 c:\emblocksprojects\wclock24h\src\dsp.h
+1426342910 c:\emblocksprojects\wclock24h\src\dsp.h
 
 1426156710 c:\emblocksprojects\wclock24h\src\ws2812\ws2812.h
 	"stm32f10x.h"
@@ -370,7 +370,7 @@
 
 1410773381 c:\emblocksprojects\wclock24h\src\irmp\irsndconfig.h
 
-1426266782 source:c:\emblocksprojects\wclock24h\src\main.c
+1426344374 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -666,7 +666,7 @@
 1426174054 source:c:\emblocksprojects\wclock24h\src\uart\uart.c
 	"uart.h"
 
-1426258426 source:c:\emblocksprojects\wclock24h\src\monitor.c
+1426270281 source:c:\emblocksprojects\wclock24h\src\monitor.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -682,7 +682,7 @@
 	"dsp.h"
 	"tables.h"
 
-1426182041 c:\emblocksprojects\wclock24h\src\monitor.h
+1426270281 c:\emblocksprojects\wclock24h\src\monitor.h
 	"esp8266.h"
 
 1426090067 c:\emblocksprojects\wclock24h\src\eeprom-data.h
@@ -799,7 +799,7 @@
 
 1425919998 c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx-config.h
 
-1426179886 source:c:\emblocksprojects\wclock24h\src\adc\adc.c
+1426344881 source:c:\emblocksprojects\wclock24h\src\adc\adc.c
 	"adc.h"
 	"adc-config.h"
 
@@ -815,7 +815,7 @@
 
 1426164927 c:\emblocksprojects\wclock24h\src\adc\adc-config.h
 
-1426191769 source:c:\emblocksprojects\wclock24h\src\ldr.c
+1426326371 source:c:\emblocksprojects\wclock24h\src\ldr.c
 	"mcurses.h"
 	"adc.h"
 	"ldr.h"

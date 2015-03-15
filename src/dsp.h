@@ -12,6 +12,8 @@
 #ifndef DSP_H
 #define DSP_H
 
+#define MAX_BRIGHTNESS  15
+
 typedef struct
 {
     uint8_t red;

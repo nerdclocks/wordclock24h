@@ -53,12 +53,12 @@
 #define LDR_BRIGHTNESS_LINE LDR_STAT_LINE
 #define TIM_TIME_LINE       11
 
-#define TEMP_DEGREE_COL     40
-#define RTC_TIME_COL        40
-#define NET_TIME_COL        40
-#define DCF_TIME_COL        40
-#define TIM_TIME_COL        40
-#define LDR_BRIGHTNESS_COL  40
+#define TEMP_DEGREE_COL     42
+#define RTC_TIME_COL        42
+#define NET_TIME_COL        42
+#define DCF_TIME_COL        42
+#define TIM_TIME_COL        42
+#define LDR_BRIGHTNESS_COL  42
 
 #define ANIMATION_MODE_COL  0
 #define DISPLAY_MODE_COL    0

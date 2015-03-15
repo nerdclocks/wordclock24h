@@ -57,20 +57,20 @@ ldr_poll_brightness  (uint_fast8_t * brightness_p)
 static uint_fast8_t
 ldr_read_data_from_eeprom (void)
 {
-    uint_fast8_t    rtc = 0;
     uint8_t         tmp_use_ldr;
 
-    if (eeprom_is_up && eeprom_read (EEPROM_DATA_OFFSET_USE_LDR, &tmp_use_ldr, EEPROM_DATA_SIZE_USE_LDR))
+    if (eeprom_is_up &&
+        eeprom_read (EEPROM_DATA_OFFSET_USE_LDR, &tmp_use_ldr, EEPROM_DATA_SIZE_USE_LDR) &&
+        tmp_use_ldr == 0x01)                                            // 0xFF means off
     {
-        use_ldr = tmp_use_ldr;
-        rtc = 1;
+        use_ldr = 1;
     }
     else
     {
         use_ldr = 0;
     }
 
-    return rtc;
+    return use_ldr;
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
