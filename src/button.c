@@ -46,6 +46,7 @@ button_init (void)
 {
     GPIO_InitTypeDef gpio;
 
+    GPIO_StructInit (&gpio);
     BUTTON_PERIPH_CLOCK_CMD (BUTTON_PERIPH, ENABLE);
 
     gpio.GPIO_Pin = BUTTON_PIN;

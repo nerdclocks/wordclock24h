@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * i2c.c - I2C routines using I2C3 on STM32F4 Discovery Board
+ * i2c.c - I2C routines using I2C3 on STM32F4x1 Nucleo Board
  *
- * Ports/Pins:
+ * Ports/Pins STM32F4x1 Nucleo Board:
  *   SCL: PA8
  *   SDA: PC9
  *
@@ -26,6 +26,8 @@ static void
 i2c_init_i2c (void)
 {
   I2C_InitTypeDef  i2c;
+
+  I2C_StructInit (&i2c);
 
   i2c.I2C_Mode                  = I2C_Mode_I2C;
   i2c.I2C_DutyCycle             = I2C_DutyCycle_2;
@@ -176,6 +178,8 @@ i2c_init (void)
     }
 
     already_called = 1;
+
+    GPIO_StructInit (&gpio);
 
 #if defined (STM32F4XX)
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C3, ENABLE);

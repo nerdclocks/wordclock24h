@@ -20,6 +20,8 @@
 typedef union
 {
     uint_fast8_t    mode;
+    uint_fast8_t    brightness;
+    uint_fast8_t    automatic_brightness_control;
     DSP_COLORS      rgb;
     struct tm       tm;
     uint_fast8_t    power;

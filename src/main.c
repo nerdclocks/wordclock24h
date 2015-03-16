@@ -23,38 +23,38 @@
  *
  * Internal devices used:
  *
- *    +-------------------------+---------------------------+
- *    | Device                  | STM32F4x1 Nucleo          |
- *    +-------------------------+---------------------------+
- *    | User button             | GPIO:   PC13              |
- *    | Green LED               | GPIO:   PA5               |
- *    +-------------------------+---------------------------+
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | Device                  | STM32F4x1 Nucleo          | STM32F103C8T6             |
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | User button             | GPIO:   PC13              | GPIO:   PA6               |
+ *    | Green LED               | GPIO:   PA5               | GPIO:   PC13              |
+ *    +-------------------------+---------------------------+---------------------------+
  *
  * External devices:
  *
- *    +-------------------------+---------------------------+
- *    | Device                  | STM32F4x1 Nucleo          |
- *    +-------------------------+---------------------------+
- *    | TSOP31238 (IRMP)        | GPIO:   PC10              |
- *    | DCF77                   | GPIO:   PC11              |
- *    | MCURSES terminal (USB)  | USART2: TX=PA2  RX=PA3    |
- *    | ESP8266 USART           | USART6: TX=PA11 RX=PA12   |
- *    | ESP8266 GPIO            | GPIO:   RST=PA7 CH_PD=PA6 |
- *    | I2C DS3231 & EEPROM     | I2C3:   SCL=PA8 SDA=PC9   |
- *    | WS2812                  | DMA1:   PC6               |
- *    | DS18xx (OneWire)        | GPIO:   PD2               |
- *    | LDR                     | ADC:    ACD1_IN14=PC4     |
- *    +-------------------------+---------------------------+
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | Device                  | STM32F4x1 Nucleo          | STM32F103C8T6             |
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | TSOP31238 (IRMP)        | GPIO:   PC10              | GPIO:   PA7|              |
+ *    | DCF77                   | GPIO:   PC11              | GPIO:   PA4               |
+ *    | MCURSES terminal (USB)  | USART2: TX=PA2  RX=PA3    | USART2: TX=PA2  RX=PA3    |
+ *    | ESP8266 USART           | USART6: TX=PA11 RX=PA12   | USART3: TX=PB10 RX=PB11   |
+ *    | ESP8266 GPIO            | GPIO:   RST=PA7 CH_PD=PA6 | GPIO:   RST=PA0 CH_PD=PA1 |
+ *    | I2C DS3231 & EEPROM     | I2C3:   SCL=PA8 SDA=PC9   | I2C1:   SCL=PB6 SDA=PB7   |
+ *    | WS2812                  | DMA1:   PC6               | DMA1:   PA8               |
+ *    | DS18xx (OneWire)        | GPIO:   PD2               | GPIO:   PA9               |
+ *    | LDR                     | ADC:    ACD1_IN14=PC4     | ADC:    ADC12_IN5=PA5     |
+ *    +-------------------------+---------------------------+---------------------------+
  *
  * Timers:
  *
- *    +-------------------------+---------------------------+
- *    | Device                  | STM32F4x1 Nucleo          |
- *    +-------------------------+---------------------------+
- *    | General (IRMP etc.)     | TIM2                      |
- *    | WS2812                  | TIM3                      |
- *    | DS18xx (OneWire)        | TIM4                      |
- *    +-------------------------+---------------------------+
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | Device                  | STM32F4x1 Nucleo          | STM32F103C8T6             |
+ *    +-------------------------+---------------------------+---------------------------+
+ *    | General (IRMP etc.)     | TIM2                      | TIM2                      |
+ *    | WS2812                  | TIM3                      | TIM1                      |
+ *    | DS18xx (OneWire)        | Systick (see delay.c)     | Systick (see delay.c)     |
+ *    +-------------------------+---------------------------+---------------------------+
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -91,27 +91,28 @@
  * global variables
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-static volatile uint_fast8_t    animation_flag      = 0;        // flag: animate LEDs
-static volatile uint_fast8_t    dcf77_flag          = 0;        // flag: check DCF77 signal
-static volatile uint_fast8_t    ds3231_flag         = 0;        // flag: read date/time from RTC DS3231
-static volatile uint_fast8_t    net_time_flag       = 0;        // flag: read date/time from time server
-static volatile uint_fast8_t    ldr_conversion_flag = 0;        // flag: read LDR value
-static volatile uint_fast8_t    show_time_flag      = 0;        // flag: update time on display
-static volatile uint_fast8_t    short_isr           = 0;        // flag: run TIM2_IRQHandler() in short version
-static volatile uint32_t        uptime              = 0;        // uptime in seconds
+static volatile uint_fast8_t    animation_flag              = 0;        // flag: animate LEDs
+static volatile uint_fast8_t    dcf77_flag                  = 0;        // flag: check DCF77 signal
+static volatile uint_fast8_t    ds3231_flag                 = 0;        // flag: read date/time from RTC DS3231
+static volatile uint_fast8_t    net_time_flag               = 0;        // flag: read date/time from time server
+static volatile uint_fast8_t    ldr_conversion_flag         = 0;        // flag: read LDR value
+static volatile uint_fast8_t    show_time_flag              = 0;        // flag: update time on display
+static volatile uint_fast8_t    short_isr                   = 0;        // flag: run TIM2_IRQHandler() in short version
+static volatile uint32_t        uptime                      = 0;        // uptime in seconds
 
-static ESP8266_CONNECTION_INFO  esp8266_connection_info;        // ESP8266 connection info: SSID & IP address
+static ESP8266_CONNECTION_INFO  esp8266_connection_info;                // ESP8266 connection info: SSID & IP address
+static uint_fast8_t             brightness_control_per_ldr  = 0;        // flag: LDR controls brightness
 
-static uint_fast8_t             display_mode        = 0;        // display mode
-static uint_fast8_t             animation_mode      = 0;        // animation mode
-static volatile uint_fast8_t    hour                = 0;        // current hour
-static volatile uint_fast8_t    minute              = 0;        // current minute
-static volatile uint_fast8_t    second              = 0;        // current second
+static uint_fast8_t             display_mode                = 0;        // display mode
+static uint_fast8_t             animation_mode              = 0;        // animation mode
+static volatile uint_fast8_t    hour                        = 0;        // current hour
+static volatile uint_fast8_t    minute                      = 0;        // current minute
+static volatile uint_fast8_t    second                      = 0;        // current second
 
-static int_fast16_t             hour_night_off      = -1;       // time when clock should be powered off during night
-static int_fast16_t             minute_night_off    = -1;
-static int_fast16_t             hour_night_on       = -1;       // time when clock should be powered on after night
-static int_fast16_t             minute_night_on     = -1;
+static int_fast16_t             hour_night_off              = -1;       // time when clock should be powered off during night
+static int_fast16_t             minute_night_off            = -1;
+static int_fast16_t             hour_night_on               = -1;       // time when clock should be powered on after night
+static int_fast16_t             minute_night_on             = -1;
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * timer definitions:
@@ -159,6 +160,7 @@ timer2_init (void)
     TIM_TimeBaseInitTypeDef     tim;
     NVIC_InitTypeDef            nvic;
 
+    TIM_TimeBaseStructInit (&tim);
     RCC_APB1PeriphClockCmd (RCC_APB1Periph_TIM2, ENABLE);
 
     tim.TIM_ClockDivision   = TIM_CKD_DIV1;
@@ -359,8 +361,11 @@ repaint_screen (void)
 {
     if (mcurses_is_up)
     {
-        monitor_show_screen (display_mode, animation_mode, &esp8266_connection_info);   // show clear screen and LEDs
-        monitor_show_clock (display_mode, hour, minute, second);
+        monitor_show_screen ();                                                     // show clear screen and LEDs
+        monitor_show_modes (display_mode, animation_mode);                          // show current modes
+        monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr); // show current states
+        monitor_show_colors ();                                                     // show colors & brightness
+        monitor_show_clock (display_mode, hour, minute, second);                    // show clock
     }
 }
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -372,14 +377,14 @@ main ()
 {
     struct tm               tm;
     LISTENER_DATA           lis;
-    uint_fast8_t            status_led_cnt      = 0;
-    uint_fast8_t            do_display          = 1;
-    uint_fast8_t            show_temperature    = 0;
-    uint_fast8_t            update_leds_only    = 0;
-    uint_fast8_t            time_changed        = 0;
-    uint_fast8_t            power_is_on         = 1;
-    uint_fast8_t            night_power_is_on   = 1;
-    uint_fast8_t            temperature_index   = 0xFF;
+    uint_fast8_t            status_led_cnt              = 0;
+    uint_fast8_t            do_display                  = 1;
+    uint_fast8_t            show_temperature            = 0;
+    uint_fast8_t            update_leds_only            = 0;
+    uint_fast8_t            time_changed                = 0;
+    uint_fast8_t            power_is_on                 = 1;
+    uint_fast8_t            night_power_is_on           = 1;
+    uint_fast8_t            temperature_index           = 0xFF;
     uint_fast8_t            cmd;
     uint_fast8_t            ldr_value;
     uint8_t                 ch;
@@ -412,7 +417,7 @@ main ()
         }
     }
 
-    ldr_init ();
+    ldr_init ();                                                // initialize LDR (ADC)
     dsp_init ();                                                // initialize display
     dcf77_init ();                                              // initialize DCF77
 
@@ -421,8 +426,9 @@ main ()
     short_isr = 0;
 
     reset_led_states ();
-    display_mode    = dsp_get_display_mode ();
-    animation_mode  = dsp_get_animation_mode ();
+    display_mode                = dsp_get_display_mode ();
+    animation_mode              = dsp_get_animation_mode ();
+    brightness_control_per_ldr  = dsp_get_automatic_brightness_control ();
 
     if (eeprom_is_up)
     {
@@ -450,10 +456,7 @@ main ()
 
     ds3231_flag = 1;
 
-    if (mcurses_is_up)
-    {
-        monitor_show_screen (display_mode, animation_mode, &esp8266_connection_info);   // show clear screen and LEDs
-    }
+    repaint_screen ();
 
     while (1)
     {
@@ -467,7 +470,7 @@ main ()
             }
         }
 
-        if (ldr_is_up && ldr_poll_brightness (&ldr_value))
+        if (ldr_is_up && brightness_control_per_ldr && ldr_poll_brightness (&ldr_value))
         {
             static uint_fast8_t last_ldr_value = 0xFF;
 
@@ -475,7 +478,8 @@ main ()
             {
                 last_ldr_value = ldr_value;
                 dsp_set_brightness (ldr_value);
-                monitor_show_brightness (ldr_value);
+                monitor_show_ldr_value (ldr_value);
+                monitor_show_colors ();
             }
         }
 
@@ -500,7 +504,7 @@ main ()
 
                 if (esp8266_is_up)                                      // now up?
                 {
-                    monitor_show_status (&esp8266_connection_info);
+                    monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                 }
             }
         }
@@ -524,7 +528,7 @@ main ()
                             clrtoeol ();
                         }
 
-                        monitor_show_status (&esp8266_connection_info);
+                        monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                         net_time_flag = 1;
                     }
                 }
@@ -543,6 +547,7 @@ main ()
                         case 'C':                               // set color
                         {
                             dsp_set_colors (&(lis.rgb));
+                            monitor_show_colors ();
                             break;
                         }
 
@@ -559,7 +564,6 @@ main ()
                         }
 
                         case 'D':                               // set display mode
-                        case 'M':                               // M is deprecated
                         {
                             if (display_mode != lis.mode)
                             {
@@ -578,6 +582,38 @@ main ()
                                 monitor_show_modes (display_mode, animation_mode);
                                 do_display = 1;
                             }
+                            break;
+                        }
+
+                        case 'B':                               // set brightness
+                        {
+                            if (brightness_control_per_ldr)
+                            {
+                                brightness_control_per_ldr = 0;
+                                dsp_set_automatic_brightness_control (brightness_control_per_ldr);
+                                monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
+                            }
+                            dsp_set_brightness (lis.brightness);
+                            monitor_show_colors ();
+                            break;
+                        }
+
+                        case 'L':                               // automatic brightness control on/off
+                        {
+                            if (lis.automatic_brightness_control)
+                            {
+                                if (ldr_is_up)
+                                {
+                                    brightness_control_per_ldr = 1;
+                                }
+                            }
+                            else
+                            {
+                                brightness_control_per_ldr = 0;
+                            }
+
+                            dsp_set_automatic_brightness_control (brightness_control_per_ldr);
+                            monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                             break;
                         }
 
@@ -655,7 +691,7 @@ main ()
             ds3231_flag = 0;
         }
 
-        if (ldr_is_up && ldr_conversion_flag)
+        if (ldr_is_up && brightness_control_per_ldr && ldr_conversion_flag)
         {
             ldr_start_conversion ();
             ldr_conversion_flag = 0;
@@ -828,8 +864,9 @@ main ()
                     case CMD_INCREMENT_BRIGHTNESS_GREEN:    addstr ("IRMP: increment green brightness");    break;
                     case CMD_DECREMENT_BRIGHTNESS_BLUE:     addstr ("IRMP: decrement blue brightness");     break;
                     case CMD_INCREMENT_BRIGHTNESS_BLUE:     addstr ("IRMP: increment blue brightness");     break;
+                    case CMD_DECREMENT_BRIGHTNESS:          addstr ("IRMP: decrement brightness");          break;
+                    case CMD_INCREMENT_BRIGHTNESS:          addstr ("IRMP: increment brightness");          break;
                     case CMD_GET_TEMPERATURE:               addstr ("IRMP: get temperature");               break;
-                    case CMD_GET_NET_TIME:                  addstr ("IRMP: get net time");                  break;
                 }
 
                 clrtoeol ();
@@ -856,8 +893,10 @@ main ()
                     case 'g':   cmd = CMD_INCREMENT_BRIGHTNESS_GREEN;   break;
                     case 'B':   cmd = CMD_DECREMENT_BRIGHTNESS_BLUE;    break;
                     case 'b':   cmd = CMD_INCREMENT_BRIGHTNESS_BLUE;    break;
+                    case 'W':   cmd = CMD_DECREMENT_BRIGHTNESS;         break;
+                    case 'w':   cmd = CMD_INCREMENT_BRIGHTNESS;         break;
+                    case 'q':   cmd = CMD_AUTO_BRIGHTNESS_CONTROL;      break;
                     case 't':   cmd = CMD_GET_TEMPERATURE;              break;
-                    case 'n':   cmd = CMD_GET_NET_TIME;                 break;
 
                     case 'l':
                     {
@@ -910,7 +949,11 @@ main ()
 
                             if (! ldr_is_up)
                             {
+                                brightness_control_per_ldr = 1;
+                                dsp_set_automatic_brightness_control (brightness_control_per_ldr);
+                                monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                                 dsp_set_brightness (MAX_BRIGHTNESS);
+                                monitor_show_colors ();
                             }
                         }
 
@@ -925,10 +968,20 @@ main ()
                         break;
 
                     }
+
                     case 'C':
                     {
                         timeserver_cmd ();
                         repaint_screen ();
+                        break;
+                    }
+
+                    case 'n':                                                   // get net time
+                    {
+                        if (esp8266_is_online)
+                        {
+                            net_time_flag = 1;
+                        }
                         break;
                     }
 
@@ -1065,6 +1118,7 @@ main ()
                 dsp_decrement_color_red ();
                 do_display          = 1;
                 update_leds_only    = 1;
+                monitor_show_colors ();
                 break;
             }
 
@@ -1073,6 +1127,7 @@ main ()
                 dsp_increment_color_red ();
                 do_display          = 1;
                 update_leds_only    = 1;
+                monitor_show_colors ();
                 break;
             }
 
@@ -1081,6 +1136,7 @@ main ()
                 dsp_decrement_color_green ();
                 do_display          = 1;
                 update_leds_only    = 1;
+                monitor_show_colors ();
                 break;
             }
 
@@ -1089,6 +1145,7 @@ main ()
                 dsp_increment_color_green ();
                 do_display          = 1;
                 update_leds_only    = 1;
+                monitor_show_colors ();
                 break;
             }
 
@@ -1097,6 +1154,7 @@ main ()
                 dsp_decrement_color_blue ();
                 do_display          = 1;
                 update_leds_only    = 1;
+                monitor_show_colors ();
                 break;
             }
 
@@ -1105,21 +1163,54 @@ main ()
                 dsp_increment_color_blue ();
                 do_display          = 1;
                 update_leds_only    = 1;
+                monitor_show_colors ();
+                break;
+            }
+
+            case CMD_AUTO_BRIGHTNESS_CONTROL:
+            {
+                if (brightness_control_per_ldr)
+                {
+                    brightness_control_per_ldr = 0;
+                }
+                else if (ldr_is_up)
+                {
+                    brightness_control_per_ldr = 1;
+                }
+                dsp_set_automatic_brightness_control (brightness_control_per_ldr);
+                monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
+                break;
+            }
+
+            case CMD_DECREMENT_BRIGHTNESS:                      // decrement brightness
+            {
+                if (brightness_control_per_ldr)
+                {
+                    brightness_control_per_ldr = 0;
+                    dsp_set_automatic_brightness_control (brightness_control_per_ldr);
+                    monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
+                }
+                dsp_decrement_brightness ();
+                monitor_show_colors ();
+                break;
+            }
+
+            case CMD_INCREMENT_BRIGHTNESS:                      // increment brightness
+            {
+                if (brightness_control_per_ldr)
+                {
+                    brightness_control_per_ldr = 0;
+                    dsp_set_automatic_brightness_control (brightness_control_per_ldr);
+                    monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
+                }
+                dsp_increment_brightness ();
+                monitor_show_colors ();
                 break;
             }
 
             case CMD_GET_TEMPERATURE:                           // get net time
             {
                 show_temperature    = 1;
-                break;
-            }
-
-            case CMD_GET_NET_TIME:                              // get net time
-            {
-                if (esp8266_is_online)
-                {
-                    net_time_flag = 1;
-                }
                 break;
             }
 

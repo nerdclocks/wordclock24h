@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * dsp.c - routines for LED display
+ * dsp.c - routines for LED display 16x18
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -21,6 +21,7 @@
 #include "eeprom.h"
 #include "eeprom-data.h"
 #include "delay.h"
+#include "ldr.h"
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -116,6 +117,9 @@ static uint_fast8_t                 display_mode;
 static DSP_COLORS                   dimmed_colors_up;
 static DSP_COLORS                   dimmed_colors_down;
 
+static uint_fast8_t                 brightness = MAX_BRIGHTNESS;
+static uint_fast8_t                 automatic_brightness_control = 0;
+
 #define CURRENT_STATE               0x01
 #define TARGET_STATE                0x02
 #define NEW_STATE                   0x04
@@ -169,8 +173,6 @@ dsp_set_led0 (uint_fast8_t r_flag, uint_fast8_t g_flag, uint_fast8_t b_flag)
  * set LED to RGB
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-static uint_fast8_t    brightness = MAX_BRIGHTNESS;
-
 static void
 dsp_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
 {
@@ -1344,6 +1346,26 @@ dsp_decrement_display_mode (void)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
+ * get automatic brightness control flag
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+dsp_get_automatic_brightness_control (void)
+{
+    return automatic_brightness_control;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * set automatic brightness control flag
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+dsp_set_automatic_brightness_control (uint_fast8_t new_automatic_brightness_control)
+{
+    automatic_brightness_control = new_automatic_brightness_control;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
  * get animation mode
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -1575,11 +1597,23 @@ dsp_decrement_color_blue (void)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
+ * get colors
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+dsp_get_colors (DSP_COLORS * rgb)
+{
+    rgb->red    = current_colors.red;
+    rgb->green  = current_colors.green;
+    rgb->blue   = current_colors.blue;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
  * set colors
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_set_colors  (DSP_COLORS * rgb)
+dsp_set_colors (DSP_COLORS * rgb)
 {
     current_colors.red      = (rgb->red < MAX_COLOR_STEPS)   ? rgb->red : MAX_COLOR_STEPS;
     current_colors.green    = (rgb->green < MAX_COLOR_STEPS) ? rgb->green : MAX_COLOR_STEPS;
@@ -1590,18 +1624,65 @@ dsp_set_colors  (DSP_COLORS * rgb)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
+ * get brightness
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+dsp_get_brightness (void)
+{
+    return brightness;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
  * set brightness
  *  MAX_BRIGHTNESS  = full brightness
  *   0              = lowest brightness
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-dsp_set_brightness  (uint_fast8_t new_brightness)
+dsp_set_brightness (uint_fast8_t new_brightness)
 {
-    brightness = new_brightness;
+    if (new_brightness > MAX_BRIGHTNESS)
+    {
+        brightness = MAX_BRIGHTNESS;
+    }
+    else
+    {
+        brightness = new_brightness;
+    }
 
     dsp_calc_dimmed_colors ();
     dsp_animation_flush ();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * decrement brightness
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+dsp_decrement_brightness (void)
+{
+    if (brightness > 0)
+    {
+        brightness--;
+        dsp_calc_dimmed_colors ();
+        dsp_animation_flush ();
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * increment brightness
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+dsp_increment_brightness (void)
+{
+    if (brightness < MAX_BRIGHTNESS - 1)
+    {
+        brightness++;
+        dsp_calc_dimmed_colors ();
+        dsp_animation_flush ();
+    }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -1629,6 +1710,7 @@ dsp_test (void)
         ws2812_refresh ();
         delay_sec (3);
     }
+
     dsp_animation_flush ();
     dsp_set_led0 (0, 0, 0);
 }
@@ -1644,12 +1726,16 @@ dsp_read_config_from_eeprom (void)
     PACKED_DSP_COLORS       packed_rgb_color;
     uint8_t                 display_mode8;
     uint8_t                 animation_mode8;
+    uint8_t                 brightness8;
+    uint8_t                 automatic_brightness_control8;
 
     if (eeprom_is_up)
     {
         if (eeprom_read (EEPROM_DATA_OFFSET_DSP_COLORS, (uint8_t *) &packed_rgb_color, sizeof(PACKED_DSP_COLORS)) &&
             eeprom_read (EEPROM_DATA_OFFSET_DISPLAY_MODE, &display_mode8, sizeof(display_mode8)) &&
-            eeprom_read (EEPROM_DATA_OFFSET_ANIMATION_MODE, &animation_mode8, sizeof(animation_mode8)))
+            eeprom_read (EEPROM_DATA_OFFSET_ANIMATION_MODE, &animation_mode8, sizeof(animation_mode8)) &&
+            eeprom_read (EEPROM_DATA_OFFSET_BRIGHTNESS, &brightness8, EEPROM_DATA_SIZE_BRIGHTNESS) &&
+            eeprom_read (EEPROM_DATA_OFFSET_AUTO_BRIGHTNESS, &automatic_brightness_control8, EEPROM_DATA_SIZE_AUTO_BRIGHTNESS))
         {
             if (display_mode8 >= MODES_COUNT)
             {
@@ -1661,12 +1747,25 @@ dsp_read_config_from_eeprom (void)
                 animation_mode8 = 0;
             }
 
-            current_colors.red      = packed_rgb_color.red;
-            current_colors.green    = packed_rgb_color.green;
-            current_colors.blue     = packed_rgb_color.blue;
+            if (brightness8 > MAX_BRIGHTNESS)
+            {
+                brightness8 = MAX_BRIGHTNESS;
+            }
+
+            if (automatic_brightness_control8 != 0x01)        // only 0x00 or 0x01 allowed, 0xFF means empty EEPROM
+            {
+                automatic_brightness_control8 = 0;
+            }
+
+            current_colors.red              = packed_rgb_color.red;
+            current_colors.green            = packed_rgb_color.green;
+            current_colors.blue             = packed_rgb_color.blue;
+            display_mode                    = display_mode8;
+            animation_mode                  = animation_mode8;
+            brightness                      = brightness8;
+            automatic_brightness_control    = automatic_brightness_control8;
+
             dsp_calc_dimmed_colors ();
-            display_mode            = display_mode8;
-            animation_mode          = animation_mode8;
 
             rtc = 1;
         }
@@ -1686,19 +1785,26 @@ dsp_write_config_to_eeprom (void)
     PACKED_DSP_COLORS       packed_rgb_color;
     uint8_t                 display_mode8;
     uint8_t                 animation_mode8;
+    uint8_t                 brightness8;
+    uint8_t                 automatic_brightness_control8;
 
-    packed_rgb_color.red   = current_colors.red;
-    packed_rgb_color.green = current_colors.green;
-    packed_rgb_color.blue  = current_colors.blue;
+    packed_rgb_color.red            = current_colors.red;
+    packed_rgb_color.green          = current_colors.green;
+    packed_rgb_color.blue           = current_colors.blue;
 
-    display_mode8               = display_mode;
-    animation_mode8             = animation_mode;
+    display_mode8                   = display_mode;
+    animation_mode8                 = animation_mode;
+    brightness8                     = brightness;
+    automatic_brightness_control8   = automatic_brightness_control;
 
     if (eeprom_is_up)
     {
         if (eeprom_write (EEPROM_DATA_OFFSET_DSP_COLORS, (uint8_t *) &packed_rgb_color, sizeof(PACKED_DSP_COLORS)) &&
             eeprom_write (EEPROM_DATA_OFFSET_DISPLAY_MODE, &display_mode8, sizeof(display_mode8)) &&
-            eeprom_write (EEPROM_DATA_OFFSET_ANIMATION_MODE, &animation_mode8, sizeof(animation_mode8)))
+            eeprom_write (EEPROM_DATA_OFFSET_ANIMATION_MODE, &animation_mode8, sizeof(animation_mode8)) &&
+            eeprom_write (EEPROM_DATA_OFFSET_BRIGHTNESS, &brightness8, EEPROM_DATA_SIZE_BRIGHTNESS) &&
+            eeprom_write (EEPROM_DATA_OFFSET_AUTO_BRIGHTNESS, &automatic_brightness_control8, EEPROM_DATA_SIZE_AUTO_BRIGHTNESS))
+
         {
             rtc = 1;
         }

@@ -28,6 +28,9 @@ adc_init (void)
     GPIO_InitTypeDef        gpio;
     ADC_InitTypeDef         adc_init;
 
+    GPIO_StructInit (&gpio);
+    ADC_StructInit (&adc_init);
+
     if (!already_called)
     {
 #if defined (STM32F10X)
@@ -35,6 +38,7 @@ adc_init (void)
 #endif
 
         ADC_GPIO_CLOCK_CMD (ADC_GPIO_CLOCK, ENABLE);
+
         gpio.GPIO_Pin   = ADC_PIN;                                                  // configure pin as Analog input
 
 #if defined (STM32F4XX)
@@ -55,14 +59,14 @@ adc_init (void)
 #if defined (STM32F4XX)
         ADC_CommonInitTypeDef adc_common;
 
+        ADC_CommonStructInit (&adc_common);
+
         // configure ADC:
         adc_common.ADC_Mode                 = ADC_Mode_Independent;
         adc_common.ADC_Prescaler            = ADC_PRESCALER;
         adc_common.ADC_DMAAccessMode        = ADC_DMAAccessMode_Disabled;
         adc_common.ADC_TwoSamplingDelay     = ADC_TwoSamplingDelay_5Cycles;
         ADC_CommonInit(&adc_common);
-
-        ADC_StructInit(&adc_init);          // initialize struct
 
         adc_init.ADC_Resolution             = ADC_Resolution_12b;
         adc_init.ADC_ScanConvMode           = DISABLE;

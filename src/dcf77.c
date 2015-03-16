@@ -52,6 +52,7 @@ void dcf77_init (void)
 {
     GPIO_InitTypeDef gpio;
 
+    GPIO_StructInit (&gpio);
     DCF77_PERIPH_CLOCK_CMD (DCF77_PERIPH, ENABLE);
 
     gpio.GPIO_Pin   = DCF77_PIN;

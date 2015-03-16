@@ -26,9 +26,6 @@
 #define pgm_read_byte(s)                        (*s)
 
 #elif (defined STM32F4XX)
-#ifndef HSE_VALUE
-#define HSE_VALUE                               ((uint32_t)8000000)         /* STM32F4 discovery uses a 8Mhz external crystal */
-#endif
 #include "stm32f4xx.h"
 #include "stm32f4xx_gpio.h"
 #include "stm32f4xx_usart.h"
@@ -39,9 +36,6 @@
 #define pgm_read_byte(s)                        (*s)
 
 #elif (defined STM32F10X)
-#ifndef HSE_VALUE
-#define HSE_VALUE                               ((uint32_t)8000000)         /* STM32F4 discovery uses a 8Mhz external crystal */
-#endif
 #include "stm32f10x.h"
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_usart.h"
@@ -713,6 +707,9 @@ mcurses_phyio_init (void)
         GPIO_InitTypeDef    gpio;
         USART_InitTypeDef   uart;
         NVIC_InitTypeDef    nvic;
+
+        GPIO_StructInit (&gpio);
+        USART_StructInit (&uart);
 
         UART_GPIO_CLOCK_CMD (UART_TX_GPIO_CLOCK, ENABLE);
         UART_GPIO_CLOCK_CMD (UART_RX_GPIO_CLOCK, ENABLE);

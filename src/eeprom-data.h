@@ -12,7 +12,7 @@
 #ifndef EEPROM_DATA_H
 #define EEPROM_DATA_H
 
-#define EEPROM_VERSION                      0x00010100          // version 1.1.0
+#define EEPROM_VERSION                      0x00010500          // version 1.5.0
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * Some packed structures to minimize used EEPROM space
@@ -44,8 +44,11 @@ typedef struct __attribute__ ((__packed__))
  *      NTP protocol flag     1 Byte    ( 1 *  1)
  *      Time server          16 Bytes   ( 1 * 16)
  *      Time zone             2 Bytes   ( 1 *  2)
+ *      LDR                   1 Byte    ( 1 *  1)
+ *      Global brightness     1 Byte    ( 1 *  1)
+ *      Automatic brightness  1 Byte    ( 1 *  1)
  *      =========================================
- *      Sum                 187 Bytes
+ *      Sum                 191 Bytes
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 
@@ -65,6 +68,8 @@ typedef struct __attribute__ ((__packed__))
 #define EEPROM_DATA_SIZE_TIMESERVER         (EEPROM_MAX_IPADDR_LEN)
 #define EEPROM_DATA_SIZE_TIMEZONE           (EEPROM_MAX_TIMEZONE_LEN)
 #define EEPROM_DATA_SIZE_USE_LDR            sizeof (uint8_t)
+#define EEPROM_DATA_SIZE_BRIGHTNESS         sizeof (uint8_t)
+#define EEPROM_DATA_SIZE_AUTO_BRIGHTNESS    sizeof (uint8_t)
 
 #define EEPROM_DATA_OFFSET_VERSION          0
 #define EEPROM_DATA_OFFSET_IRMP_DATA        (EEPROM_DATA_OFFSET_VERSION         + EEPROM_DATA_SIZE_VERSION)
@@ -75,5 +80,7 @@ typedef struct __attribute__ ((__packed__))
 #define EEPROM_DATA_OFFSET_TIMESERVER       (EEPROM_DATA_OFFSET_NTP_PROTOCOL    + EEPROM_DATA_SIZE_NTP_PROTOCOL)
 #define EEPROM_DATA_OFFSET_TIMEZONE         (EEPROM_DATA_OFFSET_TIMESERVER      + EEPROM_DATA_SIZE_TIMESERVER)
 #define EEPROM_DATA_OFFSET_USE_LDR          (EEPROM_DATA_OFFSET_TIMEZONE        + EEPROM_DATA_SIZE_TIMEZONE)
+#define EEPROM_DATA_OFFSET_BRIGHTNESS       (EEPROM_DATA_OFFSET_USE_LDR         + EEPROM_DATA_SIZE_USE_LDR)
+#define EEPROM_DATA_OFFSET_AUTO_BRIGHTNESS  (EEPROM_DATA_OFFSET_BRIGHTNESS      + EEPROM_DATA_SIZE_BRIGHTNESS)
 
 #endif

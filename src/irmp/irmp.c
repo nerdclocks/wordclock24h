@@ -671,8 +671,11 @@ irmp_uart_init (void)
 {
 #ifndef UNIX_OR_WINDOWS
 #if defined(ARM_STM32F4XX)
-    GPIO_InitTypeDef GPIO_InitStructure;
-    USART_InitTypeDef USART_InitStructure;
+    GPIO_InitTypeDef    GPIO_InitStructure;
+    USART_InitTypeDef   USART_InitStructure;
+
+    GPIO_StructInit (&GPIO_InitStructure);
+    USART_StructInit (&USART_InitStructure);
 
     // Clock enable vom TX Pin
     RCC_AHB1PeriphClockCmd(STM32_GPIO_CLOCK, ENABLE);
@@ -709,14 +712,19 @@ irmp_uart_init (void)
     USART_Cmd(STM32_UART_COM, ENABLE);
 
 #elif defined(ARM_STM32F10X)
-    GPIO_InitTypeDef GPIO_InitStructure;
-    USART_InitTypeDef USART_InitStructure;
+    GPIO_InitTypeDef    GPIO_InitStructure;
+    USART_InitTypeDef   USART_InitStructure;
+
+    GPIO_StructInit (&GPIO_InitStructure);
+    USART_StructInit (&USART_InitStructure);
 
     // Clock enable vom TX Pin
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE); // UART3 an PB10
 
     // Clock enable der UART
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
+
+    GPIO_StructInit (&GPIO_InitStructure);
 
     // UART als Alternative-Funktion mit PushPull
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
@@ -1766,6 +1774,8 @@ irmp_init (void)
 #if defined(PIC_CCS) || defined(PIC_C18)                                // PIC: do nothing
 #elif defined (ARM_STM32)                                               // STM32
    GPIO_InitTypeDef     GPIO_InitStructure;
+
+   GPIO_StructInit (&GPIO_InitStructure);
 
    /* GPIOx clock enable */
  #if defined (ARM_STM32L1XX)

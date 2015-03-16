@@ -79,6 +79,8 @@ esp8266_gpio_init (void)
 {
     GPIO_InitTypeDef gpio;
 
+    GPIO_StructInit (&gpio);
+
     ESP8266_RST_PERIPH_CLOCK_CMD (ESP8266_RST_PERIPH, ENABLE);      // enable clock for ESP8266 RST
 
     gpio.GPIO_Pin   = ESP8266_RST_PIN;

@@ -85,8 +85,15 @@ remote_ir_get_cmd (void)
 uint_fast8_t
 remote_ir_learn (void)
 {
-    uint_fast8_t rtc = 1;
-    uint_fast8_t i;
+    char *          s;
+    char *          dec;
+    char *          inc;
+    uint_fast8_t    rtc = 1;
+    uint_fast8_t    i;
+
+    s = "IRMP: press key for ";
+    dec = "decrement ";
+    inc = "increment ";
 
     for (i = 0; i < N_CMDS; i++)
     {
@@ -102,24 +109,26 @@ remote_ir_learn (void)
 
             switch (i)
             {
-                case CMD_POWER:                         addstr ("IRMP: press key for power off/on");                break;
-                case CMD_OK:                            addstr ("IRMP: press key for OK");                          break;
-                case CMD_DECREMENT_DISPLAY_MODE:        addstr ("IRMP: press key for decrement display mode");      break;
-                case CMD_INCREMENT_DISPLAY_MODE:        addstr ("IRMP: press key for increment display mode");      break;
-                case CMD_DECREMENT_ANIMATION_MODE:      addstr ("IRMP: press key for decrement animation mode");    break;
-                case CMD_INCREMENT_ANIMATION_MODE:      addstr ("IRMP: press key for increment animation mode");    break;
-                case CMD_DECREMENT_HOUR:                addstr ("IRMP: press key for decrement hour");              break;
-                case CMD_INCREMENT_HOUR:                addstr ("IRMP: press key for increment hour");              break;
-                case CMD_DECREMENT_MINUTE:              addstr ("IRMP: press key for decrement minute");            break;
-                case CMD_INCREMENT_MINUTE:              addstr ("IRMP: press key for increment minute");            break;
-                case CMD_DECREMENT_BRIGHTNESS_RED:      addstr ("IRMP: press key for decrement red brightness");    break;
-                case CMD_INCREMENT_BRIGHTNESS_RED:      addstr ("IRMP: press key for increment red brightness");    break;
-                case CMD_DECREMENT_BRIGHTNESS_GREEN:    addstr ("IRMP: press key for decrement green brightness");  break;
-                case CMD_INCREMENT_BRIGHTNESS_GREEN:    addstr ("IRMP: press key for increment green brightness");  break;
-                case CMD_DECREMENT_BRIGHTNESS_BLUE:     addstr ("IRMP: press key for decrement blue brightness");   break;
-                case CMD_INCREMENT_BRIGHTNESS_BLUE:     addstr ("IRMP: press key for increment blue brightness");   break;
-                case CMD_GET_TEMPERATURE:               addstr ("IRMP: press key for get temperature");             break;
-                case CMD_GET_NET_TIME:                  addstr ("IRMP: press key for get net time");                break;
+                case CMD_POWER:                         addstr (s);                 addstr ("power off/on");            break;
+                case CMD_OK:                            addstr (s);                 addstr ("OK");                      break;
+                case CMD_DECREMENT_DISPLAY_MODE:        addstr (s); addstr (dec);   addstr ("display mode");            break;
+                case CMD_INCREMENT_DISPLAY_MODE:        addstr (s); addstr (inc);   addstr ("display mode");            break;
+                case CMD_DECREMENT_ANIMATION_MODE:      addstr (s); addstr (dec);   addstr ("animation mode");          break;
+                case CMD_INCREMENT_ANIMATION_MODE:      addstr (s); addstr (inc);   addstr ("animation mode");          break;
+                case CMD_DECREMENT_HOUR:                addstr (s); addstr (dec);   addstr ("hour");                    break;
+                case CMD_INCREMENT_HOUR:                addstr (s); addstr (inc);   addstr ("hour");                    break;
+                case CMD_DECREMENT_MINUTE:              addstr (s); addstr (dec);   addstr ("minute");                  break;
+                case CMD_INCREMENT_MINUTE:              addstr (s); addstr (inc);   addstr ("minute");                  break;
+                case CMD_DECREMENT_BRIGHTNESS_RED:      addstr (s); addstr (dec);   addstr ("red brightness");          break;
+                case CMD_INCREMENT_BRIGHTNESS_RED:      addstr (s); addstr (inc);   addstr ("red brightness");          break;
+                case CMD_DECREMENT_BRIGHTNESS_GREEN:    addstr (s); addstr (dec);   addstr ("green brightness");        break;
+                case CMD_INCREMENT_BRIGHTNESS_GREEN:    addstr (s); addstr (inc);   addstr ("green brightness");        break;
+                case CMD_DECREMENT_BRIGHTNESS_BLUE:     addstr (s); addstr (dec);   addstr ("blue brightness");         break;
+                case CMD_INCREMENT_BRIGHTNESS_BLUE:     addstr (s); addstr (inc);   addstr ("blue brightness");         break;
+                case CMD_DECREMENT_BRIGHTNESS:          addstr (s); addstr (dec);   addstr ("global brightness");       break;
+                case CMD_INCREMENT_BRIGHTNESS:          addstr (s); addstr (inc);   addstr ("global brightness");       break;
+                case CMD_AUTO_BRIGHTNESS_CONTROL:       addstr (s);                 addstr ("toggle auto brightness");  break;
+                case CMD_GET_TEMPERATURE:               addstr (s);                 addstr ("get temperature");         break;
             }
 
             clrtoeol ();

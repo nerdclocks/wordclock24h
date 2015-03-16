@@ -48,6 +48,7 @@ led_green_init (void)
 {
     GPIO_InitTypeDef gpio;
 
+    GPIO_StructInit (&gpio);
     LED_GREEN_PERIPH_CLOCK_CMD (LED_GREEN_PERIPH, ENABLE);     // enable clock for LED Port
 
     gpio.GPIO_Pin   = LED_GREEN_LED;

@@ -16,14 +16,8 @@
 #if defined(unix)
 #elif defined(__SDCC_z80)
 #elif defined(STM32F4XX)
-#  ifndef HSE_VALUE
-#    define HSE_VALUE ((uint32_t)8000000) /* STM32F4 discovery uses a 8Mhz external crystal */
-#   endif
 #   include "stm32f4xx.h"
 #elif defined(STM32F10X)
-#   ifndef HSE_VALUE
-#     define HSE_VALUE ((uint32_t)8000000) /* STM32F4 discovery uses a 8Mhz external crystal */
-#   endif
 #   include "stm32f10x.h"
 #else
 #   include <avr/pgmspace.h>

@@ -240,7 +240,10 @@ onewire_init (void)
 
     already_called = 1;
 
+    GPIO_StructInit (&gpio);
+
     ONE_WIRE_CLK_CMD (ONE_WIRE_CLK, ENABLE);                        // clock enable
+
     gpio.GPIO_Pin       = ONE_WIRE_PIN;
 
 #if defined (STM32F4XX)

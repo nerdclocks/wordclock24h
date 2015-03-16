@@ -3,8 +3,6 @@
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
- * uses Pin PC6 (alternatively PB5, PB0, or PB1)
- *
  * WS2812 timing : (1.25us = 800 kHz)
  *   0 => HI:0.35us , LO:0.90us
  *   1 => HI:0.90us , LO:0.35us
@@ -68,6 +66,7 @@
 
 #if defined (STM32F4XX)
 // Timer:
+#  define WS2812_TIM_CLOCK_CMD          RCC_APB1PeriphClockCmd
 #  define WS2812_TIM_CLOCK              RCC_APB1Periph_TIM3
 #  define WS2812_TIM                    TIM3
 #  define WS2812_TIM_AF                 GPIO_AF_TIM3
@@ -81,6 +80,7 @@
 #  define WS2812_GPIO_PIN               GPIO_Pin_6
 #  define WS2812_GPIO_SOURCE            GPIO_PinSource6
 // DMA TIM3 - DMA1, Channel5, Stream4
+#  define WS2812_DMA_CLOCK_CMD          RCC_AHB1PeriphClockCmd
 #  define WS2812_DMA_CLOCK              RCC_AHB1Periph_DMA1
 #  define WS2812_DMA_STREAM             DMA1_Stream4
 #  define WS2812_DMA_CHANNEL            DMA_Channel_5
@@ -91,7 +91,8 @@
 
 #elif defined (STM32F10X)
 // Timer:
-#  define WS2812_TIM_CLOCK              RCC_APB1Periph_TIM1
+#  define WS2812_TIM_CLOCK_CMD          RCC_APB2PeriphClockCmd
+#  define WS2812_TIM_CLOCK              RCC_APB2Periph_TIM1
 #  define WS2812_TIM                    TIM1
 #  define WS2812_TIM_AF                 GPIO_AF_TIM1
 #  define WS2812_TIM_CH1                1
@@ -104,7 +105,8 @@
 #  define WS2812_GPIO_PIN               GPIO_Pin_8
 #  define WS2812_GPIO_SOURCE            GPIO_PinSource8
 // DMA TIM3 - DMA1, Channel1
-#  define WS2812_DMA_CLOCK              RCC_AHB1Periph_DMA1
+#  define WS2812_DMA_CLOCK_CMD          RCC_AHBPeriphClockCmd
+#  define WS2812_DMA_CLOCK              RCC_AHBPeriph_DMA1
 #  define WS2812_DMA_STREAM             DMA1_Channel1
 #  define WS2812_DMA_CHANNEL            DMA_Channel1
 // transfer complete interrupt - DMA1, Channel1
@@ -122,7 +124,7 @@
 
 static volatile uint32_t            ws2812_dma_status;                                      // DMA status
 static WS2812_RGB                   rgb_buf[WS2812_LEDS];                                   // RGB values
-static uint16_t		                timer_buf[WS2812_TIMER_BUF_LEN];                        // DMA buffer
+static uint16_t                     timer_buf[WS2812_TIMER_BUF_LEN];                        // DMA buffer
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
  * initialize DMA
@@ -132,6 +134,8 @@ static void
 ws2812_dma_init (void)
 {
     DMA_InitTypeDef dma;
+
+    DMA_StructInit (&dma);
 
     DMA_Cmd(WS2812_DMA_STREAM, DISABLE);
     DMA_DeInit(WS2812_DMA_STREAM);
@@ -198,9 +202,9 @@ ws2812_clear_all (void)
     WS2812_RGB  rgb = { 0, 0, 0 };
 
     while (ws2812_dma_status != 0)
-	{
-		;
-	}
+    {
+        ;
+    }
 
     ws2812_dma_start ();
     ws2812_set_all_leds (&rgb, 1);
@@ -214,38 +218,38 @@ ws2812_clear_all (void)
 static void
 ws2812_setup_timer_buf (void)
 {
-	uint_fast8_t    i;
-	uint32_t		n;
-	uint32_t		pos;
-	WS2812_RGB *    led;
+    uint_fast8_t    i;
+    uint32_t        n;
+    uint32_t        pos;
+    WS2812_RGB *    led;
 
-	pos = 0;
+    pos = 0;
     led = rgb_buf;
 
-	for (n = 0; n < WS2812_LEDS; n++)
-	{
-		for (i = 0x80; i != 0; i >>= 1)                         // color green
-		{
-			timer_buf[pos++] = (led->green & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
-		}
+    for (n = 0; n < WS2812_LEDS; n++)
+    {
+        for (i = 0x80; i != 0; i >>= 1)                         // color green
+        {
+            timer_buf[pos++] = (led->green & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
+        }
 
-		for (i = 0x80; i != 0; i >>= 1)                         // color red
-		{
-			timer_buf[pos++] = (led->red & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
-		}
+        for (i = 0x80; i != 0; i >>= 1)                         // color red
+        {
+            timer_buf[pos++] = (led->red & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
+        }
 
-		for (i = 0x80; i != 0; i >>= 1)                         // color blue
-		{
-			timer_buf[pos++] = (led->blue & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
-		}
+        for (i = 0x80; i != 0; i >>= 1)                         // color blue
+        {
+            timer_buf[pos++] = (led->blue & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
+        }
 
-		led++;
-	}
+        led++;
+    }
 
-	for (n = 0; n < WS2812_PAUSE_LEN; n++)                      // Pause (2 * 24 * 1.25us = 60us)
-	{
-		timer_buf[pos++] = 0;
-	}
+    for (n = 0; n < WS2812_PAUSE_LEN; n++)                      // Pause (2 * 24 * 1.25us = 60us)
+    {
+        timer_buf[pos++] = 0;
+    }
 }
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
@@ -255,8 +259,9 @@ ws2812_setup_timer_buf (void)
 static void
 ws2812_init_io (void)
 {
-	GPIO_InitTypeDef gpio;
+    GPIO_InitTypeDef gpio;
 
+    GPIO_StructInit (&gpio);
     WS2812_GPIO_CLOCK_CMD (WS2812_GPIO_CLOCK, ENABLE);          // clock enable
 
     gpio.GPIO_Pin     = WS2812_GPIO_PIN;
@@ -268,7 +273,7 @@ ws2812_init_io (void)
     gpio.GPIO_PuPd    = GPIO_PuPd_NOPULL;
     gpio.GPIO_Speed   = GPIO_Speed_100MHz;
     GPIO_Init(WS2812_GPIO_PORT, &gpio);
-    WS2812_GPIO_PORT->BSRRH = WS2812_GPIO_PIN;				    // set pin to Low
+    WS2812_GPIO_PORT->BSRRH = WS2812_GPIO_PIN;                  // set pin to Low
     GPIO_PinAFConfig(WS2812_GPIO_PORT, WS2812_GPIO_SOURCE, WS2812_TIM_AF);
 
 #elif defined (STM32F10X)
@@ -277,8 +282,7 @@ ws2812_init_io (void)
     gpio.GPIO_Speed   = GPIO_Speed_50MHz;
     GPIO_Init(WS2812_GPIO_PORT, &gpio);
     GPIO_WriteBit(WS2812_GPIO_PORT, WS2812_GPIO_PIN, RESET);    // set pin to Low
-    // fm: no GPIO_PinAFConfig() necessary?
-
+                                                                // fm: no GPIO_PinAFConfig() necessary?
 #endif
 }
 
@@ -289,28 +293,31 @@ ws2812_init_io (void)
 static void
 ws2812_init_timer (void)
 {
-	TIM_TimeBaseInitTypeDef tb;
-	TIM_OCInitTypeDef       toc;
+    TIM_TimeBaseInitTypeDef tb;
+    TIM_OCInitTypeDef       toc;
 
-	RCC_APB1PeriphClockCmd(WS2812_TIM_CLOCK, ENABLE); 			// clock enable (TIM)
-	RCC_AHB1PeriphClockCmd(WS2812_DMA_CLOCK, ENABLE);			// clock Enable (DMA)
+    TIM_TimeBaseStructInit (&tb);
+    TIM_OCStructInit (&toc);
 
-	// Timer init
-	tb.TIM_Period           = WS2812_TIM_PERIOD;
-	tb.TIM_Prescaler        = WS2812_TIM_PRESCALER;
-	tb.TIM_ClockDivision    = TIM_CKD_DIV1;
-	tb.TIM_CounterMode      = TIM_CounterMode_Up;
-	TIM_TimeBaseInit (WS2812_TIM, &tb);
+    WS2812_TIM_CLOCK_CMD (WS2812_TIM_CLOCK, ENABLE);            // clock enable (TIM)
+    WS2812_DMA_CLOCK_CMD (WS2812_DMA_CLOCK, ENABLE);            // clock Enable (DMA)
 
-	toc.TIM_OCMode          = TIM_OCMode_PWM1;
-	toc.TIM_OutputState     = TIM_OutputState_Enable;
-	toc.TIM_Pulse           = 0;
-	toc.TIM_OCPolarity      = TIM_OCPolarity_High;
+    // Timer init
+    tb.TIM_Period           = WS2812_TIM_PERIOD;
+    tb.TIM_Prescaler        = WS2812_TIM_PRESCALER;
+    tb.TIM_ClockDivision    = TIM_CKD_DIV1;
+    tb.TIM_CounterMode      = TIM_CounterMode_Up;
+    TIM_TimeBaseInit (WS2812_TIM, &tb);
+
+    toc.TIM_OCMode          = TIM_OCMode_PWM1;
+    toc.TIM_OutputState     = TIM_OutputState_Enable;
+    toc.TIM_Pulse           = 0;
+    toc.TIM_OCPolarity      = TIM_OCPolarity_High;
 
     TIM_OC1Init(WS2812_TIM, &toc);
     TIM_OC1PreloadConfig (WS2812_TIM, TIM_OCPreload_Enable);
 
-	TIM_ARRPreloadConfig (WS2812_TIM, ENABLE);                  // timer enable
+    TIM_ARRPreloadConfig (WS2812_TIM, ENABLE);                  // timer enable
 }
 
 
@@ -321,9 +328,9 @@ ws2812_init_timer (void)
 static void
 ws2812_init_nvic (void)
 {
-	NVIC_InitTypeDef nvic;
+    NVIC_InitTypeDef nvic;
 
-    TIM_DMACmd(WS2812_TIM, WS2812_TIM_DMA_TRG1, ENABLE);
+    TIM_DMACmd (WS2812_TIM, WS2812_TIM_DMA_TRG1, ENABLE);
 
     nvic.NVIC_IRQChannel                    = WS2812_DMA_CH1_IRQn;
     nvic.NVIC_IRQChannelPreemptionPriority  = 0;
@@ -339,13 +346,24 @@ ws2812_init_nvic (void)
 void
 WS2812_DMA_CH1_ISR (void)
 {
-	if (DMA_GetITStatus(WS2812_DMA_STREAM, WS2812_DMA_CH1_IRQ_FLAG))			    // check transfer complete interrupt flag
-	{
-		DMA_ClearITPendingBit(WS2812_DMA_STREAM, WS2812_DMA_CH1_IRQ_FLAG);		    // reset flag
-		TIM_Cmd(WS2812_TIM, DISABLE);												// disable timer
-		DMA_Cmd(WS2812_DMA_STREAM, DISABLE);									    // disable DMA
-		ws2812_dma_status = 0;														// set status to ready
-	}
+#if defined (STM32F4XX)
+    if (DMA_GetITStatus(WS2812_DMA_STREAM, WS2812_DMA_CH1_IRQ_FLAG))                // check transfer complete interrupt flag
+    {
+        DMA_ClearITPendingBit (WS2812_DMA_STREAM, WS2812_DMA_CH1_IRQ_FLAG);         // reset flag
+        TIM_Cmd (WS2812_TIM, DISABLE);                                              // disable timer
+        DMA_Cmd (WS2812_DMA_STREAM, DISABLE);                                       // disable DMA
+        ws2812_dma_status = 0;                                                      // set status to ready
+    }
+#elif defined (STM32F10X)
+    if (DMA_GetITStatus(DMA1_IT_TC1))           // check transfer complete interrupt flag
+    {
+        // DMA_ClearITPendingBit (DMA1_IT_TC1); // reset flag only or ...?
+        DMA_ClearITPendingBit (DMA1_IT_GL1);    // clear DMA1 channel1 half transfer, transfer complete and global interrupt pending bits
+        TIM_Cmd (WS2812_TIM, DISABLE);          // disable timer
+        DMA_Cmd (WS2812_DMA_STREAM, DISABLE);   // disable DMA
+        ws2812_dma_status = 0;                  // set status to ready
+    }
+#endif
 }
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
@@ -355,33 +373,33 @@ WS2812_DMA_CH1_ISR (void)
 void
 ws2812_init (void)
 {
-	uint32_t n;
+    uint32_t n;
 
-	ws2812_dma_status	= 0;
+    ws2812_dma_status    = 0;
 
-	for (n = 0; n < WS2812_TIMER_BUF_LEN; n++)
-	{
-		timer_buf[n] = 0;
-	}
+    for (n = 0; n < WS2812_TIMER_BUF_LEN; n++)
+    {
+        timer_buf[n] = 0;
+    }
 
     for (n = 0; n < WS2812_LEDS; n++)
-	{
+    {
         rgb_buf[n].red      = 0;
         rgb_buf[n].green    = 0;
         rgb_buf[n].blue     = 0;
     }
 
-	ws2812_init_io ();
-	volatile long x;
-	for (x = 0; x < 100; x++) { ; }
-	ws2812_init_timer ();
-	for (x = 0; x < 100; x++) { ; }
-	ws2812_init_nvic ();
-	for (x = 0; x < 100; x++) { ; }
-	ws2812_dma_init ();
-	for (x = 0; x < 100; x++) { ; }
-	ws2812_clear_all ();
-	for (x = 0; x < 100; x++) { ; }
+    ws2812_init_io ();
+    volatile long x;
+    for (x = 0; x < 100; x++) { ; }
+    ws2812_init_timer ();
+    for (x = 0; x < 100; x++) { ; }
+    ws2812_init_nvic ();
+    for (x = 0; x < 100; x++) { ; }
+    ws2812_dma_init ();
+    for (x = 0; x < 100; x++) { ; }
+    ws2812_clear_all ();
+    for (x = 0; x < 100; x++) { ; }
 }
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
@@ -391,12 +409,12 @@ ws2812_init (void)
 void
 ws2812_refresh (void)
 {
-	while (ws2812_dma_status != 0)
-	{
-		;													    // wait until DMA transfer is ready
-	}
+    while (ws2812_dma_status != 0)
+    {
+        ;                                                        // wait until DMA transfer is ready
+    }
 
-	ws2812_setup_timer_buf ();
+    ws2812_setup_timer_buf ();
     ws2812_dma_start();
 }
 
@@ -407,17 +425,17 @@ ws2812_refresh (void)
 void
 ws2812_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
 {
-	if (n < WS2812_LEDS)
-	{
+    if (n < WS2812_LEDS)
+    {
         rgb_buf[n].red      = rgb->red;
         rgb_buf[n].green    = rgb->green;
         rgb_buf[n].blue     = rgb->blue;
 
         if (refresh)
-		{
-			ws2812_refresh ();
-		}
-	}
+        {
+            ws2812_refresh ();
+        }
+    }
 }
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
@@ -427,17 +445,17 @@ ws2812_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
 void
 ws2812_set_all_leds (WS2812_RGB * rgb, uint_fast8_t refresh)
 {
-	uint_fast16_t n;
+    uint_fast16_t n;
 
-	for (n = 0; n < WS2812_LEDS; n++)
-	{
+    for (n = 0; n < WS2812_LEDS; n++)
+    {
         rgb_buf[n].red      = rgb->red;
         rgb_buf[n].green    = rgb->green;
         rgb_buf[n].blue     = rgb->blue;
-	}
+    }
 
-	if (refresh)
-	{
-		ws2812_refresh ();
-	}
+    if (refresh)
+    {
+        ws2812_refresh ();
+    }
 }

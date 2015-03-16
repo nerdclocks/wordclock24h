@@ -75,12 +75,21 @@ listener (LISTENER_DATA * ld)
         {
             case 'A':                                           // Set Animation Mode
             case 'D':                                           // Set Display Mode
-            case 'M':                                           // Set Display Mode (deprecated)
             {
                 if (l.length == 2)
                 {
                     rtc         = l.data[0];
                     ld->mode    = l.data[1];
+                }
+                break;
+            }
+
+            case 'B':                                           // Set Brightness
+            {
+                if (l.length == 2)
+                {
+                    rtc             = l.data[0];
+                    ld->brightness  = l.data[1];
                 }
                 break;
             }
@@ -108,6 +117,16 @@ listener (LISTENER_DATA * ld)
                     ld->tm.tm_hour  = l.data[4];
                     ld->tm.tm_min   = l.data[5];
                     ld->tm.tm_sec   = l.data[6];
+                }
+                break;
+            }
+
+            case 'L':                                           // Automatic Brightness control per LDR
+            {
+                if (l.length == 2)
+                {
+                    rtc                                 = l.data[0];
+                    ld->automatic_brightness_control    = l.data[1];
                 }
                 break;
             }

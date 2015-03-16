@@ -206,11 +206,11 @@ monitor_show_clock (uint_fast8_t mode, uint_fast8_t hour, uint_fast8_t minute, u
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * show brightness
+ * show LDR value
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-monitor_show_brightness (uint_fast8_t brightness)
+monitor_show_ldr_value (uint_fast8_t brightness)
 {
     if (mcurses_is_up)
     {
@@ -249,9 +249,10 @@ monitor_show_menu (void)
         //                                           1         2         3         4         5         6         7         8
         //                                  12345678901234567890123456789012345678901234567890123456789012345678901234567890
         mvaddstr (MENU_1_LINE, MENU_1_COL, " h/H: inc/dec hour   m/M: inc/dec min    a/A: inc/dec anim   d/D: inc/dec mode  ");
-        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red    g/G: inc/dec green  b/B: inc/dec blue     p: power on/off  ");
-        mvaddstr (MENU_3_LINE, MENU_3_COL, "   t: get temp         n: get net time     c: configure        s: save          ");
-        mvaddstr (MENU_4_LINE, MENU_4_COL, "   e: eeprom dump      T: test                                 l: logout        ");
+        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red    g/G: inc/dec green  b/B: inc/dec blue                      ");
+        mvaddstr (MENU_3_LINE, MENU_3_COL, " w/W: inc/dec bright q: auto bright                                             ");
+        mvaddstr (MENU_4_LINE, MENU_4_COL, "   t: get temp         n: get net time     c: configure        s: save          ");
+        mvaddstr (MENU_5_LINE, MENU_5_COL, "   e: eeprom dump      T: test LEDs        p: power on/off     l: logout        ");
         attrset (A_NORMAL);
     }
 }
@@ -273,7 +274,7 @@ monitor_show_device_status (uint_fast8_t line, uint_fast8_t column, char * devic
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
+monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop, uint_fast8_t auto_brightness)
 {
     char * ds18xx_type;
     char * esp_status;
@@ -320,13 +321,30 @@ monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
             esp_status = "off";
         }
 
-        monitor_show_device_status (EEPROM_STAT_LINE,  EEPROM_STAT_COL,  "EEPROM",    eeprom_is_up  ? "up" : "off");
-        monitor_show_device_status (DS18XX_STAT_LINE,  DS18XX_STAT_COL,  ds18xx_type, ds18xx_is_up  ? "up" : "off");
-        monitor_show_device_status (DS3231_STAT_LINE,  DS3231_STAT_COL,  "RTC",       rtc_is_up     ? "up" : "off");
+        monitor_show_device_status (EEPROM_STAT_LINE,  EEPROM_STAT_COL,  "EEPROM",    eeprom_is_up    ? "up" : "off");
+        monitor_show_device_status (DS18XX_STAT_LINE,  DS18XX_STAT_COL,  ds18xx_type, ds18xx_is_up    ? "up" : "off");
+        monitor_show_device_status (DS3231_STAT_LINE,  DS3231_STAT_COL,  "RTC",       rtc_is_up       ? "up" : "off");
         monitor_show_device_status (ESP8266_STAT_LINE, ESP8266_STAT_COL, "ESP8266",   esp_status);
-        monitor_show_device_status (DCF77_STAT_LINE,   DCF77_STAT_COL,   "DCF77",     dcf77_is_up   ? "up" : "off");
-        monitor_show_device_status (LDR_STAT_LINE,     LDR_STAT_COL,     "LDR",       ldr_is_up     ? "up" : "off");
+        monitor_show_device_status (DCF77_STAT_LINE,   DCF77_STAT_COL,   "DCF77",     dcf77_is_up     ? "up" : "off");
+        monitor_show_device_status (LDR_STAT_LINE,     LDR_STAT_COL,     "LDR",       ldr_is_up       ? "up" : "off");
+        monitor_show_device_status (AUTO_STAT_LINE,    AUTO_STAT_COL,    "AUTO BR.",  auto_brightness ? "on" : "off");
     }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * show color values
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+monitor_show_colors (void)
+{
+    uint_fast8_t    brightness;
+    DSP_COLORS      rgb;
+
+    dsp_get_colors (&rgb);
+    brightness = dsp_get_brightness ();
+    mvprintw (COLORS_LINE, COLORS_COL, "RGB: %02d %02d %02d", rgb.red, rgb.green, rgb.blue);
+    mvprintw (BRIGHTNESS_LINE, BRIGHTNESS_COL, "Brightness: %02d", brightness);
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -334,14 +352,12 @@ monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-monitor_show_screen (uint_fast8_t display_mode, uint_fast8_t animation_mode, ESP8266_CONNECTION_INFO * esp8266_connection_infop)
+monitor_show_screen (void)
 {
     if (mcurses_is_up)
     {
         clear ();
         monitor_show_all_letters_off ();                        // show display off
-        monitor_show_modes (display_mode, animation_mode);      // show current mode
         monitor_show_menu ();                                   // show menu
-        monitor_show_status (esp8266_connection_infop);
     }
 }

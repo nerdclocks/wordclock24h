@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart.c - UART routines for STM32F4 Discovery and STM32F401 Nucleo
+ * uart.c - UART routines for STM32F4 Discovery / STM32F401 Nucleo / STM32F103C8 Mini devlopment Board
  *
  * Ports/Pins:
  *  STM32F4   Discovery:  USART2, TX=PA2,  RX=PA3
  *  STM32F4x1 Nucleo:     USART6, TX=PA11, RX=PA12
- *  STM32F103 Mini-Board: UASRT3, TX=PB10, RX=PB11
+ *  STM32F103 Mini-Board: USART3, TX=PB10, RX=PB11
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -101,6 +101,9 @@ uart_init (uint32_t baudrate)
     USART_InitTypeDef   uart;
     NVIC_InitTypeDef    nvic;
 
+    GPIO_StructInit (&gpio);
+    USART_StructInit (&uart);
+
     UART_GPIO_CLOCK_CMD (UART_TX_GPIO_CLOCK, ENABLE);
     UART_GPIO_CLOCK_CMD (UART_RX_GPIO_CLOCK, ENABLE);
 
@@ -125,17 +128,17 @@ uart_init (uint32_t baudrate)
 
 #elif defined (STM32F10X)
 
-  /* TX Pin */
-  gpio.GPIO_Pin = UART_TX_PIN;
-  gpio.GPIO_Mode = GPIO_Mode_AF_PP;
-  gpio.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_Init(GPIOA, &gpio);
+    /* TX Pin */
+    gpio.GPIO_Pin = UART_TX_PIN;
+    gpio.GPIO_Mode = GPIO_Mode_AF_PP;
+    gpio.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOA, &gpio);
 
-  /* RX Pin */
-  gpio.GPIO_Pin = UART_RX_PIN;
-  gpio.GPIO_Mode = GPIO_Mode_IPU;
-  gpio.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_Init(GPIOA, &gpio);
+    /* RX Pin */
+    gpio.GPIO_Pin = UART_RX_PIN;
+    gpio.GPIO_Mode = GPIO_Mode_IPU;
+    gpio.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOA, &gpio);
 
 #endif
 
