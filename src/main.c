@@ -375,6 +375,7 @@ repaint_screen (void)
 int
 main ()
 {
+    static uint_fast8_t     last_ldr_value = 0xFF;
     struct tm               tm;
     LISTENER_DATA           lis;
     uint_fast8_t            status_led_cnt              = 0;
@@ -472,8 +473,6 @@ main ()
 
         if (ldr_is_up && brightness_control_per_ldr && ldr_poll_brightness (&ldr_value))
         {
-            static uint_fast8_t last_ldr_value = 0xFF;
-
             if (ldr_value < last_ldr_value - 1 || ldr_value > last_ldr_value + 1)           // difference greater than 2
             {
                 last_ldr_value = ldr_value;
@@ -590,6 +589,7 @@ main ()
                             if (brightness_control_per_ldr)
                             {
                                 brightness_control_per_ldr = 0;
+                                last_ldr_value = 0xFF;
                                 dsp_set_automatic_brightness_control (brightness_control_per_ldr);
                                 monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                             }
@@ -612,6 +612,7 @@ main ()
                                 brightness_control_per_ldr = 0;
                             }
 
+                            last_ldr_value = 0xFF;
                             dsp_set_automatic_brightness_control (brightness_control_per_ldr);
                             monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                             break;
@@ -1177,6 +1178,8 @@ main ()
                 {
                     brightness_control_per_ldr = 1;
                 }
+
+                last_ldr_value = 0xFF;
                 dsp_set_automatic_brightness_control (brightness_control_per_ldr);
                 monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                 break;
@@ -1187,6 +1190,7 @@ main ()
                 if (brightness_control_per_ldr)
                 {
                     brightness_control_per_ldr = 0;
+                    last_ldr_value = 0xFF;
                     dsp_set_automatic_brightness_control (brightness_control_per_ldr);
                     monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                 }
@@ -1200,9 +1204,11 @@ main ()
                 if (brightness_control_per_ldr)
                 {
                     brightness_control_per_ldr = 0;
+                    last_ldr_value = 0xFF;
                     dsp_set_automatic_brightness_control (brightness_control_per_ldr);
                     monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                 }
+
                 dsp_increment_brightness ();
                 monitor_show_colors ();
                 break;
