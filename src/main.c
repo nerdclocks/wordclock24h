@@ -517,16 +517,6 @@ main ()
 
                     if (esp8266_is_online)                              // now online?
                     {
-                        if (mcurses_is_up)
-                        {
-                            move (ESP_SSID_LINE, ESP_SSID_COL);
-                            addstr ("SSID: ");
-                            addstr (esp8266_connection_info.accesspoint);
-                            addstr ("   IP address: ");
-                            addstr (esp8266_connection_info.ipaddress);
-                            clrtoeol ();
-                        }
-
                         monitor_show_status (&esp8266_connection_info, brightness_control_per_ldr);
                         net_time_flag = 1;
                     }

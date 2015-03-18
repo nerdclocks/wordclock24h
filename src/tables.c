@@ -1,6 +1,9 @@
 // Word-Arrays for 24h Wordclock, see http://www.mikrocontroller.net/articles/WordClock24h
 // Von-Neumann-Variant, Data from Wc24h1816_08-30-5.Feb.2015, CodeGen v0.14
 // Code-Generator see https://gist.github.com/TorstenC/aec0724be4afcd1d7545
+//
+// modified by Frank Meyer (fm) 2015-03-18
+
 #include "tables.h"
 const struct Modes tbl_modes[MODES_COUNT] = {
 { MM_8, HM_5, "ES IST HH UHR MM (12)" },
@@ -976,8 +979,13 @@ const struct WordIllu illumination[1][WP_COUNT]= {{ // dummy-dimension for scree
 {9,0,4}, // 46 = WP_FUENF_2 = "FÜNF"
 {9,4,4}, // 47 = WP_SECH_2 = "SECH"
 {9,4,5}, // 48 = WP_SECHS_2 = "SECHS"
+#if 0 // fm 2015-03-18
 {9,9,4}, // 49 = WP_ACHT_2 = "ACHT"
 {9,13,4}, // 50 = WP_VIER_2 = "VIER"
+#else
+{9,10,4}, // 49 = WP_ACHT_2 = "ACHT"
+{9,14,4}, // 50 = WP_VIER_2 = "VIER"
+#endif
 {10,0,4}, // 51 = WP_DREI_2 = "DREI"
 {10,2,3}, // 52 = WP_EIN_5 = "EIN"
 {10,2,4}, // 53 = WP_EINS_2 = "EINS"
@@ -1013,7 +1021,11 @@ const char* display[1][WC_ROWS]= {{ // dummy-dimension for screen-saver-variant 
 "MINUTEN#VORUNDNACH",
 "EINDREIVIERTELHALB",
 "SIEBENEUNULLZWEINE",
+#if 0 // fm 2015-03-18
 "FÜNFSECHSACHTVIER#",
+#else
+"FÜNFSECHSNACHTVIER",
+#endif
 "DREINSUND#ELF#ZEHN",
 "ZWANZIGGRADREISSIG",
 "VIERZIGZWÖLFÜNFZIG",

@@ -249,10 +249,10 @@ monitor_show_menu (void)
         //                                           1         2         3         4         5         6         7         8
         //                                  12345678901234567890123456789012345678901234567890123456789012345678901234567890
         mvaddstr (MENU_1_LINE, MENU_1_COL, " h/H: inc/dec hour   m/M: inc/dec min    a/A: inc/dec anim   d/D: inc/dec mode  ");
-        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red    g/G: inc/dec green  b/B: inc/dec blue                      ");
-        mvaddstr (MENU_3_LINE, MENU_3_COL, " w/W: inc/dec bright q: auto bright                                             ");
-        mvaddstr (MENU_4_LINE, MENU_4_COL, "   t: get temp         n: get net time     c: configure        s: save          ");
-        mvaddstr (MENU_5_LINE, MENU_5_COL, "   e: eeprom dump      T: test LEDs        p: power on/off     l: logout        ");
+        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red    g/G: inc/dec green  b/B: inc/dec blue   w/W: inc/dec bright");
+        mvaddstr (MENU_3_LINE, MENU_3_COL, " q: auto bright      t: get temp         n: get net time                        ");
+        mvaddstr (MENU_4_LINE, MENU_4_COL, " c: configure        s: save                                                    ");
+        mvaddstr (MENU_5_LINE, MENU_5_COL, " e: eeprom dump      T: test LEDs        p: power on/off     l: logout          ");
         attrset (A_NORMAL);
     }
 }
@@ -264,9 +264,12 @@ monitor_show_menu (void)
 static void
 monitor_show_device_status (uint_fast8_t line, uint_fast8_t column, char * device, char * status)
 {
-    mvaddstr (line,  column, device);
-    mvaddstr (line,  column + 10, status);
-    clrtoeol ();
+    if (mcurses_is_up)
+    {
+        mvaddstr (line,  column, device);
+        mvaddstr (line,  column + 10, status);
+        clrtoeol ();
+    }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -281,12 +284,24 @@ monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop, uint_fa
 
     if (mcurses_is_up)
     {
+        if (esp8266_is_up)
+        {
+            char * fw = esp8266_get_firmware_version ();
+
+            if (fw)
+            {
+                move (ESP_FW_LINE, ESP_FW_COL);
+                addstr ("FW: ");
+                addstr (fw);
+            }
+        }
+
         if (esp8266_is_online)
         {
             move (ESP_SSID_LINE, ESP_SSID_COL);
             addstr ("SSID: ");
             addstr (esp8266_connection_infop->accesspoint);
-            addstr ("   IP address: ");
+            addstr ("  IP: ");
             addstr (esp8266_connection_infop->ipaddress);
             clrtoeol ();
         }
@@ -341,10 +356,13 @@ monitor_show_colors (void)
     uint_fast8_t    brightness;
     DSP_COLORS      rgb;
 
-    dsp_get_colors (&rgb);
-    brightness = dsp_get_brightness ();
-    mvprintw (COLORS_LINE, COLORS_COL, "RGB: %02d %02d %02d", rgb.red, rgb.green, rgb.blue);
-    mvprintw (BRIGHTNESS_LINE, BRIGHTNESS_COL, "Brightness: %02d", brightness);
+    if (mcurses_is_up)
+    {
+        dsp_get_colors (&rgb);
+        brightness = dsp_get_brightness ();
+        mvprintw (COLORS_LINE, COLORS_COL, "RGB: %02d %02d %02d", rgb.red, rgb.green, rgb.blue);
+        mvprintw (BRIGHTNESS_LINE, BRIGHTNESS_COL, "Brightness: %02d", brightness);
+    }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------

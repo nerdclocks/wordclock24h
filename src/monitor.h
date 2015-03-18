@@ -24,11 +24,13 @@
 #define DCF_MSG_LINE        0
 #define DCF_MSG_COL         24
 
+#define ESP_FW_LINE         0
 #define ESP_SSID_LINE       0
 #define ESP_SND_LINE        1
 #define ESP_MSG_LINE        2
 
-#define ESP_SSID_COL        24
+#define ESP_FW_COL          24
+#define ESP_SSID_COL        42
 #define ESP_SND_COL         24
 #define ESP_MSG_COL         24
 

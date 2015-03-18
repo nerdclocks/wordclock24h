@@ -28,13 +28,16 @@
  * globals:
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
-uint_fast8_t                    esp8266_is_up       = 0;
-uint_fast8_t                    esp8266_is_online   = 0;
-volatile uint_fast8_t           esp8266_ten_ms_tick;            // should be set every 10 msec to 1, see IRQ in main.c
+uint_fast8_t                            esp8266_is_up       = 0;
+uint_fast8_t                            esp8266_is_online   = 0;
+volatile uint_fast8_t                   esp8266_ten_ms_tick;            // should be set every 10 msec to 1, see IRQ in main.c
 
-static time_t                   curtime;
+static time_t                           curtime;
 
-#if defined (STM32F407VG)                                       // STM32F4 Discovery Board PD12
+#define ESP8266_MAX_F_VERSION_LEN       10
+static char                             firmware_version[ESP8266_MAX_F_VERSION_LEN + 1];
+
+#if defined (STM32F407VG)                                               // STM32F4 Discovery Board PD12
 
 #define ESP8266_RST_PERIPH_CLOCK_CMD    RCC_AHB1PeriphClockCmd
 #define ESP8266_RST_PERIPH              RCC_AHB1Periph_GPIOC
@@ -370,6 +373,7 @@ esp8266_get_answer (char * answer, uint_fast8_t max_len, uint_fast8_t line, uint
                         mvaddstr (ESP_MSG_LINE, ESP_MSG_COL, "BUSY!");
                         clrtoeol();
                     }
+                    esp8266_reset ();                                   // if we get busy, we must reset
                     return ESP8266_BUSY;
                 }
                 else if (! stricmp (answer, "ready"))
@@ -616,24 +620,6 @@ esp8266_get_access_point_connected (void)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
- * INTERN: get IP address of ESP8266
- *--------------------------------------------------------------------------------------------------------------------------------------
- */
-static char *
-esp8266_get_ip_address (void)
-{
-    static char     esp_answer[ESP8266_MAX_ANSWER_LEN + 1];
-
-    esp8266_send_cmd("AT+CIFSR\r");
-
-    if (esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100) == ESP8266_UNKNOWN)
-    {
-        return esp_answer;
-    }
-    return (char *) NULL;
-}
-
-/*--------------------------------------------------------------------------------------------------------------------------------------
  * INTERN: set MUX off
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -752,6 +738,45 @@ esp8266_disconnect_from_access_point (void)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
+ * INTERN: get IP address of ESP8266
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
+static char *
+esp8266_get_ip_address (void)
+{
+    static char     esp_answer[ESP8266_MAX_ANSWER_LEN + 1];
+
+    esp8266_send_cmd("AT+CIFSR\r");
+
+    if (esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100) == ESP8266_UNKNOWN)
+    {
+        return esp_answer;
+    }
+    return (char *) NULL;
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------------------
+ * get firmware version of ESP8266
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
+char *
+esp8266_get_firmware_version (void)
+{
+    if (firmware_version[0])
+    {
+        return firmware_version;
+    }
+
+    esp8266_send_cmd("AT+GMR\r");
+
+    if (esp8266_get_answer (firmware_version, ESP8266_MAX_F_VERSION_LEN, LOG_LINE, 100) == ESP8266_UNKNOWN)
+    {
+        return firmware_version;
+    }
+    return (char *) NULL;
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------------------
  * check online status
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -769,7 +794,7 @@ esp8266_check_online_status (ESP8266_CONNECTION_INFO * infop)
     {
         infop->accesspoint  = accesspoint;
         infop->ipaddress    = ipaddress;
-        esp8266_is_online = 1;
+        esp8266_is_online   = 1;
     }
     else
     {

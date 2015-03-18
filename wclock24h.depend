@@ -371,7 +371,7 @@
 
 1410773381 c:\emblocksprojects\wclock24h\src\irmp\irsndconfig.h
 
-1426536401 source:c:\emblocksprojects\wclock24h\src\main.c
+1426672147 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -605,7 +605,7 @@
 	"stm32f4xx_rcc.h"
 	"misc.h"
 
-1426504928 source:c:\emblocksprojects\wclock24h\src\esp8266\esp8266.c
+1426690376 source:c:\emblocksprojects\wclock24h\src\esp8266\esp8266.c
 	<stdio.h>
 	<stdlib.h>
 	"wclock24h-config.h"
@@ -616,7 +616,7 @@
 
 1421780641 c:\emblocksprojects\wclock24h\src\esp8266\esp8266-config.h
 
-1426245300 c:\emblocksprojects\wclock24h\src\esp8266\esp8266.h
+1426672076 c:\emblocksprojects\wclock24h\src\esp8266\esp8266.h
 	<string.h>
 	<stdint.h>
 	<time.h>
@@ -667,7 +667,7 @@
 1426510429 source:c:\emblocksprojects\wclock24h\src\uart\uart.c
 	"uart.h"
 
-1426527056 source:c:\emblocksprojects\wclock24h\src\monitor.c
+1426675868 source:c:\emblocksprojects\wclock24h\src\monitor.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -683,7 +683,7 @@
 	"dsp.h"
 	"tables.h"
 
-1426527683 c:\emblocksprojects\wclock24h\src\monitor.h
+1426673445 c:\emblocksprojects\wclock24h\src\monitor.h
 	"esp8266.h"
 
 1426497156 c:\emblocksprojects\wclock24h\src\eeprom-data.h

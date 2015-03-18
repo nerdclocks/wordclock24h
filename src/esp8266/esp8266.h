@@ -60,6 +60,7 @@ extern void                     esp8266_powerup (void);
 extern uint_fast8_t             esp8266_connect_to_access_point (char *, char *);
 extern uint_fast8_t             esp8266_disconnect_from_access_point (void);
 extern uint_fast8_t             esp8266_init (void);
+extern char *                   esp8266_get_firmware_version ();
 extern uint_fast8_t             esp8266_check_online_status (ESP8266_CONNECTION_INFO *);
 extern uint_fast8_t             esp8266_get_time (char *, time_t *);
 #endif
