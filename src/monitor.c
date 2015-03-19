@@ -251,7 +251,7 @@ monitor_show_menu (void)
         mvaddstr (MENU_1_LINE, MENU_1_COL, " h/H: inc/dec hour   m/M: inc/dec min    a/A: inc/dec anim   d/D: inc/dec mode  ");
         mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red    g/G: inc/dec green  b/B: inc/dec blue   w/W: inc/dec bright");
         mvaddstr (MENU_3_LINE, MENU_3_COL, " q: auto bright      t: get temp         n: get net time                        ");
-        mvaddstr (MENU_4_LINE, MENU_4_COL, " c: configure        s: save                                                    ");
+        mvaddstr (MENU_4_LINE, MENU_4_COL, " i: learn IR         c: configure        s: save                                ");
         mvaddstr (MENU_5_LINE, MENU_5_COL, " e: eeprom dump      T: test LEDs        p: power on/off     l: logout          ");
         attrset (A_NORMAL);
     }

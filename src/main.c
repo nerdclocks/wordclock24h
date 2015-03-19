@@ -378,6 +378,7 @@ main ()
     static uint_fast8_t     last_ldr_value = 0xFF;
     struct tm               tm;
     LISTENER_DATA           lis;
+    IRMP_DATA               irmp_data;
     uint_fast8_t            status_led_cnt              = 0;
     uint_fast8_t            do_display                  = 1;
     uint_fast8_t            show_temperature            = 0;
@@ -386,6 +387,7 @@ main ()
     uint_fast8_t            power_is_on                 = 1;
     uint_fast8_t            night_power_is_on           = 1;
     uint_fast8_t            temperature_index           = 0xFF;
+    uint32_t                stop_time;
     uint_fast8_t            cmd;
     uint_fast8_t            ldr_value;
     uint8_t                 ch;
@@ -459,6 +461,28 @@ main ()
 
     repaint_screen ();
 
+    stop_time = uptime + 3;                                     // wait 3 seconds for IR signal...
+    dsp_set_led0 (1, 1, 1);                                     // show white status LED
+
+    while (uptime < stop_time)
+    {
+        if (irmp_get_data (&irmp_data))                         // got IR signal?
+        {
+            dsp_set_led0 (1, 0, 0);                             // yes, show red status LED
+            delay_sec (1);                                      // and wait 1 second
+            (void) irmp_get_data (&irmp_data);                  // flush input of IRMP now
+            dsp_set_led0 (0, 0, 0);                             // and switch status LED off
+
+            if (remote_ir_learn ())                             // learn IR commands
+            {
+                remote_ir_write_codes_to_eeprom ();             // if successful, save them in EEPROM
+            }
+            break;                                              // and break the loop
+        }
+    }
+
+    dsp_set_led0 (0, 0, 0);                                     // switch off status LED
+
     while (1)
     {
         if (status_led_cnt)
@@ -496,7 +520,7 @@ main ()
         {
             static int timeserver_init_already_called = 0;
 
-            if (uptime == 2 && ! timeserver_init_already_called)        // 2 seconds gone after boot?
+            if (! timeserver_init_already_called && uptime >= 2)        // 2 seconds gone after boot?
             {
                 timeserver_init ();                                     // yes, initialize ESP8266
                 timeserver_init_already_called = 1;
@@ -898,6 +922,18 @@ main ()
                             mvaddstr (22, 0, "Press ENTER / CR to login.");
                             endwin ();
                         }
+                        break;
+                    }
+
+                    case 'i':
+                    {
+                        if (remote_ir_learn ())
+                        {
+                            remote_ir_write_codes_to_eeprom ();
+                        }
+
+                        do_display = 1;
+                        update_leds_only = 1;
                         break;
                     }
 

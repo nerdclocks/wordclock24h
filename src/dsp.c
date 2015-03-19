@@ -1363,6 +1363,11 @@ void
 dsp_set_automatic_brightness_control (uint_fast8_t new_automatic_brightness_control)
 {
     automatic_brightness_control = new_automatic_brightness_control;
+
+    if (! automatic_brightness_control)
+    {
+        dsp_set_brightness (MAX_BRIGHTNESS);
+    }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -1677,7 +1682,7 @@ dsp_decrement_brightness (void)
 void
 dsp_increment_brightness (void)
 {
-    if (brightness < MAX_BRIGHTNESS - 1)
+    if (brightness < MAX_BRIGHTNESS)
     {
         brightness++;
         dsp_calc_dimmed_colors ();
