@@ -207,8 +207,8 @@ i2c_init (void)
 #elif defined (STM32F10X)
 
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE);
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);       // for SCL
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);       // for SDA
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);       // for SCL
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);       // for SDA
 
     // I2C reset
     RCC_APB1PeriphResetCmd(RCC_APB1Periph_I2C1, ENABLE);

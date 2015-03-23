@@ -85,9 +85,9 @@
 #  define WS2812_DMA_STREAM             DMA1_Stream4
 #  define WS2812_DMA_CHANNEL            DMA_Channel_5
 // transfer complete interrupt - DMA1, Stream4
-#  define WS2812_DMA_CH1_IRQn           DMA1_Stream4_IRQn
-#  define WS2812_DMA_CH1_ISR            DMA1_Stream4_IRQHandler
-#  define WS2812_DMA_CH1_IRQ_FLAG       DMA_IT_TCIF4
+#  define WS2812_DMA_CHANNEL_IRQn       DMA1_Stream4_IRQn
+#  define WS2812_DMA_CHANNEL_ISR        DMA1_Stream4_IRQHandler
+#  define WS2812_DMA_CHANNEL_IRQ_FLAG   DMA_IT_TCIF4
 
 #elif defined (STM32F10X)
 // Timer:
@@ -104,15 +104,15 @@
 #  define WS2812_GPIO_PORT              GPIOA
 #  define WS2812_GPIO_PIN               GPIO_Pin_8
 #  define WS2812_GPIO_SOURCE            GPIO_PinSource8
-// DMA TIM3 - DMA1, Channel1
+// DMA TIM1 - DMA1, Channel2
 #  define WS2812_DMA_CLOCK_CMD          RCC_AHBPeriphClockCmd
 #  define WS2812_DMA_CLOCK              RCC_AHBPeriph_DMA1
-#  define WS2812_DMA_STREAM             DMA1_Channel1
-#  define WS2812_DMA_CHANNEL            DMA_Channel1
+#  define WS2812_DMA_STREAM             DMA1_Channel2
+#  define WS2812_DMA_CHANNEL            DMA_Channel2
 // transfer complete interrupt - DMA1, Channel1
-#  define WS2812_DMA_CH1_IRQn           DMA1_Channel1_IRQn
-#  define WS2812_DMA_CH1_ISR            DMA1_Channel1_IRQHandler
-#  define WS2812_DMA_CH1_IRQ_FLAG       DMA_IT_TCIF4
+#  define WS2812_DMA_CHANNEL_IRQn       DMA1_Channel2_IRQn
+#  define WS2812_DMA_CHANNEL_ISR        DMA1_Channel2_IRQHandler
+#  define WS2812_DMA_CHANNEL_IRQ_FLAG   DMA1_IT_TC2
 
 #endif
 
@@ -171,6 +171,7 @@ ws2812_dma_init (void)
     dma.DMA_PeripheralDataSize  = DMA_PeripheralDataSize_HalfWord; // 16bit
     dma.DMA_PeripheralInc       = DMA_PeripheralInc_Disable;
     dma.DMA_Priority            = DMA_Priority_VeryHigh;
+    // dma.DMA_Priority            = DMA_Priority_High;
 
 #endif
 
@@ -185,7 +186,9 @@ static void
 ws2812_dma_start (void)
 {
     ws2812_dma_status = 1;                                      // set status to "busy"
-    ws2812_dma_init();
+
+    // fm: other method instead of ws2812_dma_init():
+    // DMA_SetCurrDataCounter(DMA1_Channel1, buffersize);       // set new buffer size
 
     DMA_ITConfig(WS2812_DMA_STREAM, DMA_IT_TC, ENABLE);         // enable transfer complete interrupt
     DMA_Cmd(WS2812_DMA_STREAM, ENABLE);                         // DMA enable
@@ -206,7 +209,6 @@ ws2812_clear_all (void)
         ;
     }
 
-    ws2812_dma_start ();
     ws2812_set_all_leds (&rgb, 1);
 }
 
@@ -332,7 +334,7 @@ ws2812_init_nvic (void)
 
     TIM_DMACmd (WS2812_TIM, WS2812_TIM_DMA_TRG1, ENABLE);
 
-    nvic.NVIC_IRQChannel                    = WS2812_DMA_CH1_IRQn;
+    nvic.NVIC_IRQChannel                    = WS2812_DMA_CHANNEL_IRQn;
     nvic.NVIC_IRQChannelPreemptionPriority  = 0;
     nvic.NVIC_IRQChannelSubPriority         = 0;
     nvic.NVIC_IRQChannelCmd                 = ENABLE;
@@ -344,26 +346,21 @@ ws2812_init_nvic (void)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-WS2812_DMA_CH1_ISR (void)
+WS2812_DMA_CHANNEL_ISR (void)
 {
 #if defined (STM32F4XX)
-    if (DMA_GetITStatus(WS2812_DMA_STREAM, WS2812_DMA_CH1_IRQ_FLAG))                // check transfer complete interrupt flag
+    if (DMA_GetITStatus(WS2812_DMA_STREAM, WS2812_DMA_CHANNEL_IRQ_FLAG))            // check transfer complete interrupt flag
     {
-        DMA_ClearITPendingBit (WS2812_DMA_STREAM, WS2812_DMA_CH1_IRQ_FLAG);         // reset flag
+        DMA_ClearITPendingBit (WS2812_DMA_STREAM, WS2812_DMA_CHANNEL_IRQ_FLAG);     // reset flag
+#elif defined (STM32F10X)
+    if (DMA_GetITStatus(WS2812_DMA_CHANNEL_IRQ_FLAG))                               // check transfer complete interrupt flag
+    {
+        DMA_ClearITPendingBit (WS2812_DMA_CHANNEL_IRQ_FLAG);
+#endif
         TIM_Cmd (WS2812_TIM, DISABLE);                                              // disable timer
         DMA_Cmd (WS2812_DMA_STREAM, DISABLE);                                       // disable DMA
         ws2812_dma_status = 0;                                                      // set status to ready
     }
-#elif defined (STM32F10X)
-    if (DMA_GetITStatus(DMA1_IT_TC1))           // check transfer complete interrupt flag
-    {
-        // DMA_ClearITPendingBit (DMA1_IT_TC1); // reset flag only or ...?
-        DMA_ClearITPendingBit (DMA1_IT_GL1);    // clear DMA1 channel1 half transfer, transfer complete and global interrupt pending bits
-        TIM_Cmd (WS2812_TIM, DISABLE);          // disable timer
-        DMA_Cmd (WS2812_DMA_STREAM, DISABLE);   // disable DMA
-        ws2812_dma_status = 0;                  // set status to ready
-    }
-#endif
 }
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------

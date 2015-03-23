@@ -22,18 +22,24 @@
 #define LED_GREEN_PERIPH            RCC_AHB1Periph_GPIOD
 #define LED_GREEN_PORT              GPIOD
 #define LED_GREEN_LED               GPIO_Pin_12
+#define LED_GREEN_ON                SET
+#define LED_GREEN_OFF               RESET
 
 #elif defined (STM32F401RE) || defined (STM32F411RE)            // STM32F401/STM32F411 Nucleo Board PA5
 #define LED_GREEN_PERIPH_CLOCK_CMD  RCC_AHB1PeriphClockCmd
 #define LED_GREEN_PERIPH            RCC_AHB1Periph_GPIOA
 #define LED_GREEN_PORT              GPIOA
 #define LED_GREEN_LED               GPIO_Pin_5
+#define LED_GREEN_ON                SET
+#define LED_GREEN_OFF               RESET
 
 #elif defined (STM32F103)
 #define LED_GREEN_PERIPH_CLOCK_CMD  RCC_APB2PeriphClockCmd
 #define LED_GREEN_PERIPH            RCC_APB2Periph_GPIOC
 #define LED_GREEN_PORT              GPIOC
 #define LED_GREEN_LED               GPIO_Pin_13
+#define LED_GREEN_ON                RESET
+#define LED_GREEN_OFF               SET
 
 #else
 #error STM32 unknown
@@ -63,6 +69,7 @@ led_green_init (void)
 #endif
 
     GPIO_Init(LED_GREEN_PORT, &gpio);
+    led_green_off ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -72,7 +79,7 @@ led_green_init (void)
 void
 led_green_on (void)
 {
-    GPIO_WriteBit(LED_GREEN_PORT, LED_GREEN_LED, SET);
+    GPIO_WriteBit(LED_GREEN_PORT, LED_GREEN_LED, LED_GREEN_ON);
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -82,5 +89,5 @@ led_green_on (void)
 void
 led_green_off (void)
 {
-    GPIO_WriteBit(LED_GREEN_PORT, LED_GREEN_LED, RESET);
+    GPIO_WriteBit(LED_GREEN_PORT, LED_GREEN_LED, LED_GREEN_OFF);
 }

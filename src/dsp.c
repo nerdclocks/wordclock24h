@@ -338,70 +338,79 @@ dsp_animation_fade (void)
 
     if (! animation_stop_flag)
     {
-        if (dimmed_colors_down.red >= red_step)
+        if (red_step > 0)
         {
-            dimmed_colors_down.red -= red_step;
-            changed = 1;
-        }
-        else if (dimmed_colors_down.red != 0)
-        {
-            dimmed_colors_down.red = 0;
-            changed = 1;
+            if (dimmed_colors_down.red >= red_step)
+            {
+                dimmed_colors_down.red -= red_step;
+                changed = 1;
+            }
+            else if (dimmed_colors_down.red != 0)
+            {
+                dimmed_colors_down.red = 0;
+                changed = 1;
+            }
+
+            if (dimmed_colors_up.red + red_step <= dimmed_colors.red)
+            {
+                dimmed_colors_up.red += red_step;
+                changed = 1;
+            }
+            else if (dimmed_colors_up.red != dimmed_colors.red)
+            {
+                dimmed_colors_up.red = dimmed_colors.red;
+                changed = 1;
+            }
         }
 
-        if (dimmed_colors_down.green >= green_step)
+        if (green_step > 0)
         {
-            dimmed_colors_down.green -= green_step;
-            changed = 1;
-        }
-        else if (dimmed_colors_down.green != 0)
-        {
-            dimmed_colors_down.green = 0;
-            changed = 1;
+            if (dimmed_colors_down.green >= green_step)
+            {
+                dimmed_colors_down.green -= green_step;
+                changed = 1;
+            }
+            else if (dimmed_colors_down.green != 0)
+            {
+                dimmed_colors_down.green = 0;
+                changed = 1;
+            }
+
+            if (dimmed_colors_up.green + green_step <= dimmed_colors.green)
+            {
+                dimmed_colors_up.green += green_step;
+                changed = 1;
+            }
+            else if (dimmed_colors_up.green != dimmed_colors.green)
+            {
+                dimmed_colors_up.green = dimmed_colors.green;
+                changed = 1;
+            }
         }
 
-        if (dimmed_colors_down.blue >= blue_step)
+        if (blue_step > 0)
         {
-            dimmed_colors_down.blue -= blue_step;
-            changed = 1;
-        }
-        else if (dimmed_colors_down.blue != 0)
-        {
-            dimmed_colors_down.blue = 0;
-            changed = 1;
-        }
+            if (dimmed_colors_down.blue >= blue_step)
+            {
+                dimmed_colors_down.blue -= blue_step;
+                changed = 1;
+            }
+            else if (dimmed_colors_down.blue != 0)
+            {
+                dimmed_colors_down.blue = 0;
+                changed = 1;
+            }
 
-        if (dimmed_colors_up.red + red_step <= dimmed_colors.red)
-        {
-            dimmed_colors_up.red += red_step;
-            changed = 1;
-        }
-        else if (dimmed_colors_up.red != dimmed_colors.red)
-        {
-            dimmed_colors_up.red = dimmed_colors.red;
-            changed = 1;
-        }
-
-        if (dimmed_colors_up.green + green_step <= dimmed_colors.green)
-        {
-            dimmed_colors_up.green += green_step;
-            changed = 1;
-        }
-        else if (dimmed_colors_up.green != dimmed_colors.green)
-        {
-            dimmed_colors_up.green = dimmed_colors.green;
-            changed = 1;
-        }
-
-        if (dimmed_colors_up.blue + blue_step <= dimmed_colors.blue)
-        {
-            dimmed_colors_up.blue += blue_step;
-            changed = 1;
-        }
-        else if (dimmed_colors_up.blue != dimmed_colors.blue)
-        {
-            dimmed_colors_up.blue = dimmed_colors.blue;
-            changed = 1;
+            if (dimmed_colors_up.blue + blue_step <= dimmed_colors.blue)
+            {
+                dimmed_colors_up.blue += blue_step;
+                changed = 1;
+            }
+            else if (dimmed_colors_up.blue != dimmed_colors.blue)
+            {
+                dimmed_colors_up.blue = dimmed_colors.blue;
+                changed = 1;
+            }
         }
 
         if (changed)
@@ -439,6 +448,10 @@ dsp_animation_fade (void)
             }
 
             ws2812_refresh();
+        }
+        else
+        {
+            animation_stop_flag = 1;
         }
     }
 }
@@ -480,15 +493,9 @@ dsp_show_new_display (void)
 static void
 dsp_animation_roll_right (void)
 {
- #if 0
-    static uint_fast8_t cnt;
-    uint_fast8_t        y;
-    uint_fast8_t        x;
-#else
     static uint_fast16_t    cnt;
     uint_fast16_t           y;
     uint_fast16_t           x;
-#endif
 
     if (animation_start_flag)
     {
@@ -502,36 +509,7 @@ dsp_animation_roll_right (void)
         if (cnt < WC_COLUMNS)
         {
             cnt++;                                                  // 1...WC_COLUMNS
-#if 0
-            for (y = 0; y < WC_ROWS; y++)
-            {
-                for (x = 0; x < WC_COLUMNS; x++)
-                {
-                    if (x >= cnt)
-                    {
-                        if (led.matrix[y][x - cnt] & CURRENT_STATE)
-                        {
-                            led.matrix[y][x] |= NEW_STATE;
-                        }
-                        else
-                        {
-                            led.matrix[y][x] &= ~NEW_STATE;
-                        }
-                    }
-                    else
-                    {
-                        if (led.matrix[y][x + WC_COLUMNS - cnt] & TARGET_STATE)
-                        {
-                            led.matrix[y][x] |= NEW_STATE;
-                        }
-                        else
-                        {
-                            led.matrix[y][x] &= ~NEW_STATE;
-                        }
-                    }
-                }
-            }
-#else
+
             for (y = 0; y < WC_ROWS * WC_COLUMNS; y += WC_COLUMNS)
             {
                 for (x = 0; x < WC_COLUMNS; x++)
@@ -560,7 +538,7 @@ dsp_animation_roll_right (void)
                     }
                 }
             }
-#endif
+
             dsp_show_new_display ();
         }
         else
@@ -577,15 +555,9 @@ dsp_animation_roll_right (void)
 static void
 dsp_animation_roll_left ()
 {
-#if 0
-    static uint_fast8_t cnt;
-    uint_fast8_t        y;
-    uint_fast8_t        x;
-#else
     static uint_fast16_t    cnt;
     uint_fast16_t           y;
     uint_fast16_t           x;
-#endif
 
     if (animation_start_flag)
     {
@@ -600,36 +572,6 @@ dsp_animation_roll_left ()
         {
             cnt++;                                                  // 1...WC_COLUMNS
 
-#if 0
-            for (y = 0; y < WC_ROWS; y++)
-            {
-                for (x = 0; x < WC_COLUMNS; x++)
-                {
-                    if (x + cnt < WC_COLUMNS)
-                    {
-                        if (led.matrix[y][x + cnt] & CURRENT_STATE)
-                        {
-                            led.matrix[y][x] |= NEW_STATE;
-                        }
-                        else
-                        {
-                            led.matrix[y][x] &= ~NEW_STATE;
-                        }
-                    }
-                    else
-                    {
-                        if (led.matrix[y][x + cnt - WC_COLUMNS] & TARGET_STATE)
-                        {
-                            led.matrix[y][x] |= NEW_STATE;
-                        }
-                        else
-                        {
-                            led.matrix[y][x] &= ~NEW_STATE;
-                        }
-                    }
-                }
-            }
-#else
             for (y = 0; y < WC_ROWS * WC_COLUMNS; y += WC_COLUMNS)
             {
                 for (x = 0; x < WC_COLUMNS; x++)
@@ -658,7 +600,7 @@ dsp_animation_roll_left ()
                     }
                 }
             }
-#endif
+
             dsp_show_new_display ();
         }
         else
@@ -675,60 +617,6 @@ dsp_animation_roll_left ()
 static void
 dsp_animation_roll_down ()
 {
-#if 0
-    static uint_fast8_t cnt;
-    uint_fast8_t        y;
-    uint_fast8_t        x;
-
-    if (animation_start_flag)
-    {
-        animation_start_flag = 0;
-        animation_stop_flag = 0;
-        cnt = 0;
-    }
-
-    if (! animation_stop_flag)
-    {
-        if (cnt < WC_ROWS)
-        {
-            cnt++;                                                  // 1...WC_ROWS
-
-            for (y = 0; y < WC_ROWS; y++)
-            {
-                for (x = 0; x < WC_COLUMNS; x++)
-                {
-                    if (y >= cnt)
-                    {
-                        if (led.matrix[y - cnt][x] & CURRENT_STATE)
-                        {
-                            led.matrix[y][x] |= NEW_STATE;
-                        }
-                        else
-                        {
-                            led.matrix[y][x] &= ~NEW_STATE;
-                        }
-                    }
-                    else
-                    {
-                        if (led.matrix[y + WC_ROWS - cnt][x] & TARGET_STATE)
-                        {
-                            led.matrix[y][x] |= NEW_STATE;
-                        }
-                        else
-                        {
-                            led.matrix[y][x] &= ~NEW_STATE;
-                        }
-                    }
-                }
-            }
-            dsp_show_new_display ();
-        }
-        else
-        {
-            animation_stop_flag = 1;
-        }
-    }
-#else
     static uint_fast16_t    cnt;
     uint_fast16_t           y;
     uint_fast16_t           x;
@@ -781,7 +669,6 @@ dsp_animation_roll_down ()
             animation_stop_flag = 1;
         }
     }
-#endif
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -791,60 +678,6 @@ dsp_animation_roll_down ()
 static void
 dsp_animation_roll_up ()
 {
-#if 0
-    static uint_fast8_t cnt;
-    uint_fast8_t        y;
-    uint_fast8_t        x;
-
-    if (animation_start_flag)
-    {
-        animation_start_flag = 0;
-        animation_stop_flag = 0;
-        cnt = 0;
-    }
-
-    if (! animation_stop_flag)
-    {
-        if (cnt < WC_ROWS)
-        {
-            cnt++;                                                  // 1...WC_ROWS
-
-            for (y = 0; y < WC_ROWS; y++)
-            {
-                for (x = 0; x < WC_COLUMNS; x++)
-                {
-                    if (y + cnt < WC_ROWS)
-                    {
-                        if (led.matrix[y + cnt][x] & CURRENT_STATE)
-                        {
-                            led.matrix[y][x] |= NEW_STATE;
-                        }
-                        else
-                        {
-                            led.matrix[y][x] &= ~NEW_STATE;
-                        }
-                    }
-                    else
-                    {
-                        if (led.matrix[y + cnt - WC_ROWS][x] & TARGET_STATE)
-                        {
-                            led.matrix[y][x] |= NEW_STATE;
-                        }
-                        else
-                        {
-                            led.matrix[y][x] &= ~NEW_STATE;
-                        }
-                    }
-                }
-            }
-            dsp_show_new_display ();
-        }
-        else
-        {
-            animation_stop_flag = 1;
-        }
-    }
-#else
     static uint_fast16_t    cnt;
     uint_fast16_t           y;
     uint_fast16_t           x;
@@ -897,7 +730,6 @@ dsp_animation_roll_up ()
             animation_stop_flag = 1;
         }
     }
-#endif
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------

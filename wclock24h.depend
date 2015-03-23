@@ -251,7 +251,7 @@
 	"stm32f4xx_gpio.h"
 	"stm32f4xx_rcc.h"
 
-1426783241 source:c:\emblocksprojects\wclock24h\src\dsp.c
+1427141073 source:c:\emblocksprojects\wclock24h\src\dsp.c
 	<string.h>
 	<stdio.h>
 	<stdlib.h>
@@ -371,7 +371,7 @@
 
 1410773381 c:\emblocksprojects\wclock24h\src\irmp\irsndconfig.h
 
-1426766340 source:c:\emblocksprojects\wclock24h\src\main.c
+1426783381 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -401,7 +401,7 @@
 
 1426499460 c:\emblocksprojects\wclock24h\src\cmd.h
 
-1426512245 source:c:\emblocksprojects\wclock24h\src\mcurses\mcurses.c
+1427056991 source:c:\emblocksprojects\wclock24h\src\mcurses\mcurses.c
 	<stdio.h>
 	<stdlib.h>
 	<string.h>
@@ -478,7 +478,7 @@
 1378103901 c:\emblocksprojects\wclock24h\src\usb_lib\otg\usb_dcd_int.h
 	"usb_dcd.h"
 
-1426499460 source:c:\emblocksprojects\wclock24h\src\remote-ir.c
+1427150401 source:c:\emblocksprojects\wclock24h\src\remote-ir.c
 	"wclock24h-config.h"
 	"irmp.h"
 	"remote-ir.h"
@@ -561,11 +561,11 @@
 	"usb_conf.h"
 	"usb_dcd_int.h"
 
-1426514098 source:c:\emblocksprojects\wclock24h\src\ws2812\ws2812.c
+1427150357 source:c:\emblocksprojects\wclock24h\src\ws2812\ws2812.c
 	"ws2812.h"
 	"ws2812-config.h"
 
-1426504928 source:c:\emblocksprojects\wclock24h\src\led-green.c
+1427049134 source:c:\emblocksprojects\wclock24h\src\led-green.c
 	"stm32f10x.h"
 	"stm32f4xx.h"
 	"led-green.h"
@@ -623,7 +623,7 @@
 
 1419233443 c:\emblocksprojects\wclock24h\src\esp8266.h
 
-1426510428 source:c:\emblocksprojects\wclock24h\src\i2c\i2c.c
+1427139505 source:c:\emblocksprojects\wclock24h\src\i2c\i2c.c
 	"i2c.h"
 
 1426156710 c:\emblocksprojects\wclock24h\src\i2c\i2c.h
@@ -770,7 +770,7 @@
 	"stm32f4xx.h"
 	"onewire.h"
 
-1426256120 source:c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx.c
+1427099501 source:c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx.c
 	"onewire.h"
 	"ds18xx.h"
 	"ds18xx-config.h"
