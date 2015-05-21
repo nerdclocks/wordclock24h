@@ -416,6 +416,8 @@ esp8266_get_answer (char * answer, uint_fast8_t max_len, uint_fast8_t line, uint
     return 1;
 }
 
+static uint_fast8_t esp8266_needs_crlf = 1;
+
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * INTERN: send a command to ESP8266
  *--------------------------------------------------------------------------------------------------------------------------------------
@@ -423,6 +425,7 @@ esp8266_get_answer (char * answer, uint_fast8_t max_len, uint_fast8_t line, uint
 uint_fast8_t
 esp8266_send_cmd (char * cmd)
 {
+    uint8_t         send_ch;
     uint8_t         ch;
     uint_fast8_t    length;
     uint_fast8_t    i;
@@ -452,6 +455,13 @@ esp8266_send_cmd (char * cmd)
                 printw ("<%02x>", ch);
             }
         }
+
+        addstr ("<0d>");
+
+        if (esp8266_needs_crlf)
+        {
+            addstr ("<0a>");
+        }
         refresh ();
     }
 
@@ -469,9 +479,22 @@ esp8266_send_cmd (char * cmd)
         refresh ();
     }
 
-    for (i = 0; i < length; i++)
+    for (i = 0; i < length + 1 + (esp8266_needs_crlf ? 1 : 0); i++)
     {
-        uart_putc (cmd[i]);
+        if (i < length)
+        {
+            send_ch = cmd[i];
+        }
+        else if (i == length)
+        {
+            send_ch = '\r';
+        }
+        else
+        {
+            send_ch = '\n';
+        }
+
+        uart_putc (send_ch);
         uart_flush ();
 
         do
@@ -485,7 +508,7 @@ esp8266_send_cmd (char * cmd)
                 }
                 return 0;
             }
-        } while (ch == 0xd0);
+        } while (ch == 0x00);
 
         if (mcurses_is_up)
         {
@@ -500,11 +523,16 @@ esp8266_send_cmd (char * cmd)
             refresh ();
         }
 
-        if (ch != cmd[i])
+        if (ch == 0x0d && send_ch == 0x0a)      // old ESP8266 (FW 00150900) sends \r\r instead of \r\n
+        {
+            ch = 0x0a;
+        }
+
+        if (ch != send_ch)
         {
             if (mcurses_is_up)
             {
-                mvprintw (ESP_MSG_LINE, ESP_MSG_COL, "wrong echo, got '%c' <%02x>, expected: '%c' <%02x>", ch, ch, cmd[i], cmd[i]);
+                mvprintw (ESP_MSG_LINE, ESP_MSG_COL, "wrong echo, got <%02x>, expected: <%02x>", ch, send_ch);
                 clrtoeol();
                 refresh ();
             }
@@ -597,7 +625,7 @@ esp8266_get_access_point_connected (void)
     char *          p;
     uint_fast8_t    len;
 
-    esp8266_send_cmd("AT+CWJAP?\r");
+    esp8266_send_cmd("AT+CWJAP?");
 
     if (esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100) != ESP8266_TIMEOUT)
     {
@@ -631,11 +659,11 @@ esp8266_set_mux_on_off (uint_fast8_t on)
 
     if (on)
     {
-        cmd = "AT+CIPMUX=1\r";
+        cmd = "AT+CIPMUX=1";
     }
     else
     {
-        cmd = "AT+CIPMUX=0\r";
+        cmd = "AT+CIPMUX=0";
     }
 
 
@@ -656,7 +684,7 @@ esp8266_close_connection (void)
 {
     uint_fast8_t    rtc = 0;
 
-    if (esp8266_send_cmd("AT+CIPCLOSE\r") &&
+    if (esp8266_send_cmd("AT+CIPCLOSE") &&
         esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100) != ESP8266_TIMEOUT)
     {
         rtc = 1;
@@ -674,7 +702,7 @@ esp8266_server (uint_fast16_t port)
     static char     cmd[32];
     uint_fast8_t    rtc = 0;
 
-    sprintf (cmd, "AT+CIPSERVER=1,%d\r", port);
+    sprintf (cmd, "AT+CIPSERVER=1,%d", port);
 
     if (esp8266_send_cmd(cmd) &&
         esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100) != ESP8266_TIMEOUT)
@@ -694,7 +722,7 @@ esp8266_connect_to_access_point (char * ssid, char * key)
     static char     cmd[ESP8266_MAX_CMD_LEN];
     uint_fast8_t    rtc = 0;
 
-    if (esp8266_send_cmd("AT+CWMODE=1\r"))
+    if (esp8266_send_cmd("AT+CWMODE=1"))
     {
         if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 200) != ESP8266_TIMEOUT)
         {
@@ -702,7 +730,7 @@ esp8266_connect_to_access_point (char * ssid, char * key)
             strcat (cmd, ssid);
             strcat (cmd, "\",\"");
             strcat (cmd, key);
-            strcat (cmd, "\"\r");
+            strcat (cmd, "\"");
 
             if (esp8266_send_cmd(cmd))
             {
@@ -726,7 +754,7 @@ esp8266_disconnect_from_access_point (void)
 {
     uint_fast8_t    rtc = 0;
 
-    if (esp8266_send_cmd("AT+CWQAP\r"))
+    if (esp8266_send_cmd("AT+CWQAP"))
     {
         while (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 500) != ESP8266_TIMEOUT)
         {
@@ -746,7 +774,7 @@ esp8266_get_ip_address (void)
 {
     static char     esp_answer[ESP8266_MAX_ANSWER_LEN + 1];
 
-    esp8266_send_cmd("AT+CIFSR\r");
+    esp8266_send_cmd("AT+CIFSR");
 
     if (esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100) == ESP8266_UNKNOWN)
     {
@@ -767,7 +795,7 @@ esp8266_get_firmware_version (void)
         return firmware_version;
     }
 
-    esp8266_send_cmd("AT+GMR\r");
+    esp8266_send_cmd("AT+GMR");
 
     if (esp8266_get_answer (firmware_version, ESP8266_MAX_F_VERSION_LEN, LOG_LINE, 100) == ESP8266_UNKNOWN)
     {
@@ -813,7 +841,7 @@ esp8266_check_up_status ()
 {
     uint_fast8_t    rtc = 0;
 
-    if (esp8266_send_cmd("AT\r"))
+    if (esp8266_send_cmd("AT"))
     {
         if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100) == ESP8266_OK)
         {
@@ -828,25 +856,45 @@ esp8266_check_up_status ()
  * initialize UART and ESP8266
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
+#define MAX_BAUDRATES   3
+
 uint_fast8_t
 esp8266_init (void)
 {
-    static uint_fast8_t already_called;
-    uint_fast8_t        rtc;
+    static uint_fast8_t     already_called;
+    static uint_fast32_t    baudrates[MAX_BAUDRATES] = { 115200, 57600, 9600 };     // baud rates to check
+    uint_fast8_t            i;
+    uint_fast8_t            rtc;
 
     if (! already_called)
     {
         already_called = 1;
 
-        uart_init (115200);
         esp8266_gpio_init ();
 
-        while ((rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100)) != ESP8266_TIMEOUT && rtc != ESP8266_READY)
+        for (i = 0; i < MAX_BAUDRATES; i++)
         {
-            ;
-        }
+            uart_init (baudrates[i]);
 
-        esp8266_is_up = esp8266_check_up_status ();
+            esp8266_reset ();
+
+            while ((rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100)) != ESP8266_TIMEOUT && rtc != ESP8266_READY)
+            {
+                ;
+            }
+
+            esp8266_is_up = esp8266_check_up_status ();
+
+            if (esp8266_is_up)
+            {
+                if (baudrates[i] == 9600)
+                {
+                    (void) esp8266_send_cmd ("AT+CIOBAUD=115200");      // change baud rate of ESP8266 to 115200
+                    uart_init (115200);                                 // change baud rate of UART to 115200
+                }
+                break;
+            }
+        }
     }
 
     return esp8266_is_up;
@@ -864,7 +912,7 @@ esp8266_get_time (char * timeserver, time_t * curtime_p)
 
     strcpy (buf, "AT+CIPSTART=1,\"TCP\",\"");
     strcat (buf, timeserver);
-    strcat (buf, "\",37\r");
+    strcat (buf, "\",37");
 
     if (esp8266_send_cmd(buf))
     {
