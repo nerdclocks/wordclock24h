@@ -3,9 +3,12 @@
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
- * WS2812 timing : (1.25us = 800 kHz)
- *   0 => HI:0.35us , LO:0.90us
- *   1 => HI:0.90us , LO:0.35us
+ * Timings:
+ *          WS2812          WS2812B         Tolerance       Common symmetric(!) values
+ *   T0H    350 ns          400 ns          +/- 150 ns      470 ns
+ *   T1H    700 ns          800 ns          +/- 150 ns      800 ns
+ *   T0L    800 ns          850 ns          +/- 150 ns      800 ns
+ *   T1L    600 ns          450 ns          +/- 150 ns      470 ns
  *
  * WS23812 format : (8G 8R 8B)
  *   24bit per LED  (24 * 1.25 = 30us per LED)
@@ -31,25 +34,27 @@
  *  freq = WS2812_TIM_CLK / (WS2812_TIM_PRESCALER + 1) / (WS2812_TIM_PERIOD + 1)
  *
  *  STM32F4XX:
- *    freq = 84000000 / (0 + 1) / (104 + 1) = 800 kHz = 1.25 us
+ *    freq = 84000000 / (0 + 1) / (106 + 1) = 785 kHz = 1.274 us
  *
  *  STM32F10X:
- *    freq = 72000000 / (0 + 1) / (89 + 1) = 800 kHz = 1.25 us
+ *    freq = 72000000 / (0 + 1) / ( 91 + 1) = 783 kHz = 1.277 us
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 #if defined (STM32F401RE) || defined (STM32F411RE)              // STM32F401/STM32F411 Nucleo Board
-#define WS2812_TIM_CLK              84000000L                   // 84 MHz = 11.9ns
+#define WS2812_TIM_CLK              84000000L                   // 84 MHz = 11.90ns
 #define WS2812_TIM_PRESCALER          0
-#define WS2812_TIM_PERIOD           104
-#define WS2812_LO_TIME               29                         // 29 * 11.9ns = 0.345us
-#define WS2812_HI_TIME               76                         // 76 * 11.9ns = 0.905us
+#define WS2812_TIM_PERIOD           106
+
+#define WS2812_T1H                   67                         // 800ns: 67 * 11.90ns = 797ns
+#define WS2812_T1L                   39                         // 470ns: 39 * 11.90ns = 464ns
 
 #elif defined (STM32F103)                                       // STM32F103 Mini Development Board
-#define WS2812_TIM_CLK              72000000L                   // 72 MHz = 13.9ns
+#define WS2812_TIM_CLK              72000000L                   // 72 MHz = 13.89ns
 #define WS2812_TIM_PRESCALER          0
-#define WS2812_TIM_PERIOD            89
-#define WS2812_LO_TIME               25                         // 25 * 13.9ns = 0.347us
-#define WS2812_HI_TIME               65                         // 65 * 13.9ns = 0.903us
+#define WS2812_TIM_PERIOD            91
+
+#define WS2812_T1H                   58                         // 800ns: 58 * 13.89ns = 806ns
+#define WS2812_T1L                   34                         // 470ns: 34 * 13.89ns = 472ns
 
 #else
 #error STM32 unknown
@@ -115,11 +120,11 @@
  * DMA buffer
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
-#define  WS2812_TIMER_BUF_LEN       (WS2812_LEDS * WS2812_BIT_PER_LED + WS2812_PAUSE_LEN)   // DMA buffer length
+#define  WS2812_TIMER_BUF_LEN       (WS2812_MAX_LEDS * WS2812_BIT_PER_LED + WS2812_PAUSE_LEN)   // DMA buffer length
 
-static volatile uint32_t            ws2812_dma_status;                                      // DMA status
-static WS2812_RGB                   rgb_buf[WS2812_LEDS];                                   // RGB values
-static uint16_t                     timer_buf[WS2812_TIMER_BUF_LEN];                        // DMA buffer
+static volatile uint32_t            ws2812_dma_status;                                          // DMA status
+static WS2812_RGB                   rgb_buf[WS2812_MAX_LEDS];                                   // RGB values
+static uint16_t                     timer_buf[WS2812_TIMER_BUF_LEN];                            // DMA buffer
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
  * INTERN: initialize DMA
@@ -187,7 +192,7 @@ ws2812_dma_start (void)
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-ws2812_clear_all (void)
+ws2812_clear_all (uint_fast16_t n_leds)
 {
     WS2812_RGB  rgb = { 0, 0, 0 };
 
@@ -196,7 +201,7 @@ ws2812_clear_all (void)
         ;
     }
 
-    ws2812_set_all_leds (&rgb, 1);
+    ws2812_set_all_leds (&rgb, n_leds, 1);
 }
 
 
@@ -205,7 +210,7 @@ ws2812_clear_all (void)
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-ws2812_setup_timer_buf (void)
+ws2812_setup_timer_buf (uint_fast16_t n_leds)
 {
     uint_fast8_t    i;
     uint32_t        n;
@@ -215,21 +220,21 @@ ws2812_setup_timer_buf (void)
     pos = 0;
     led = rgb_buf;
 
-    for (n = 0; n < WS2812_LEDS; n++)
+    for (n = 0; n < n_leds; n++)
     {
         for (i = 0x80; i != 0; i >>= 1)                         // color green
         {
-            timer_buf[pos++] = (led->green & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
+            timer_buf[pos++] = (led->green & i) ? WS2812_T1H : WS2812_T1L;
         }
 
         for (i = 0x80; i != 0; i >>= 1)                         // color red
         {
-            timer_buf[pos++] = (led->red & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
+            timer_buf[pos++] = (led->red & i) ? WS2812_T1H : WS2812_T1L;
         }
 
         for (i = 0x80; i != 0; i >>= 1)                         // color blue
         {
-            timer_buf[pos++] = (led->blue & i) ? WS2812_HI_TIME : WS2812_LO_TIME;
+            timer_buf[pos++] = (led->blue & i) ? WS2812_T1H : WS2812_T1L;
         }
 
         led++;
@@ -240,6 +245,7 @@ ws2812_setup_timer_buf (void)
         timer_buf[pos++] = 0;
     }
 }
+
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * ISR DMA (will be called, when all data has been transferred)
@@ -268,14 +274,14 @@ WS2812_DMA_CHANNEL_ISR (void)
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-ws2812_refresh (void)
+ws2812_refresh (uint_fast16_t n_leds)
 {
     while (ws2812_dma_status != 0)
     {
         ;                                                        // wait until DMA transfer is ready
     }
 
-    ws2812_setup_timer_buf ();
+    ws2812_setup_timer_buf (n_leds);
     ws2812_dma_start();
 }
 
@@ -284,18 +290,13 @@ ws2812_refresh (void)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-ws2812_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
+ws2812_set_led (uint_fast16_t n, WS2812_RGB * rgb)
 {
-    if (n < WS2812_LEDS)
+    if (n < WS2812_MAX_LEDS)
     {
         rgb_buf[n].red      = rgb->red;
         rgb_buf[n].green    = rgb->green;
         rgb_buf[n].blue     = rgb->blue;
-
-        if (refresh)
-        {
-            ws2812_refresh ();
-        }
     }
 }
 
@@ -304,11 +305,11 @@ ws2812_set_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-ws2812_set_all_leds (WS2812_RGB * rgb, uint_fast8_t refresh)
+ws2812_set_all_leds (WS2812_RGB * rgb, uint_fast16_t n_leds, uint_fast8_t refresh)
 {
     uint_fast16_t n;
 
-    for (n = 0; n < WS2812_LEDS; n++)
+    for (n = 0; n < n_leds; n++)
     {
         rgb_buf[n].red      = rgb->red;
         rgb_buf[n].green    = rgb->green;
@@ -317,7 +318,7 @@ ws2812_set_all_leds (WS2812_RGB * rgb, uint_fast8_t refresh)
 
     if (refresh)
     {
-        ws2812_refresh ();
+        ws2812_refresh (n_leds);
     }
 }
 
@@ -360,6 +361,7 @@ ws2812_init (void)
     gpio.GPIO_Speed   = GPIO_Speed_50MHz;
     GPIO_Init(WS2812_GPIO_PORT, &gpio);
     GPIO_WriteBit(WS2812_GPIO_PORT, WS2812_GPIO_PIN, RESET);    // set pin to Low
+
 #endif
 
     /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -407,5 +409,5 @@ ws2812_init (void)
      */
     ws2812_dma_init ();
 
-    ws2812_clear_all ();
+    ws2812_clear_all (WS2812_MAX_LEDS);
 }

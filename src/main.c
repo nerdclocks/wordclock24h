@@ -462,16 +462,16 @@ main ()
     repaint_screen ();
 
     stop_time = uptime + 3;                                     // wait 3 seconds for IR signal...
-    dsp_set_led0 (1, 1, 1);                                     // show white status LED
+    dsp_set_status_led (1, 1, 1);                               // show white status LED
 
     while (uptime < stop_time)
     {
         if (irmp_get_data (&irmp_data))                         // got IR signal?
         {
-            dsp_set_led0 (1, 0, 0);                             // yes, show red status LED
+            dsp_set_status_led (1, 0, 0);                       // yes, show red status LED
             delay_sec (1);                                      // and wait 1 second
             (void) irmp_get_data (&irmp_data);                  // flush input of IRMP now
-            dsp_set_led0 (0, 0, 0);                             // and switch status LED off
+            dsp_set_status_led (0, 0, 0);                       // and switch status LED off
 
             if (remote_ir_learn ())                             // learn IR commands
             {
@@ -481,7 +481,7 @@ main ()
         }
     }
 
-    dsp_set_led0 (0, 0, 0);                                     // switch off status LED
+    dsp_set_status_led (0, 0, 0);                               // switch off status LED
 
     while (1)
     {
@@ -491,7 +491,7 @@ main ()
 
             if (! status_led_cnt)
             {
-                dsp_set_led0 (0, 0, 0);
+                dsp_set_status_led (0, 0, 0);
             }
         }
 
@@ -552,7 +552,7 @@ main ()
 
                 if ((code = listener (&lis)) != 0)
                 {
-                    dsp_set_led0 (1, 0, 0);                     // got net command, light red status LED
+                    dsp_set_status_led (1, 0, 0);               // got net command, light red status LED
                     status_led_cnt = 50;
 
                     switch (code)
@@ -663,7 +663,7 @@ main ()
 
         if (dcf77_time(&tm))
         {
-            dsp_set_led0 (1, 1, 0);                             // got DCF77 time, light yellow = green + red LED
+            dsp_set_status_led (1, 1, 0);                       // got DCF77 time, light yellow = green + red LED
             status_led_cnt = 50;
 
             if (rtc_is_up)
@@ -716,7 +716,7 @@ main ()
         {
             if (esp8266_is_online)
             {
-                dsp_set_led0 (0, 0, 1);                     // got NET time, light blue status LED
+                dsp_set_status_led (0, 0, 1);                   // got NET time, light blue status LED
                 status_led_cnt = 50;
 
                 if (timeserver_get_time (&tm))
@@ -851,7 +851,7 @@ main ()
 
         if (cmd != CMD_INVALID)                                 // got IR command, light green LED
         {
-            dsp_set_led0 (1, 0, 0);
+            dsp_set_status_led (1, 0, 0);
             status_led_cnt = 50;
         }
 

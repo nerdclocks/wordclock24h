@@ -46,8 +46,8 @@ typedef struct
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 extern void ws2812_init (void);
-extern void ws2812_refresh (void);
-extern void ws2812_set_led (uint_fast16_t, WS2812_RGB *, uint_fast8_t);
-extern void ws2812_set_all_leds (WS2812_RGB *, uint_fast8_t);
+extern void ws2812_refresh (uint_fast16_t);
+extern void ws2812_set_led (uint_fast16_t, WS2812_RGB *);
+extern void ws2812_set_all_leds (WS2812_RGB *, uint_fast16_t, uint_fast8_t);
 
 #endif

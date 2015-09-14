@@ -23,7 +23,7 @@ typedef struct
 
 extern char *       animation_modes[];
 
-void                dsp_set_led0 (uint_fast8_t, uint_fast8_t, uint_fast8_t);
+void                dsp_set_status_led (uint_fast8_t, uint_fast8_t, uint_fast8_t);
 extern void         reset_led_states (void);
 extern void         dsp_led_on (uint_fast8_t, uint_fast8_t);
 extern void         dsp_temperature (uint_fast8_t, uint_fast8_t);
@@ -52,6 +52,7 @@ extern void         dsp_set_brightness  (uint_fast8_t);
 extern void         dsp_decrement_brightness (void);
 extern void         dsp_increment_brightness (void);
 extern void         dsp_test (void);
+extern void         dsp_message (char *);
 extern uint_fast8_t dsp_read_config_from_eeprom (void);
 extern uint_fast8_t dsp_write_config_to_eeprom (void);
 extern void         dsp_init (void);

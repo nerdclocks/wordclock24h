@@ -132,13 +132,13 @@ uart_init (uint32_t baudrate)
     gpio.GPIO_Pin = UART_TX_PIN;
     gpio.GPIO_Mode = GPIO_Mode_AF_PP;
     gpio.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOA, &gpio);
+    GPIO_Init(UART_TX_PORT, &gpio);
 
     /* RX Pin */
     gpio.GPIO_Pin = UART_RX_PIN;
     gpio.GPIO_Mode = GPIO_Mode_IPU;
     gpio.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOA, &gpio);
+    GPIO_Init(UART_RX_PORT, &gpio);
 
 #endif
 
