@@ -157,12 +157,10 @@ static uint_fast8_t                 red_step;
 static uint_fast8_t                 green_step;
 static uint_fast8_t                 blue_step;
 
-static uint_fast8_t                 ambi_state;
-
 #define FONT_LINES                  12
 #define FONT_COLS                    7
 
-const char font[256][FONT_LINES] =
+static const char font[256][FONT_LINES] =
 {
     {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},  // 0x00
     {0x00,0x00,0x00,0x1C,0x63,0x55,0x7F,0x63,0x1C,0x00,0x00,0x00},  // 0x01
@@ -478,8 +476,8 @@ dsp_set_display_led (uint_fast16_t n, WS2812_RGB * rgb, uint_fast8_t refresh)
 {
 	if (n < WS2812_DISPLAY_LEDS)
 	{
-        uint8_t y;
-        uint8_t x;
+        uint_fast8_t y;
+        uint_fast8_t x;
 
         y = n / WC_COLUMNS;
 
@@ -575,9 +573,16 @@ dsp_word_on (uint_fast8_t idx)
 static void
 dsp_animation_flush (uint_fast8_t flush_ambi)
 {
-    WS2812_RGB      rgb;
-    WS2812_RGB      rgb0;
-    uint_fast16_t    idx;
+    static uint_fast8_t already_called;
+    WS2812_RGB          rgb;
+    WS2812_RGB          rgb0;
+    uint_fast16_t       idx;
+
+    if (! already_called)
+    {
+        flush_ambi = 1;
+        already_called = 1;
+    }
 
     rgb.red         = pwmtable8[dimmed_colors.red];
     rgb.green       = pwmtable8[dimmed_colors.green];
@@ -603,23 +608,14 @@ dsp_animation_flush (uint_fast8_t flush_ambi)
 
     if (flush_ambi)
     {
-        if (ambi_state & TARGET_STATE)
-        {
-            dsp_set_ambilight_led (&rgb, 0);
-            ambi_state |= CURRENT_STATE;
-        }
-        else
-        {
-            dsp_set_ambilight_led (&rgb0, 0);
-            ambi_state &= ~CURRENT_STATE;
-        }
-
+        dsp_set_ambilight_led (&rgb, 0);
         dsp_refresh_ambilight_leds ();
     }
     else
     {
         dsp_refresh_display_leds ();
     }
+
     animation_stop_flag = 1;
 }
 

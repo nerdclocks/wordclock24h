@@ -120,18 +120,18 @@
  * DMA buffer
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
-#define  WS2812_TIMER_BUF_LEN       (WS2812_MAX_LEDS * WS2812_BIT_PER_LED + WS2812_PAUSE_LEN)   // DMA buffer length
+#define WS2812_TIMER_BUF_LEN(n)     ((n) * WS2812_BIT_PER_LED + WS2812_PAUSE_LEN)               // DMA buffer length
 
 static volatile uint32_t            ws2812_dma_status;                                          // DMA status
 static WS2812_RGB                   rgb_buf[WS2812_MAX_LEDS];                                   // RGB values
-static uint16_t                     timer_buf[WS2812_TIMER_BUF_LEN];                            // DMA buffer
+static uint16_t                     timer_buf[WS2812_TIMER_BUF_LEN(WS2812_MAX_LEDS)];           // DMA buffer
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
  * INTERN: initialize DMA
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-ws2812_dma_init (void)
+ws2812_dma_init (uint16_t n_leds)
 {
     DMA_InitTypeDef         dma;
     DMA_StructInit (&dma);
@@ -143,7 +143,7 @@ ws2812_dma_init (void)
     dma.DMA_PeripheralBaseAddr  = (uint32_t) &WS2812_TIM_CCR_REG1;
     dma.DMA_PeripheralDataSize  = DMA_PeripheralDataSize_HalfWord;          // 16bit
     dma.DMA_MemoryDataSize      = DMA_MemoryDataSize_HalfWord;
-    dma.DMA_BufferSize          = WS2812_TIMER_BUF_LEN;
+    dma.DMA_BufferSize          = WS2812_TIMER_BUF_LEN(n_leds);
     dma.DMA_PeripheralInc       = DMA_PeripheralInc_Disable;
     dma.DMA_MemoryInc           = DMA_MemoryInc_Enable;
     dma.DMA_Priority            = DMA_Priority_VeryHigh;                    // DMA_Priority_High;
@@ -174,17 +174,17 @@ ws2812_dma_init (void)
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-ws2812_dma_start (void)
+ws2812_dma_start (uint16_t n_leds)
 {
-    ws2812_dma_status = 1;                                      // set status to "busy"
+    ws2812_dma_status = 1;                                                          // set status to "busy"
 
-    ws2812_dma_init ();
+    ws2812_dma_init (n_leds);
     // fm: other method instead of ws2812_dma_init():
-    // DMA_SetCurrDataCounter(DMA1_Channel1, WS2812_TIMER_BUF_LEN);       // set new buffer size
+    // DMA_SetCurrDataCounter(DMA1_Channel1, WS2812_TIMER_BUF_LEN(n_leds));         // set new buffer size
 
-    DMA_ITConfig(WS2812_DMA_STREAM, DMA_IT_TC, ENABLE);         // enable transfer complete interrupt
-    DMA_Cmd(WS2812_DMA_STREAM, ENABLE);                         // DMA enable
-    TIM_Cmd(WS2812_TIM, ENABLE);                                // Timer enable
+    DMA_ITConfig(WS2812_DMA_STREAM, DMA_IT_TC, ENABLE);                             // enable transfer complete interrupt
+    DMA_Cmd(WS2812_DMA_STREAM, ENABLE);                                             // DMA enable
+    TIM_Cmd(WS2812_TIM, ENABLE);                                                    // Timer enable
 }
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
@@ -213,8 +213,8 @@ static void
 ws2812_setup_timer_buf (uint_fast16_t n_leds)
 {
     uint_fast8_t    i;
-    uint32_t        n;
-    uint32_t        pos;
+    uint_fast16_t   n;
+    uint_fast16_t   pos;
     WS2812_RGB *    led;
 
     pos = 0;
@@ -282,7 +282,7 @@ ws2812_refresh (uint_fast16_t n_leds)
     }
 
     ws2812_setup_timer_buf (n_leds);
-    ws2812_dma_start();
+    ws2812_dma_start(n_leds);
 }
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -407,7 +407,7 @@ ws2812_init (void)
      * initialize DMA
      *-------------------------------------------------------------------------------------------------------------------------------------------
      */
-    ws2812_dma_init ();
+    ws2812_dma_init (WS2812_MAX_LEDS);
 
     ws2812_clear_all (WS2812_MAX_LEDS);
 }
