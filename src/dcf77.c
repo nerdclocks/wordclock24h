@@ -137,7 +137,7 @@ dcf77_tick (void)
 
             if (mcurses_is_up)
             {
-                mvprintw (LOG_LINE, LOG_COL, "LO: %3d   ", cnt);
+                mvprintw (DCF77_LOG_LINE, DCF77_LOG_COL, "LO: %3d   ", cnt);
             }
 
             if (cnt > 120)
@@ -183,7 +183,7 @@ dcf77_tick (void)
 
             if (mcurses_is_up)
             {
-                mvprintw (LOG_LINE, 10, "HI: %3d BIT: %3d isdst: %d time: %02d.%02d.%02d %02d:%02d",
+                mvprintw (DCF77_LOG_LINE, DCF77_LOG_COL, "HI: %3d BIT: %3d isdst: %d time: %02d.%02d.%02d %02d:%02d",
                           cnt, bitno, isdst, mday, month, year, hour, minute);
             }
 

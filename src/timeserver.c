@@ -180,7 +180,7 @@ timeserver_cmd (void)
             {
                 esp8266_send_cmd (cmd);
 
-                for (line = 6; line < 23 && esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN,  line, 1000) != ESP8266_TIMEOUT; line++)
+                for (line = 6; line < 23 && esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, 1, line, 1000) != ESP8266_TIMEOUT; line++)
                 {
                     ;
                 }
@@ -235,11 +235,11 @@ timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_
                 clear ();
 
                 esp8266_reset ();
-                esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100);
+                esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, 0, LOG_LINE, 100);
                 esp8266_disconnect_from_access_point ();
                 esp8266_connect_to_access_point (ssid, key);
                 esp8266_reset ();
-                esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, LOG_LINE, 100);
+                esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, 0, LOG_LINE, 100);
 
                 mvaddstr (next_line + 3, 10, "Checking ESP8266 online status, please wait...");
                 refresh ();

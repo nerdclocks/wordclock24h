@@ -227,10 +227,10 @@ monitor_show_modes (uint_fast8_t display_mode, uint_fast8_t animation_mode)
 {
     if (mcurses_is_up)
     {
-        mvprintw (ANIMATION_MODE_LINE, ANIMATION_MODE_COL, "Animation Mode: %2d: ", animation_mode);
+        mvprintw (ANIMATION_MODE_LINE, ANIMATION_MODE_COL, "Anim. Mode: %2d: ", animation_mode);
         addstr (animation_modes[animation_mode]);
         clrtoeol ();
-        mvprintw (DISPLAY_MODE_LINE, DISPLAY_MODE_COL,     "Display   Mode: %2d: ", display_mode);
+        mvprintw (DISPLAY_MODE_LINE, DISPLAY_MODE_COL,     "Disp. Mode: %2d: ", display_mode);
         addstr (tbl_modes[display_mode].description);
         clrtoeol ();
     }
@@ -246,14 +246,48 @@ monitor_show_menu (void)
     if (mcurses_is_up)
     {
         attrset (A_REVERSE);
-        //                                           1         2         3         4         5         6         7         8
-        //                                  12345678901234567890123456789012345678901234567890123456789012345678901234567890
-        mvaddstr (MENU_1_LINE, MENU_1_COL, " h/H: inc/dec hour   m/M: inc/dec min    a/A: inc/dec anim   d/D: inc/dec mode  ");
-        mvaddstr (MENU_2_LINE, MENU_2_COL, " r/R: inc/dec red    g/G: inc/dec green  b/B: inc/dec blue   w/W: inc/dec bright");
-        mvaddstr (MENU_3_LINE, MENU_3_COL, " q: auto bright      t: get temp         n: get net time                        ");
-        mvaddstr (MENU_4_LINE, MENU_4_COL, " i: learn IR         c: configure        s: save                                ");
-        mvaddstr (MENU_5_LINE, MENU_5_COL, " e: eeprom dump      T: test LEDs        p: power on/off     l: logout          ");
+        //                                       1         2         3         4         5         6         7         8
+        //                              12345678901234567890123456789012345678901234567890123456789012345678901234567890
+        mvaddstr (MENU_LINE, MENU_COL, "                                                                         x=Help ");
         attrset (A_NORMAL);
+    }
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * display menu
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+void
+monitor_show_help (void)
+{
+    if (mcurses_is_up)
+    {
+        clear ();
+        mvaddstr ( 1, 1, "h/H   increment/decrement hour");
+        mvaddstr ( 2, 1, "m/M   increment/decrement minute");
+        mvaddstr ( 3, 1, "a/A   increment/decrement animation");
+        mvaddstr ( 4, 1, "d/D   increment/decrement display mode");
+        mvaddstr ( 5, 1, "r/R   increment/decrement red color brightness");
+        mvaddstr ( 6, 1, "g/G   increment/decrement green color brightness");
+        mvaddstr ( 7, 1, "b/B   increment/decrement blue color brightness");
+        mvaddstr ( 8, 1, "w/W   increment/decrement global brightness");
+        mvaddstr ( 9, 1, "q     automatic brightness on/off");
+        mvaddstr (10, 1, "t     get temperature");
+        mvaddstr (11, 1, "n     get network time");
+        mvaddstr (12, 1, "i     learn IR");
+        mvaddstr (13, 1, "c     configure");
+        mvaddstr (14, 1, "s     save settings");
+        mvaddstr (15, 1, "e     eeprom dump");
+        mvaddstr (16, 1, "T     test LEDs");
+        mvaddstr (17, 1, "p     power on/off");
+        mvaddstr (18, 1, "l     logout");
+
+        mvaddstr (LINES - 1, 1, "Press ENTER to return.");
+
+        while (getch () != KEY_CR)
+        {
+            ;
+        }
     }
 }
 
@@ -264,11 +298,19 @@ monitor_show_menu (void)
 static void
 monitor_show_device_status (uint_fast8_t line, uint_fast8_t column, char * device, char * status)
 {
+    uint_fast8_t x;
+
     if (mcurses_is_up)
     {
         mvaddstr (line,  column, device);
         mvaddstr (line,  column + 10, status);
-        clrtoeol ();
+        x = column + 10 + strlen (status);
+
+        while (x != COL3)
+        {
+            addch (' ');
+            x++;
+        }
     }
 }
 
@@ -291,7 +333,8 @@ monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop, uint_fa
             if (fw)
             {
                 move (ESP_FW_LINE, ESP_FW_COL);
-                addstr ("FW: ");
+                addstr ("ESP8266   FW");
+                move (ESP_FW_VALUE_LINE, ESP_FW_VALUE_COL);
                 addstr (fw);
             }
         }
@@ -299,9 +342,13 @@ monitor_show_status (ESP8266_CONNECTION_INFO * esp8266_connection_infop, uint_fa
         if (esp8266_is_online)
         {
             move (ESP_SSID_LINE, ESP_SSID_COL);
-            addstr ("SSID: ");
+            addstr ("ESP8266   SSID");
+            move (ESP_SSID_VALUE_LINE, ESP_SSID_VALUE_COL);
             addstr (esp8266_connection_infop->accesspoint);
-            addstr ("  IP: ");
+
+            move (ESP_IP_LINE, ESP_IP_COL);
+            addstr ("ESP8266   IP");
+            move (ESP_IP_VALUE_LINE, ESP_IP_VALUE_COL);
             addstr (esp8266_connection_infop->ipaddress);
             clrtoeol ();
         }
@@ -360,7 +407,7 @@ monitor_show_colors (void)
     {
         dsp_get_colors (&rgb);
         brightness = dsp_get_brightness ();
-        mvprintw (COLORS_LINE, COLORS_COL, "RGB: %02d %02d %02d", rgb.red, rgb.green, rgb.blue);
+        mvprintw (COLORS_LINE, COLORS_COL, "RGB       %02d %02d %02d", rgb.red, rgb.green, rgb.blue);
         mvprintw (BRIGHTNESS_LINE, BRIGHTNESS_COL, "Brightness: %02d", brightness);
     }
 }

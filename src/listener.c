@@ -54,7 +54,7 @@ listener (LISTENER_DATA * ld)
 
         if (mcurses_is_up)
         {
-            mvprintw (LOG_LINE, LOG_COL, "channel=%d, length=%d, data=", l.channel, l.length);
+            mvprintw (ESP_LOG_LINE, ESP_LOG_COL, "channel=%d, length=%d, data=", l.channel, l.length);
 
             for (i = 0; i < l.length; i++)
             {

@@ -988,6 +988,11 @@ main ()
                         break;
                     }
 
+                    case 'x':
+                        monitor_show_help ();
+                        repaint_screen ();
+                        break;
+
                     case 'e':
                     {
                         eeprom_dump ();

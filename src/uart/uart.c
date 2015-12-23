@@ -1,12 +1,30 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart.c - UART routines for STM32F4 Discovery / STM32F401 Nucleo / STM32F103C8 Mini devlopment Board
+ * uart.c - UART routines for STM32F4XX or STM32F10X
  *
- * Ports/Pins:
- *  STM32F4   Discovery:  USART2, TX=PA2,  RX=PA3
- *  STM32F4x1 Nucleo:     USART6, TX=PA11, RX=PA12
- *  STM32F103 Mini-Board: USART3, TX=PB10, RX=PB11
+ * Possible UARTs of STM32F4xx:
+ *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
+ *  +--------------------------------------------------+
+ *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
+ *  |======|======|======||======|======||======|======|
+ *  | 1    | PA9  | PA10 || PB6  | PB7  ||      |      |
+ *  | 2    | PA2  | PA3  || PD5  | PD6  ||      |      |
+ *  | 3    | PB10 | PB11 || PC10 | PC11 || PD8  | PD9  |
+ *  | 4    | PA0  | PA1  || PC10 | PC11 ||      |      |
+ *  | 5    | PC12 | PD2  ||      |      ||      |      |
+ *  | 6    | PC6  | PC7  || PG14 | PG9  ||      |      |
+ *  +--------------------------------------------------+
  *
- * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
+ * Possible UARTs of STM32F10x:
+ *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
+ *  +--------------------------------------------------+
+ *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
+ *  |======|======|======||======|======||======|======|
+ *  | 1    | PA9  | PA10 || PB6  | PB7  ||      |      |
+ *  | 2    | PA2  | PA3  || PD5  | PD6  ||      |      |
+ *  | 3    | PB10 | PB11 || PC10 | PC11 || PD8  | PD9  |
+ *  +--------------------------------------------------+
+ *
+ * Copyright (c) 2015 Frank Meyer - frank(at)fli4l.de
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,331 +32,614 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
-#include "uart.h"
 
-#define _CONCAT(a,b)            a##b
-#define CONCAT(a,b)             _CONCAT(a,b)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define UART_TXBUFLEN          64                               // 64 Bytes ringbuffer for UART
-#define UART_RXBUFLEN          64                               // 64 Bytes ringbuffer for UART
+#if (defined STM32F4XX)
+#include "stm32f4xx.h"
+#include "stm32f4xx_gpio.h"
+#include "stm32f4xx_usart.h"
+#include "stm32f4xx_rcc.h"
+#include "misc.h"
 
-#if defined (STM32F407VG)                                       // STM32F4 Discovery Board TX2 = PA2, RX2 = PA3
+#elif (defined STM32F10X)
+#include "stm32f10x.h"
+#include "stm32f10x_gpio.h"
+#include "stm32f10x_usart.h"
+#include "stm32f10x_rcc.h"
+#include "misc.h"
 
-#define UART_TX_PORT_LETTER     A
-#define UART_TX_PIN_NUMBER      2
-#define UART_RX_PORT_LETTER     A
-#define UART_RX_PIN_NUMBER      3
-#define UART_GPIO_CLOCK_CMD     RCC_AHB1PeriphClockCmd
-#define UART_GPIO               RCC_AHB1Periph_GPIO
-
-#define UART_NAME               USART2
-#define UART_USART_CLOCK_CMD    RCC_APB1PeriphClockCmd
-#define UART_USART_CLOCK        RCC_APB1Periph_USART2
-#define UART_GPIO_AF_UART       GPIO_AF_USART2
-#define UART_IRQ_HANDLER        USART2_IRQHandler
-#define UART_IRQ_CHANNEL        USART2_IRQn
-
-#elif defined (STM32F401RE) || defined (STM32F411RE)            // STM32F401 // STM32F411 Nucleo Board TX6 = PA11, RX6 = PA12
-
-#define UART_TX_PORT_LETTER     A
-#define UART_TX_PIN_NUMBER      11
-#define UART_RX_PORT_LETTER     A
-#define UART_RX_PIN_NUMBER      12
-#define UART_GPIO_CLOCK_CMD     RCC_AHB1PeriphClockCmd
-#define UART_GPIO               RCC_AHB1Periph_GPIO
-
-#define UART_NAME               USART6
-#define UART_USART_CLOCK_CMD    RCC_APB2PeriphClockCmd
-#define UART_USART_CLOCK        RCC_APB2Periph_USART6
-#define UART_GPIO_AF_UART       GPIO_AF_USART6
-#define UART_IRQ_HANDLER        USART6_IRQHandler
-#define UART_IRQ_CHANNEL        USART6_IRQn
-
-#elif defined (STM32F103)                                       // STM32F103 Mini Development Board TX3 = PB10, RX3 = PB11
-
-#define UART_TX_PORT_LETTER     B
-#define UART_TX_PIN_NUMBER      10
-#define UART_RX_PORT_LETTER     B
-#define UART_RX_PIN_NUMBER      11
-#define UART_GPIO_CLOCK_CMD     RCC_APB2PeriphClockCmd
-#define UART_GPIO               RCC_APB2Periph_GPIO
-
-#define UART_NAME               USART3
-#define UART_USART_CLOCK_CMD    RCC_APB1PeriphClockCmd
-#define UART_USART_CLOCK        RCC_APB1Periph_USART3
-#define UART_GPIO_AF_UART       GPIO_AF_USART3
-#define UART_IRQ_HANDLER        USART3_IRQHandler
-#define UART_IRQ_CHANNEL        USART3_IRQn
-
-#else
-#error unknown STM32
 #endif
 
-#define UART_TX_PORT            CONCAT(GPIO, UART_TX_PORT_LETTER)
-#define UART_TX_GPIO_CLOCK      CONCAT(UART_GPIO, UART_TX_PORT_LETTER)
-#define UART_TX_PIN             CONCAT(GPIO_Pin_, UART_TX_PIN_NUMBER)
-#define UART_TX_PINSOURCE       CONCAT(GPIO_PinSource,  UART_TX_PIN_NUMBER)
-#define UART_RX_PORT            CONCAT(GPIO, UART_RX_PORT_LETTER)
-#define UART_RX_GPIO_CLOCK      CONCAT(UART_GPIO, UART_RX_PORT_LETTER)
-#define UART_RX_PIN             CONCAT(GPIO_Pin_, UART_RX_PIN_NUMBER)
-#define UART_RX_PINSOURCE       CONCAT(GPIO_PinSource, UART_RX_PIN_NUMBER)
+#include "uart.h"
+#include "uart-config.h"
 
+static volatile uint_fast8_t        uart_txbuf[UART_TXBUFLEN];                  // tx ringbuffer
+static volatile uint_fast8_t        uart_txsize = 0;                            // tx size
+static volatile uint_fast8_t        uart_rxbuf[UART_RXBUFLEN];                  // rx ringbuffer
+static volatile uint_fast8_t        uart_rxsize = 0;                            // rx size
 
-static volatile uint8_t         uart_txbuf[UART_TXBUFLEN];      // tx ringbuffer
-static volatile uint_fast8_t    uart_txsize = 0;                // tx size
-static volatile uint8_t         uart_rxbuf[UART_RXBUFLEN];      // rx ringbuffer
-static volatile uint_fast8_t    uart_rxsize = 0;                // rx size
+#define _CONCAT(a,b)                a##b
+#define CONCAT(a,b)                 _CONCAT(a,b)
+
+/*---------------------------------------------------------------------------------------------------------------------------------------------------
+ * Possible UARTs of STM32F4xx:
+ *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
+ *
+ *  +--------------------------------------------------+
+ *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
+ *  |======|======|======||======|======||======|======|
+ *  | 1    | PA9  | PA10 || PB6  | PB7  ||      |      |
+ *  | 2    | PA2  | PA3  || PD5  | PD6  ||      |      |
+ *  | 3    | PB10 | PB11 || PC10 | PC11 || PD8  | PD9  |
+ *  | 4    | PA0  | PA1  || PC10 | PC11 ||      |      |
+ *  | 5    | PC12 | PD2  ||      |      ||      |      |
+ *  | 6    | PC6  | PC7  ||      |      ||      |      |
+ *  +--------------------------------------------------+
+ *
+ * Additional UARTs of STM32F407:
+ *
+ *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
+ *  +--------------------------------------------------+
+ *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
+ *  |======|======|======||======|======||======|======|
+ *  | 6    |      |      || PG14 | PG9  ||      |      |
+ *  +--------------------------------------------------+
+ *
+ * Additional UARTs of STM32F401 / STM32F411:
+ *
+ *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
+ *  +--------------------------------------------------+
+ *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
+ *  |======|======|======||======|======||======|======|
+ *  | 6    |      |      || PA10 | PA11  ||      |      |
+ *  +--------------------------------------------------+
+ *---------------------------------------------------------------------------------------------------------------------------------------------------
+ */
+
+#if defined(STM32F4XX)
+
+#if UART_NUMBER == 1
+
+#if UART_ALTERNATE == 0                                                         // A9/A10
+#  define UART_TX_PORT_LETTER       A
+#  define UART_TX_PIN_NUMBER        9
+#  define UART_RX_PORT_LETTER       A
+#  define UART_RX_PIN_NUMBER        10
+#elif UART_ALTERNATE == 1                                                       // B6/B7
+#  define UART_TX_PORT_LETTER       B
+#  define UART_TX_PIN_NUMBER        6
+#  define UART_RX_PORT_LETTER       B
+#  define UART_RX_PIN_NUMBER        7
+#elif UART_ALTERNATE == 2                                                       // not defined
+#  error wrong UART_ALTERNATE value
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#if 0 // fm: STM32F407?
+#define UART_GPIO_CLOCK_CMD         RCC_AHB2PeriphClockCmd
+#define UART_GPIO                   RCC_AHB2Periph_GPIO
+#else
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
+#endif
+
+#define UART_NAME                   USART1
+#define UART_USART_CLOCK_CMD        RCC_APB2PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB2Periph_USART1
+#define UART_GPIO_AF_UART           GPIO_AF_USART1
+#define UART_IRQ_HANDLER            USART1_IRQHandler
+#define UART_IRQ_CHANNEL            USART1_IRQn
+
+#elif UART_NUMBER == 2
+
+#if UART_ALTERNATE == 0                                                         // A2/A3
+#  define UART_TX_PORT_LETTER       A
+#  define UART_TX_PIN_NUMBER        2
+#  define UART_RX_PORT_LETTER       A
+#  define UART_RX_PIN_NUMBER        3
+#elif UART_ALTERNATE == 1                                                       // D5/D6
+#  define UART_TX_PORT_LETTER       D
+#  define UART_TX_PIN_NUMBER        5
+#  define UART_RX_PORT_LETTER       D
+#  define UART_RX_PIN_NUMBER        6
+#elif UART_ALTERNATE == 2                                                       // not defined
+#  error wrong UART_ALTERNATE value
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
+
+#define UART_NAME                   USART2
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART2
+#define UART_GPIO_AF_UART           GPIO_AF_USART2
+#define UART_IRQ_HANDLER            USART2_IRQHandler
+#define UART_IRQ_CHANNEL            USART2_IRQn
+
+#elif UART_NUMBER == 3
+
+#if UART_ALTERNATE == 0                                                         // B10/B11
+#  define UART_TX_PORT_LETTER       B
+#  define UART_TX_PIN_NUMBER        10
+#  define UART_RX_PORT_LETTER       B
+#  define UART_RX_PIN_NUMBER        11
+#elif UART_ALTERNATE == 1                                                       // D8/D9
+#  define UART_TX_PORT_LETTER       D
+#  define UART_TX_PIN_NUMBER        8
+#  define UART_RX_PORT_LETTER       D
+#  define UART_RX_PIN_NUMBER        9
+#elif UART_ALTERNATE == 2                                                       // C10/C11
+#  define UART_TX_PORT_LETTER       C
+#  define UART_TX_PIN_NUMBER        10
+#  define UART_RX_PORT_LETTER       C
+#  define UART_RX_PIN_NUMBER        11
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
+
+#define UART_NAME                   USART3
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART3
+#define UART_GPIO_AF_UART           GPIO_AF_USART3
+#define UART_IRQ_HANDLER            USART3_IRQHandler
+#define UART_IRQ_CHANNEL            USART3_IRQn
+
+#elif UART_NUMBER == 4
+
+#if UART_ALTERNATE == 0                                                         // A0/A1
+#  define UART_TX_PORT_LETTER       A
+#  define UART_TX_PIN_NUMBER        0
+#  define UART_RX_PORT_LETTER       A
+#  define UART_RX_PIN_NUMBER        1
+#elif UART_ALTERNATE == 1                                                       // C10/C11
+#  define UART_TX_PORT_LETTER       C
+#  define UART_TX_PIN_NUMBER        10
+#  define UART_RX_PORT_LETTER       C
+#  define UART_RX_PIN_NUMBER        11
+#elif UART_ALTERNATE == 2                                                       // not defined
+#  error wrong UART_ALTERNATE value
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
+
+#define UART_NAME                   USART4
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART4
+#define UART_GPIO_AF_UART           GPIO_AF_USART4
+#define UART_IRQ_HANDLER            USART4_IRQHandler
+#define UART_IRQ_CHANNEL            USART4_IRQn
+
+#elif UART_NUMBER == 5
+
+#if UART_ALTERNATE == 0                                                         // C12/D2
+#  define UART_TX_PORT_LETTER       C
+#  define UART_TX_PIN_NUMBER        12
+#  define UART_RX_PORT_LETTER       D
+#  define UART_RX_PIN_NUMBER        2
+#elif UART_ALTERNATE == 1                                                       // not defined
+#  error wrong UART_ALTERNATE value
+#elif UART_ALTERNATE == 2                                                       // not defined
+#  error wrong UART_ALTERNATE value
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
+
+#define UART_NAME                   USART5
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART5
+#define UART_GPIO_AF_UART           GPIO_AF_USART5
+#define UART_IRQ_HANDLER            USART5_IRQHandler
+#define UART_IRQ_CHANNEL            USART5_IRQn
+
+#elif UART_NUMBER == 6
+
+#if UART_ALTERNATE == 0                                                         // C6/C7
+#  define UART_TX_PORT_LETTER       C
+#  define UART_TX_PIN_NUMBER        6
+#  define UART_RX_PORT_LETTER       C
+#  define UART_RX_PIN_NUMBER        7
+#elif UART_ALTERNATE == 1
+#  if defined(STM32F401RE) || defined(STM32F411RE)                              // STM32F4x1
+#    define UART_TX_PORT_LETTER     A                                           // A11/A12
+#    define UART_TX_PIN_NUMBER      11
+#    define UART_RX_PORT_LETTER     A
+#    define UART_RX_PIN_NUMBER      12
+#  else                                                                         // STM32F407
+#    define UART_TX_PORT_LETTER     G                                           // G14/G9
+#    define UART_TX_PIN_NUMBER      14
+#    define UART_RX_PORT_LETTER     G
+#    define UART_RX_PIN_NUMBER      9
+#  endif
+#elif UART_ALTERNATE == 2                                                       // not defined
+#  error wrong UART_ALTERNATE value
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#if 0 // fm: STM32F407?
+#define UART_GPIO_CLOCK_CMD         RCC_AHB2PeriphClockCmd
+#define UART_GPIO                   RCC_AHB2Periph_GPIO
+#else
+#define UART_GPIO_CLOCK_CMD         RCC_AHB1PeriphClockCmd
+#define UART_GPIO                   RCC_AHB1Periph_GPIO
+#endif
+
+#define UART_NAME                   USART6
+#define UART_USART_CLOCK_CMD        RCC_APB2PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB2Periph_USART6
+#define UART_GPIO_AF_UART           GPIO_AF_USART6
+#define UART_IRQ_HANDLER            USART6_IRQHandler
+#define UART_IRQ_CHANNEL            USART6_IRQn
+
+#else
+#error wrong number for UART_NUMBER, choose 1-6
+#endif
+
+/*---------------------------------------------------------------------------------------------------------------------------------------------------
+ * Possible UARTs of STM32F10x:
+ *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
+ *  +--------------------------------------------------+
+ *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
+ *  |======|======|======||======|======||======|======|
+ *  | 1    | PA9  | PA10 || PB6  | PB7  ||      |      |
+ *  | 2    | PA2  | PA3  || PD5  | PD6  ||      |      |
+ *  | 3    | PB10 | PB11 || PC10 | PC11 || PD8  | PD9  |
+ *  +--------------------------------------------------+
+ *---------------------------------------------------------------------------------------------------------------------------------------------------
+ */
+
+#elif defined(STM32F10X)
+
+#if UART_NUMBER == 1
+
+#if UART_ALTERNATE == 0                                                         // A9/A10
+#  define UART_TX_PORT_LETTER       A
+#  define UART_TX_PIN_NUMBER        9
+#  define UART_RX_PORT_LETTER       A
+#  define UART_RX_PIN_NUMBER        10
+#elif UART_ALTERNATE == 1                                                       // B6/B7
+#  define UART_TX_PORT_LETTER       B
+#  define UART_TX_PIN_NUMBER        6
+#  define UART_RX_PORT_LETTER       B
+#  define UART_RX_PIN_NUMBER        7
+#elif UART_ALTERNATE == 2                                                       // not defined
+#  error wrong UART_ALTERNATE value
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#define UART_GPIO_CLOCK_CMD         RCC_APB2PeriphClockCmd
+#define UART_GPIO                   RCC_APB2Periph_GPIO
+#define UART_NAME                   USART1
+#define UART_USART_CLOCK_CMD        RCC_APB2PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB2Periph_USART1
+#define UART_GPIO_AF_UART           GPIO_AF_USART1
+#define UART_IRQ_HANDLER            USART1_IRQHandler
+#define UART_IRQ_CHANNEL            USART1_IRQn
+
+#elif UART_NUMBER == 2
+
+#if UART_ALTERNATE == 0                                                         // A2/A3
+#  define UART_TX_PORT_LETTER       A
+#  define UART_TX_PIN_NUMBER        2
+#  define UART_RX_PORT_LETTER       A
+#  define UART_RX_PIN_NUMBER        3
+#elif UART_ALTERNATE == 1                                                       // D5/D6
+#  define UART_TX_PORT_LETTER       D
+#  define UART_TX_PIN_NUMBER        5
+#  define UART_RX_PORT_LETTER       D
+#  define UART_RX_PIN_NUMBER        6
+#elif UART_ALTERNATE == 2                                                       // not defined
+#  error wrong UART_ALTERNATE value
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#define UART_GPIO_CLOCK_CMD         RCC_APB2PeriphClockCmd
+#define UART_GPIO                   RCC_APB2Periph_GPIO
+
+#define UART_NAME                   USART2
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART2
+#define UART_GPIO_AF_UART           GPIO_AF_USART2
+#define UART_IRQ_HANDLER            USART2_IRQHandler
+#define UART_IRQ_CHANNEL            USART2_IRQn
+
+#elif UART_NUMBER == 3
+
+#if UART_ALTERNATE == 0                                                         // B10/B11
+#  define UART_TX_PORT_LETTER       B
+#  define UART_TX_PIN_NUMBER        10
+#  define UART_RX_PORT_LETTER       B
+#  define UART_RX_PIN_NUMBER        11
+#elif UART_ALTERNATE == 1                                                       // C10/C11
+#  define UART_TX_PORT_LETTER       C
+#  define UART_TX_PIN_NUMBER        10
+#  define UART_RX_PORT_LETTER       C
+#  define UART_RX_PIN_NUMBER        11
+#elif UART_ALTERNATE == 2                                                       // D8/D9
+#  define UART_TX_PORT_LETTER       D
+#  define UART_TX_PIN_NUMBER        8
+#  define UART_RX_PORT_LETTER       D
+#  define UART_RX_PIN_NUMBER        9
+#else
+#  error wrong UART_ALTERNATE value
+#endif
+
+#define UART_GPIO_CLOCK_CMD         RCC_APB2PeriphClockCmd
+#define UART_GPIO                   RCC_APB2Periph_GPIO
+
+#define UART_NAME                   USART3
+#define UART_USART_CLOCK_CMD        RCC_APB1PeriphClockCmd
+#define UART_USART_CLOCK            RCC_APB1Periph_USART3
+#define UART_GPIO_AF_UART           GPIO_AF_USART3
+#define UART_IRQ_HANDLER            USART3_IRQHandler
+#define UART_IRQ_CHANNEL            USART3_IRQn
+
+#else
+#error wrong number for UART_NUMBER, choose 1-3
+#endif
+
+#if UART_NUMBER == 3
+#  if UART_ALTERNATE == 0
+#    define UART_GPIO_REMAP         CONCAT(GPIO_Remap_USART, UART_NUMBER)
+#  elif UART_ALTERNATE == 1
+#    define UART_GPIO_REMAP         CONCAT(GPIO_PartialRemap_USART, UART_NUMBER)
+#  elif UART_ALTERNATE == 2
+#    define UART_GPIO_REMAP         CONCAT(GPIO_FullRemap_USART, UART_NUMBER)
+#  endif
+#else
+#  define UART_GPIO_REMAP           CONCAT(GPIO_Remap_USART, UART_NUMBER)
+#endif
+
+#endif
+
+#define UART_TX_PORT                CONCAT(GPIO, UART_TX_PORT_LETTER)
+#define UART_TX_GPIO_CLOCK          CONCAT(UART_GPIO, UART_TX_PORT_LETTER)
+#define UART_TX_PIN                 CONCAT(GPIO_Pin_, UART_TX_PIN_NUMBER)
+#define UART_TX_PINSOURCE           CONCAT(GPIO_PinSource,  UART_TX_PIN_NUMBER)
+#define UART_RX_PORT                CONCAT(GPIO, UART_RX_PORT_LETTER)
+#define UART_RX_GPIO_CLOCK          CONCAT(UART_GPIO, UART_RX_PORT_LETTER)
+#define UART_RX_PIN                 CONCAT(GPIO_Pin_, UART_RX_PIN_NUMBER)
+#define UART_RX_PINSOURCE           CONCAT(GPIO_PinSource, UART_RX_PIN_NUMBER)
 
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart_init()
+ * uart_init (uint_fast32_t
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
 uart_init (uint32_t baudrate)
 {
-    GPIO_InitTypeDef    gpio;
-    USART_InitTypeDef   uart;
-    NVIC_InitTypeDef    nvic;
+    static uint32_t last_baudrate = 0;
 
-    GPIO_StructInit (&gpio);
-    USART_StructInit (&uart);
+    if (last_baudrate != baudrate)
+    {
+        last_baudrate = baudrate;
 
-    UART_GPIO_CLOCK_CMD (UART_TX_GPIO_CLOCK, ENABLE);
-    UART_GPIO_CLOCK_CMD (UART_RX_GPIO_CLOCK, ENABLE);
+        GPIO_InitTypeDef    gpio;
+        USART_InitTypeDef   uart;
+        NVIC_InitTypeDef    nvic;
 
-    UART_USART_CLOCK_CMD (UART_USART_CLOCK, ENABLE);
+        GPIO_StructInit (&gpio);
+        USART_StructInit (&uart);
 
-    // connect UART functions with IO-Pins
+        UART_GPIO_CLOCK_CMD (UART_TX_GPIO_CLOCK, ENABLE);
+        UART_GPIO_CLOCK_CMD (UART_RX_GPIO_CLOCK, ENABLE);
+
+        UART_USART_CLOCK_CMD (UART_USART_CLOCK, ENABLE);
+
+        // connect UART functions with IO-Pins
+
 #if defined (STM32F4XX)
-    GPIO_PinAFConfig (UART_TX_PORT, UART_TX_PINSOURCE, UART_GPIO_AF_UART);      // TX
-    GPIO_PinAFConfig (UART_RX_PORT, UART_RX_PINSOURCE, UART_GPIO_AF_UART);      // RX
 
-    // UART as alternate function with PushPull
-    gpio.GPIO_Mode  = GPIO_Mode_AF;
-    gpio.GPIO_Speed = GPIO_Speed_100MHz;
-    gpio.GPIO_OType = GPIO_OType_PP;
-    gpio.GPIO_PuPd  = GPIO_PuPd_UP;                                             // fm: perhaps better: GPIO_PuPd_NOPULL
+        GPIO_PinAFConfig (UART_TX_PORT, UART_TX_PINSOURCE, UART_GPIO_AF_UART);      // TX
+        GPIO_PinAFConfig (UART_RX_PORT, UART_RX_PINSOURCE, UART_GPIO_AF_UART);      // RX
 
-    gpio.GPIO_Pin = UART_TX_PIN;
-    GPIO_Init(UART_TX_PORT, &gpio);
+        // UART as alternate function with PushPull
+        gpio.GPIO_Mode  = GPIO_Mode_AF;
+        gpio.GPIO_Speed = GPIO_Speed_100MHz;
+        gpio.GPIO_OType = GPIO_OType_PP;
+        gpio.GPIO_PuPd  = GPIO_PuPd_UP;                                                             // fm: perhaps better: GPIO_PuPd_NOPULL
 
-    gpio.GPIO_Pin = UART_RX_PIN;
-    GPIO_Init(UART_RX_PORT, &gpio);
+        gpio.GPIO_Pin = UART_TX_PIN;
+        GPIO_Init(UART_TX_PORT, &gpio);
+
+        gpio.GPIO_Pin = UART_RX_PIN;
+        GPIO_Init(UART_RX_PORT, &gpio);
 
 #elif defined (STM32F10X)
 
-    /* TX Pin */
-    gpio.GPIO_Pin = UART_TX_PIN;
-    gpio.GPIO_Mode = GPIO_Mode_AF_PP;
-    gpio.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(UART_TX_PORT, &gpio);
+#if UART_ALTERNATE == 0
+        // GPIO_PinRemapConfig(UART_GPIO_REMAP, DISABLE);                                           // fm: that's the default?!?
+#else
+        GPIO_PinRemapConfig(UART_GPIO_REMAP, ENABLE);
+        RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
+#endif
 
-    /* RX Pin */
-    gpio.GPIO_Pin = UART_RX_PIN;
-    gpio.GPIO_Mode = GPIO_Mode_IPU;
-    gpio.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(UART_RX_PORT, &gpio);
+        /* TX Pin */
+        gpio.GPIO_Pin = UART_TX_PIN;
+        gpio.GPIO_Mode = GPIO_Mode_AF_PP;
+        gpio.GPIO_Speed = GPIO_Speed_50MHz;
+        GPIO_Init(UART_TX_PORT, &gpio);
+
+        /* RX Pin */
+        gpio.GPIO_Pin = UART_RX_PIN;
+        gpio.GPIO_Mode = GPIO_Mode_IPU;
+        gpio.GPIO_Speed = GPIO_Speed_50MHz;
+        GPIO_Init(UART_RX_PORT, &gpio);
 
 #endif
 
-    USART_OverSampling8Cmd(UART_NAME, ENABLE);
+        USART_OverSampling8Cmd(UART_NAME, ENABLE);
 
-    // 8 bit no parity, no RTS/CTS
-    uart.USART_BaudRate             = baudrate;
-    uart.USART_WordLength           = USART_WordLength_8b;
-    uart.USART_StopBits             = USART_StopBits_1;
-    uart.USART_Parity               = USART_Parity_No;
-    uart.USART_HardwareFlowControl  = USART_HardwareFlowControl_None;
-    uart.USART_Mode                 = USART_Mode_Rx | USART_Mode_Tx;
+        // 8 bits, 1 stop bit, no parity, no RTS+CTS
+        uart.USART_BaudRate             = baudrate;
+        uart.USART_WordLength           = USART_WordLength_8b;
+        uart.USART_StopBits             = USART_StopBits_1;
+        uart.USART_Parity               = USART_Parity_No;
+        uart.USART_HardwareFlowControl  = USART_HardwareFlowControl_None;
+        uart.USART_Mode                 = USART_Mode_Rx | USART_Mode_Tx;
 
-    USART_Init(UART_NAME, &uart);
+        USART_Init(UART_NAME, &uart);
 
-    // UART enable
-    USART_Cmd(UART_NAME, ENABLE);
+        // UART enable
+        USART_Cmd(UART_NAME, ENABLE);
 
-    // RX-Interrupt enable
-    USART_ITConfig(UART_NAME, USART_IT_RXNE, ENABLE);
+        // RX-Interrupt enable
+        USART_ITConfig(UART_NAME, USART_IT_RXNE, ENABLE);
 
-    // enable UART Interrupt-Vector
-    nvic.NVIC_IRQChannel                    = UART_IRQ_CHANNEL;
-    nvic.NVIC_IRQChannelPreemptionPriority  = 0;
-    nvic.NVIC_IRQChannelSubPriority         = 0;
-    nvic.NVIC_IRQChannelCmd                 = ENABLE;
-    NVIC_Init (&nvic);
+        // enable UART Interrupt-Vector
+        nvic.NVIC_IRQChannel                    = UART_IRQ_CHANNEL;
+        nvic.NVIC_IRQChannelPreemptionPriority  = 0;
+        nvic.NVIC_IRQChannelSubPriority         = 0;
+        nvic.NVIC_IRQChannelCmd                 = ENABLE;
+        NVIC_Init (&nvic);
+    }
+    return;
 }
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart_putc()
+ * uart_putc ()
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-uart_putc (uint8_t ch)
+uart_putc (uint_fast8_t ch)
 {
-    static uint_fast8_t    uart_txstop  = 0;                    // tail
+    static uint_fast8_t uart_txstop  = 0;                                       // tail
 
-    while (uart_txsize >= UART_TXBUFLEN)                        // buffer full?
-    {                                                           // yes
-        ;                                                       // wait
+    while (uart_txsize >= UART_TXBUFLEN)                                        // buffer full?
+    {                                                                           // yes
+        ;                                                                       // wait
     }
 
-    uart_txbuf[uart_txstop++] = ch;                             // store character
+    uart_txbuf[uart_txstop++] = ch;                                             // store character
 
-    if (uart_txstop >= UART_TXBUFLEN)                           // at end of ringbuffer?
-    {                                                           // yes
-        uart_txstop = 0;                                        // reset to beginning
+    if (uart_txstop >= UART_TXBUFLEN)                                           // at end of ringbuffer?
+    {                                                                           // yes
+        uart_txstop = 0;                                                        // reset to beginning
     }
 
     __disable_irq();
-    uart_txsize++;                                              // increment used size
+    uart_txsize++;                                                              // increment used size
     __enable_irq();
 
-    USART_ITConfig(UART_NAME, USART_IT_TXE, ENABLE);            // enable TXE interrupt
+    USART_ITConfig(UART_NAME, USART_IT_TXE, ENABLE);                           // enable TXE interrupt
 }
-
-#if 0
-void
-uart_putc (uint8_t ch)
-{
-    while (USART_GetFlagStatus(UART_NAME, USART_FLAG_TXE) == RESET)
-    {
-         ;
-    }
-    USART_SendData(UART_NAME, ch);
-}
-#endif
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart_getc()
+ * uart_puts ()
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
-uint8_t
+void
+uart_puts (char * s)
+{
+    uint_fast8_t ch;
+
+    while ((ch = (uint_fast8_t) *s) != '\0')
+    {
+        uart_putc (ch);
+        s++;
+    }
+}
+
+/*---------------------------------------------------------------------------------------------------------------------------------------------------
+ * uart_getc ()
+ *---------------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
 uart_getc (void)
 {
-    static uint_fast8_t uart_rxstart = 0;                       // head
-    uint8_t             ch;
+    static uint_fast8_t  uart_rxstart = 0;                                      // head
+    uint_fast8_t         ch;
 
-    while (uart_rxsize == 0)                                    // rx buffer empty?
-    {                                                           // yes, wait
+    while (uart_rxsize == 0)                                                    // rx buffer empty?
+    {                                                                           // yes, wait
         ;
     }
 
-    ch = uart_rxbuf[uart_rxstart++];                            // get character from ringbuffer
+    ch = uart_rxbuf[uart_rxstart++];                                            // get character from ringbuffer
 
-    if (uart_rxstart == UART_RXBUFLEN)                          // at end of rx buffer?
-    {                                                           // yes
-        uart_rxstart = 0;                                       // reset to beginning
+    if (uart_rxstart == UART_RXBUFLEN)                                          // at end of rx buffer?
+    {                                                                           // yes
+        uart_rxstart = 0;                                                       // reset to beginning
     }
 
     __disable_irq();
-    uart_rxsize--;                                              // decrement size
+    uart_rxsize--;                                                              // decrement size
     __enable_irq();
 
-    return ch;
+    return (ch);
 }
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * uart_poll()
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
-uint8_t
-uart_poll (uint8_t * chp)
+uint_fast8_t
+uart_poll (uint_fast8_t * chp)
 {
-    static uint_fast8_t uart_rxstart = 0;                       // head
-    uint8_t             ch;
+    static uint_fast8_t uart_rxstart = 0;                                       // head
+    uint_fast8_t        ch;
 
-    if (uart_rxsize == 0)                                       // rx buffer empty?
-    {                                                           // yes, return 0
+    if (uart_rxsize == 0)                                                       // rx buffer empty?
+    {                                                                           // yes, return 0
         return 0;
     }
 
-    ch = uart_rxbuf[uart_rxstart++];                            // get character from ringbuffer
+    ch = uart_rxbuf[uart_rxstart++];                                            // get character from ringbuffer
 
-    if (uart_rxstart == UART_RXBUFLEN)                          // at end of rx buffer?
-    {                                                           // yes
-        uart_rxstart = 0;                                       // reset to beginning
+    if (uart_rxstart == UART_RXBUFLEN)                                          // at end of rx buffer?
+    {                                                                           // yes
+        uart_rxstart = 0;                                                       // reset to beginning
     }
 
     __disable_irq();
-    uart_rxsize--;                                              // decrement size
+    uart_rxsize--;                                                              // decrement size
     __enable_irq();
 
     *chp = ch;
     return 1;
 }
 
-#if 0
-uint8_t
-uart_getc (void)
-{
-    uint8_t ch;
-
-    while (USART_GetFlagStatus(UART_NAME, USART_FLAG_RXNE) == RESET)
-    {                                                           // wait until character available
-        ;
-    }
-    ch = USART_ReceiveData(USART1);
-}
-#endif
-
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart_flush()
+ * uart_flush ()
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
 uart_flush ()
 {
-    while (uart_txsize > 0)                                    // tx buffer empty?
+    while (uart_txsize > 0)                                                     // tx buffer empty?
     {
-        ;                                                       // no, wait
+        ;                                                                       // no, wait
     }
 }
 
-#if 0
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart_read()
- *---------------------------------------------------------------------------------------------------------------------------------------------------
- */
-uint_fast16_t
-uart_read (char * p, uint_fast16_t size)
-{
-    uint_fast16_t i;
-
-    for (i = 0; i < size; i++)
-    {
-        *p++ = uart_getc ();
-    }
-    return size;
-}
-
-/*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart_write()
- *---------------------------------------------------------------------------------------------------------------------------------------------------
- */
-uint_fast16_t
-uart_write (char * p, uint_fast16_t size)
-{
-    uint_fast16_t i;
-
-    for (i = 0; i < size; i++)
-    {
-        uart_putc (*p++);
-    }
-
-    return size;
-}
-#endif
-
-/*---------------------------------------------------------------------------------------------------------------------------------------------------
- * UART_IRQ_HANDLER
+ * UART_IRQ_HANDLER ()
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void UART_IRQ_HANDLER (void)
 {
-    static uint_fast16_t    uart_rxstop  = 0;                   // tail
-    uint16_t        value;
-    uint8_t         ch;
+    static uint_fast8_t     uart_rxstop  = 0;                                   // tail
+    uint16_t                value;
+    uint_fast8_t            ch;
 
     if (USART_GetITStatus (UART_NAME, USART_IT_RXNE) != RESET)
     {
@@ -347,42 +648,46 @@ void UART_IRQ_HANDLER (void)
 
         ch = value & 0xFF;
 
-        if (uart_rxsize < UART_RXBUFLEN)                        // buffer full?
-        {                                                       // no
-            uart_rxbuf[uart_rxstop++] = ch;                     // store character
+        if (uart_rxsize < UART_RXBUFLEN)                                        // buffer full?
+        {                                                                       // no
+            uart_rxbuf[uart_rxstop++] = ch;                                     // store character
 
-            if (uart_rxstop >= UART_RXBUFLEN)                   // at end of ringbuffer?
-            {                                                   // yes
-                uart_rxstop = 0;                                // reset to beginning
+            if (uart_rxstop >= UART_RXBUFLEN)                                   // at end of ringbuffer?
+            {                                                                   // yes
+                uart_rxstop = 0;                                                // reset to beginning
             }
 
-            uart_rxsize++;                                      // increment used size
+            uart_rxsize++;                                                      // increment used size
         }
     }
 
     if (USART_GetITStatus (UART_NAME, USART_IT_TXE) != RESET)
     {
-        static uint8_t  uart_txstart = 0;                       // head
-        uint8_t         ch;
+        static uint_fast8_t  uart_txstart = 0;                                  // head
+        uint_fast8_t         ch;
 
         USART_ClearITPendingBit (UART_NAME, USART_IT_TXE);
 
-        if (uart_txsize > 0)                                    // tx buffer empty?
-        {                                                       // no
-            ch = uart_txbuf[uart_txstart++];                    // get character to send, increment offset
+        if (uart_txsize > 0)                                                    // tx buffer empty?
+        {                                                                       // no
+            ch = uart_txbuf[uart_txstart++];                                    // get character to send, increment offset
 
-            if (uart_txstart == UART_TXBUFLEN)                  // at end of tx buffer?
-            {                                                   // yes
-                uart_txstart = 0;                               // reset to beginning
+            if (uart_txstart == UART_TXBUFLEN)                                  // at end of tx buffer?
+            {                                                                   // yes
+                uart_txstart = 0;                                               // reset to beginning
             }
 
-            uart_txsize--;                                      // decrement size
+            uart_txsize--;                                                      // decrement size
 
             USART_SendData(UART_NAME, ch);
         }
         else
         {
-            USART_ITConfig(UART_NAME, USART_IT_TXE, DISABLE);   // disable TXE interrupt
+            USART_ITConfig(UART_NAME, USART_IT_TXE, DISABLE);                   // disable TXE interrupt
         }
+    }
+    else
+    {
+        ;
     }
 }

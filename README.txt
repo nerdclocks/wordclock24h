@@ -1,5 +1,7 @@
 Documentation: http://www.mikrocontroller.net/articles/WordClock24h
 
+Version: 1.5.9
+
 Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
 
 This program is free software; you can redistribute it and/or modify
