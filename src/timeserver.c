@@ -29,7 +29,7 @@
 
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
- * Time server (RFC 868)
+ * Time server (RFC 868) or NTP server
  *
  * Default time server is ntp3.ptb.de (192.53.103.103)
  * You can also use uclock.de (88.198.64.6) or any other RFC 868 time server
@@ -49,7 +49,7 @@
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 static uint8_t          timeserver[MAX_IPADDR_LEN + 1] = NET_TIME_HOST;
-static uint8_t          is_ntp_server;                          // flag if time server is ntp server, yet not used
+static uint8_t          is_ntp_server;                          // flag if time server is ntp server
 static int_fast16_t     timezone = NET_TIME_GMT_OFFSET;         // from -12 to +12
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -258,6 +258,9 @@ timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_
     }
     else if (ch == '2')
     {
+        uint_fast8_t    success = 0;
+        uint_fast8_t    new_is_ntp_server = 0;
+
         move (next_line, 10);
         addstr ("current time server: ");
         addstr ((char *) timeserver);
@@ -267,8 +270,60 @@ timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_
 
         if (*new_timeserver)
         {
-            strcpy ((char *) timeserver, new_timeserver);
-            timeserver_write_data_to_eeprom ();
+            uint_fast8_t    y;
+            uint_fast8_t    x;
+            time_t          check_time;
+
+            move (next_line + 3, 10);
+            addstr ("Checking NTP protocol ... ");
+            getyx (y, x);
+
+            if (esp8266_get_ntp_time (new_timeserver, &check_time))
+            {
+                mvaddstr (y, x, "successful!");
+                success = 1;
+                new_is_ntp_server = 1;
+            }
+            else
+            {
+                mvaddstr (y, x, "failed!");
+                move (next_line + 4, 10);
+                addstr ("Checking TIME protocol (RFC 868) ... ");
+                getyx (y, x);
+
+                if (esp8266_get_time (new_timeserver, &check_time))
+                {
+                    mvaddstr (y, x, "successful!");
+                    success = 1;
+                }
+                else
+                {
+                    mvaddstr (y, x, "failed!");
+                }
+            }
+
+            move (next_line + 6, 10);
+
+            if (success)
+            {
+                addstr ("Timeserver successfully changed. Press ENTER");
+
+                if (strcmp ((char *) timeserver, new_timeserver) || is_ntp_server != new_is_ntp_server)
+                {
+                    is_ntp_server = new_is_ntp_server;
+                    strcpy ((char *) timeserver, new_timeserver);
+                    timeserver_write_data_to_eeprom ();
+                }
+            }
+            else
+            {
+                addstr ("Timeserver NOT changed. Press ENTER");
+            }
+
+            while (getch() != KEY_CR)
+            {
+                ;
+            }
         }
         rtc = 1;
     }
@@ -309,7 +364,14 @@ timeserver_get_time (struct tm * tmp)
     time_t          curtime;
     uint_fast8_t    rtc = 0;
 
-    rtc = esp8266_get_time ((char *) timeserver, &curtime);
+    if (is_ntp_server)
+    {
+        rtc = esp8266_get_ntp_time ((char *) timeserver, &curtime);
+    }
+    else
+    {
+        rtc = esp8266_get_time ((char *) timeserver, &curtime);
+    }
 
     if (rtc)
     {

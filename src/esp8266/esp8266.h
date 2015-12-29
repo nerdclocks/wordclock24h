@@ -25,19 +25,20 @@
  */
 #define ESP8266_TIMEOUT         0               // must be 0
 #define ESP8266_OK              1
-#define ESP8266_ERROR           2
-#define ESP8266_ACCESS_POINT    3
-#define ESP8266_LINKED          4
-#define ESP8266_UNLINK          5
-#define ESP8266_CONNECT         6               // firmware AT version:0.21.version:0.9.5:: 1,CONNECT instead of LINK
-#define ESP8266_CLOSED          7               // firmware AT version:0.21.version:0.9.5:: 1,CLOSED instead of UNLINK
-#define ESP8266_BUSY            8
-#define ESP8266_ALREADY_CONNECT 9
-#define ESP8266_LINK_TYPE_ERROR 10
-#define ESP8266_READY           11
-#define ESP8266_NO_CHANGE       12
-#define ESP8266_IPD             13
-#define ESP8266_ANSWER          14
+#define ESP8266_SEND_OK         2
+#define ESP8266_ERROR           3
+#define ESP8266_ACCESS_POINT    4
+#define ESP8266_LINKED          5
+#define ESP8266_UNLINK          6
+#define ESP8266_CONNECT         7               // firmware AT version:0.21.version:0.9.5:: 1,CONNECT instead of LINK
+#define ESP8266_CLOSED          8               // firmware AT version:0.21.version:0.9.5:: 1,CLOSED instead of UNLINK
+#define ESP8266_BUSY            9
+#define ESP8266_ALREADY_CONNECT 10
+#define ESP8266_LINK_TYPE_ERROR 11
+#define ESP8266_READY           12
+#define ESP8266_NO_CHANGE       13
+#define ESP8266_IPD             14
+#define ESP8266_ANSWER          15
 #define ESP8266_UNSPECIFIED   0xFF
 
 typedef struct
@@ -68,5 +69,6 @@ extern uint_fast8_t             esp8266_listen (ESP8266_LISTEN_DATA *);
 extern char *                   esp8266_get_firmware_version ();
 extern uint_fast8_t             esp8266_check_online_status (ESP8266_CONNECTION_INFO *);
 extern uint_fast8_t             esp8266_get_time (char *, time_t *);
+extern uint_fast8_t             esp8266_get_ntp_time (char *, time_t *);
 extern uint_fast8_t             esp8266_init (void);
 #endif

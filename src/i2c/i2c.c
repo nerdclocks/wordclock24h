@@ -1,9 +1,14 @@
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * i2c.c - I2C routines using I2C3 on STM32F4x1 Nucleo Board
+ * i2c.c - I2C routines using I2C3 on STM32F4x1 Nucleo Board, I2C1 on STM32F103
  *
- * Ports/Pins STM32F4x1 Nucleo Board:
- *   SCL: PA8
- *   SDA: PC9
+ * Ports/Pins:
+ *
+ *  +------+------------------+---------------+
+ *  |      | STM32F4x1 Nucleo | STM32F103C8T6 |
+ *  +------+------------------+---------------+
+ *  | SCL  |       PA8        |      PB6      |
+ *  | SDA  |       PC9        |      PB7      |
+ *  +------+------------------+---------------+
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
