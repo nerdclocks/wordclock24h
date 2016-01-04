@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * timeserver.c - timeserver routines
  *
- * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
+ * Copyright (c) 2014-2016 Frank Meyer - frank(at)fli4l.de
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,14 +11,11 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include "wclock24h-config.h"
 #include "timeserver.h"
 #include "esp8266.h"
 #include "mcurses.h"
 #include "monitor.h"
 #include "eeprom.h"
-#include "irmp.h"
-#include "dsp.h"
 #include "eeprom-data.h"
 
 #define MAX_SSID_LEN            32
@@ -125,17 +122,18 @@ void
 timeserver_cmd (void)
 {
     static char     cmd[ESP8266_MAX_CMD_LEN];
-    static char     answer[ESP8266_MAX_ANSWER_LEN + 1];
     uint_fast8_t    line;
 
     clear ();
 
     do
     {
-        move (5, 0);
+        line = 0;
+        move (line, 0);
         addstr ("Command: ");
         clrtoeol ();
         getnstr (cmd, ESP8266_MAX_CMD_LEN - 2);                 // we want to append \r\0, below, see strcat() call
+        line++;
 
         if (*cmd)
         {
@@ -159,7 +157,7 @@ timeserver_cmd (void)
                 {
                     uint_fast8_t i;
 
-                    move (6, 0);
+                    move (line, 0);
 
                     printw ("channel=%d, length=%d, data=", l.channel, l.length);
 
@@ -180,9 +178,21 @@ timeserver_cmd (void)
             {
                 esp8266_send_cmd (cmd);
 
-                for (line = 6; line < 23 && esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, 1, line, 1000) != ESP8266_TIMEOUT; line++)
+                nodelay (TRUE);
+
+                while (line < 23)
                 {
-                    ;
+                    if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 500) != ESP8266_TIMEOUT)
+                    {
+                        clrtoeol ();
+                        refresh ();
+                        line++;
+                    }
+
+                    if (getch() == KEY_ESCAPE)
+                    {
+                        break;
+                    }
                 }
             }
         }
@@ -235,11 +245,11 @@ timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_
                 clear ();
 
                 esp8266_reset ();
-                esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, 0, LOG_LINE, 100);
+                esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, 100);
                 esp8266_disconnect_from_access_point ();
                 esp8266_connect_to_access_point (ssid, key);
                 esp8266_reset ();
-                esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, 0, LOG_LINE, 100);
+                esp8266_get_answer (answer, ESP8266_MAX_ANSWER_LEN, 100);
 
                 mvaddstr (next_line + 3, 10, "Checking ESP8266 online status, please wait...");
                 refresh ();
@@ -258,7 +268,8 @@ timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_
     }
     else if (ch == '2')
     {
-        uint_fast8_t    success = 0;
+        uint_fast8_t    ntp_success = 0;
+        uint_fast8_t    time_success = 0;
         uint_fast8_t    new_is_ntp_server = 0;
 
         move (next_line, 10);
@@ -281,30 +292,31 @@ timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_
             if (esp8266_get_ntp_time (new_timeserver, &check_time))
             {
                 mvaddstr (y, x, "successful!");
-                success = 1;
+                ntp_success = 1;
                 new_is_ntp_server = 1;
             }
             else
             {
                 mvaddstr (y, x, "failed!");
-                move (next_line + 4, 10);
-                addstr ("Checking TIME protocol (RFC 868) ... ");
-                getyx (y, x);
+            }
 
-                if (esp8266_get_time (new_timeserver, &check_time))
-                {
-                    mvaddstr (y, x, "successful!");
-                    success = 1;
-                }
-                else
-                {
-                    mvaddstr (y, x, "failed!");
-                }
+            move (next_line + 4, 10);
+            addstr ("Checking TIME protocol (RFC 868) ... ");
+            getyx (y, x);
+
+            if (esp8266_get_time (new_timeserver, &check_time))
+            {
+                mvaddstr (y, x, "successful!");
+                time_success = 1;
+            }
+            else
+            {
+                mvaddstr (y, x, "failed!");
             }
 
             move (next_line + 6, 10);
 
-            if (success)
+            if (ntp_success || time_success)
             {
                 addstr ("Timeserver successfully changed. Press ENTER");
 
@@ -457,4 +469,3 @@ timeserver_init (void)
 
     return rtc;
 }
-

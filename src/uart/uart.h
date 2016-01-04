@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart.h - declaration of UART routines for STM32F4XX or STM32F10X
+ * uart.h - declaration of UART driver routines for STM32F4XX or STM32F10X
  *
  * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
  *
@@ -23,11 +23,15 @@
 
 #include "misc.h"
 
-extern void             uart_init (uint32_t);
-extern void             uart_putc (uint_fast8_t);
-extern void             uart_puts (char *);
-extern uint_fast8_t     uart_getc (void);
-extern uint_fast8_t     uart_poll (uint_fast8_t *);
-extern void             uart_flush ();
-extern uint_fast16_t    uart_read (char *, uint_fast16_t);
-extern uint_fast16_t    uart_write (char *, uint_fast16_t);
+#define _UART_CONCAT(a,b)                a##b
+#define UART_CONCAT(a,b)                 _UART_CONCAT(a,b)
+
+extern void             UART_CONCAT(UART_PREFIX, _uart_init)  (uint32_t);
+extern void             UART_CONCAT(UART_PREFIX, _uart_putc)  (uint_fast8_t);
+extern void             UART_CONCAT(UART_PREFIX, _uart_puts)  (char *);
+extern uint_fast8_t     UART_CONCAT(UART_PREFIX, _uart_getc)  (void);
+extern uint_fast8_t     UART_CONCAT(UART_PREFIX, _uart_poll)  (uint_fast8_t *);
+extern void             UART_CONCAT(UART_PREFIX, _uart_flush) (void);
+extern uint_fast16_t    UART_CONCAT(UART_PREFIX, _uart_read)  (char *, uint_fast16_t);
+extern uint_fast16_t    UART_CONCAT(UART_PREFIX, _uart_write) (char *, uint_fast16_t);
+

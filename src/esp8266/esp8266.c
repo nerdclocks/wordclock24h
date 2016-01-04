@@ -1,14 +1,17 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * esp8266.c - ESP8266 WLAN routines
  *
- * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
+ * Copyright (c) 2014-2016 Frank Meyer - frank(at)fli4l.de
  *
  * Following ESP8266 firmware versions have been successfully checked - received by AT+GMR:
  *
- *      00150900
- *      0018000902-AI03
- *      0020000903
- *      AT version:0.21.0.0 SDK version:0.9.5
+ *    00150900
+ *    00170901
+ *    0018000902-AI03
+ *    0020000903
+ *    AT version:0.21.0.0 SDK version:0.9.5
+ *    AT version:0.50.0.0 SDK version:1.4.0
+ *    AT version:0.51.0.0 SDK version:1.5.0
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,13 +22,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "esp8266.h"
-#include "mcurses.h"
+#include "esp8266-config.h"
 #include "monitor.h"
+
+#define UART_PREFIX         esp8266
 #include "uart.h"
 
 #define NTP_PACKET_SIZE     48
 #define LISTEN_PORT         2525
 
+#define TIMEOUT_MSEC(x)     (x/10)
+#define TIMEOUT
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * globals:
  *--------------------------------------------------------------------------------------------------------------------------------------
@@ -75,6 +82,25 @@ static char                             firmware_version[ESP8266_MAX_F_VERSION_L
 
 #else
 #error STM32 unknown
+#endif
+
+#if ESP8266_DEBUG == 1
+#undef UART_PREFIX
+#define UART_PREFIX     log
+#include "uart.h"
+#define log_init(b)     do { log_uart_init (b); } while (0)
+#define log_putc(c)     do { log_uart_putc (c); } while (0)
+#define log_puts(s)     do { log_uart_puts (s); } while (0)
+#define log_message(m)  do { log_uart_puts (" ("); log_uart_puts (m); log_uart_puts (")\r\n"); } while (0)
+#define log_hex(b)      do { char log_buf[5]; sprintf (log_buf, "<%02x>", b); log_uart_puts (log_buf); } while (0)
+#define log_flush()     do { log_uart_flush (); } while (0)
+#else
+#define log_init(b)
+#define log_putc(c)
+#define log_puts(s)
+#define log_message(m)
+#define log_hex(b)
+#define log_flush()
 #endif
 
 static void
@@ -128,7 +154,7 @@ esp8266_poll (uint_fast8_t * chp, uint_fast16_t ten_ms)
 
     while (1)
     {
-        if (uart_poll (chp))
+        if (esp8266_uart_poll (chp))
         {
             return 1;
         }
@@ -148,19 +174,6 @@ esp8266_poll (uint_fast8_t * chp, uint_fast16_t ten_ms)
     return 0;
 }
 
-static void
-show_message (uint_fast8_t do_show_message, char * message)
-{
-    if (do_show_message && mcurses_is_up)
-    {
-        // mvaddstr (ESP_MSG_LINE, ESP_MSG_COL, message);
-        addstr (" (");
-        addstr (message);
-        addstr (")");
-        clrtoeol();
-    }
-}
-
 static unsigned char    data_buf[NTP_PACKET_SIZE];
 static uint_fast8_t     data_buf_len;
 
@@ -169,181 +182,169 @@ static uint_fast8_t     data_buf_len;
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-esp8266_get_answer (char * answer, uint_fast8_t max_len, uint_fast8_t do_show_message, uint_fast8_t line, uint_fast16_t timeout_cnt)
+esp8266_get_answer (char * answer, uint_fast8_t max_len, uint_fast16_t timeout_ten_ms)
 {
     static char     esp_answer[ESP8266_MAX_ANSWER_LEN + 1];
     uint_fast8_t    in_data = 0;
     uint_fast8_t    l = 0;
     uint_fast8_t    ch;
-    uint_fast8_t    x = 0;
 
     if (! answer)
     {
         answer = esp_answer;
     }
 
-    if (mcurses_is_up)
-    {
-        move (line, 0);
-        clrtoeol();
-        refresh ();
-    }
+    log_flush ();
 
-    uart_flush ();
+    esp8266_uart_flush ();
 
     while (1)
     {
-        if (esp8266_poll (&ch, timeout_cnt) == 0)
+        if (esp8266_poll (&ch, timeout_ten_ms) == 0)
         {
-            show_message (1, "Timeout");                    // 1: show this message always
+            log_message ("Timeout");
             return ESP8266_TIMEOUT;
         }
 
-        if (mcurses_is_up)
+        if (ch >= 32 && ch < 127)
         {
-            if (ch >= 32 && ch < 127)
+            log_putc (ch);
+        }
+        else
+        {
+            if (l > 0)
             {
-                addch (ch);
-                x++;
-            }
-            else
-            {
-                printw ("<%02x>", ch);
-                x += 4;
-            }
-            refresh ();
-
-            if (x >= 75)
-            {
-                move (line, 0);
-                clrtoeol ();
-                refresh ();
+                log_hex (ch);
             }
         }
 
-        if (l < max_len - 1)
+        log_flush ();
+
+        if (l < max_len - 1 && (in_data || (ch != '\r' && ch != '\n')))
         {
-            if (in_data || (ch != '\r' && ch != '\n'))
+            answer[l++] = ch;
+
+            if (in_data)
             {
-                answer[l++] = ch;
+                in_data--;
 
-                if (in_data)
-                {
-                    in_data--;
+                data_buf[data_buf_len++] = ch;
 
-                    data_buf[data_buf_len++] = ch;
-
-                    if (! in_data)
-                    {
-                        show_message (do_show_message, "ESP8266_IPD");
-                        return ESP8266_IPD;
-                    }
-                }
-                else if (l == 9 && ! strncmp ((char *) answer, "+IPD,1,4:", 9))
+                if (! in_data)
                 {
-                    in_data = 4;
-                    data_buf_len = 0;
-                }
-                else if (l == 10 && ! strncmp ((char *) answer, "+IPD,2,48:", 10))
-                {
-                    in_data = 48;
-                    data_buf_len = 0;
+                    log_message ("ESP8266_IPD");
+                    return ESP8266_IPD;
                 }
             }
-            else if (ch == '\n' || ch == '\r')      // fm 2015-10-22: sometimes ESP answers with \r\n, sometimes only with \r
+            else if (l == 9 && ! strncmp ((char *) answer, "+IPD,1,4:", 9))
             {
-                answer[l] = '\0';
+                in_data = 4;
+                data_buf_len = 0;
+            }
+            else if (l == 10 && ! strncmp ((char *) answer, "+IPD,1,48:", 10))
+            {
+                in_data = 48;
+                data_buf_len = 0;
+            }
+        }
+        else if (ch == '\n' || ch == '\r')      // fm 2015-10-22: sometimes ESP answers with \r\n, sometimes only with \r
+        {
+            answer[l] = '\0';
 
-                if (l > 0)
+            if (l > 0)
+            {
+                if (! stricmp (answer, "LINKED"))
                 {
-                    if (! stricmp (answer, "LINKED"))
-                    {
-                        show_message (do_show_message, "ESP8266_LINKED");
-                        return ESP8266_LINKED;
-                    }
-                    else if (! stricmp (answer, "UNLINK"))
-                    {
-                        show_message (do_show_message, "ESP8266_UNLINK");
-                        return ESP8266_UNLINK;
-                    }
-                    else if (l > 1 && ! stricmp (answer + 1, ",CONNECT"))      // firmware AT version:0.21.version:0.9.5: 1,CONNECT instead of LINKED
-                    {
-                        show_message (do_show_message, "ESP8266_CONNECT");
-                        return ESP8266_CONNECT;
-                    }
-                    else if (l > 1 && ! stricmp (answer + 1, ",CLOSED"))        // firmware AT version:0.21.version:0.9.5: 1,CLOSED instead of UNLINK
-                    {
-                        show_message (do_show_message, "ESP8266_CLOSED");
-                        return ESP8266_CLOSED;
-                    }
-                    else if (! stricmp (answer, "OK"))
-                    {
-                        show_message (do_show_message, "ESP8266_OK");
-                        return ESP8266_OK;
-                    }
-                    else if (! stricmp (answer, "SEND OK"))
-                    {
-                        show_message (do_show_message, "ESP8266_SEND_OK");
-                        return ESP8266_SEND_OK;
-                    }
-                    else if (! stricmp (answer, "ERROR"))
-                    {
-                        show_message (do_show_message, "ESP8266_ERROR");
-                        return ESP8266_ERROR;
-                    }
-                    else if (! strnicmp (answer, "BUSY", 4))
-                    {
-                        show_message (do_show_message, "ESP8266_BUSY");
-                        // esp8266_reset ();                                   // if we get busy, we must reset
-                        return ESP8266_BUSY;
-                    }
-                    else if (! strnicmp (answer, "ALREAY CONNECT", 14) || ! strnicmp (answer, "ALREADY CONNECT", 15))
-                    {
-                        show_message (do_show_message, "ESP8266_ALREADY_CONNECT");
-                        // esp8266_reset ();                                   // old buggy software: if we are already connected, we must reset
-                        return ESP8266_ALREADY_CONNECT;
-                    }
-                    else if (! strnicmp (answer, "Link typ ERROR", 14))
-                    {
-                        show_message (do_show_message, "ESP8266_LINK_TYPE_ERROR");
-                        // esp8266_reset ();                                   // old buggy software: if we are already connected, we must reset
-                        return ESP8266_LINK_TYPE_ERROR;
-                    }
-                    else if (! stricmp (answer, "READY"))
-                    {
-                        show_message (do_show_message, "ESP8266_READY");
-                        return ESP8266_READY;
-                    }
-                    else if (! stricmp ((char *) answer, "NO CHANGE"))
-                    {
-                        show_message (do_show_message, "ESP8266_NO_CHANGE");
-                        return ESP8266_NO_CHANGE;
-                    }
-                    else if (! strnicmp (answer, "+CWJAP:", 7))
-                    {
-                        show_message (do_show_message, "ESP8266_ACCESS_POINT");
-                        return ESP8266_ACCESS_POINT;
-                    }
-                    else if (answer[0] == '+')
-                    {
-                        show_message (do_show_message, "ESP8266_ANSWER");
-                        return ESP8266_ANSWER;
-                    }
-                    else
-                    {
-                        show_message (do_show_message, "ESP8266_UNSPECIFIED");
-                        return ESP8266_UNSPECIFIED;
-                    }
+                    log_message ("ESP8266_LINKED");
+                    return ESP8266_LINKED;
+                }
+                else if (! stricmp (answer, "UNLINK"))
+                {
+                    log_message ("ESP8266_UNLINK");
+                    return ESP8266_UNLINK;
+                }
+                else if (l > 1 && ! stricmp (answer + 1, ",CONNECT"))      // firmware AT version:0.21.version:0.9.5: 1,CONNECT instead of LINKED
+                {
+                    log_message ("ESP8266_CONNECT");
+                    return ESP8266_CONNECT;
+                }
+                else if (l > 1 && ! stricmp (answer + 1, ",CLOSED"))        // firmware AT version:0.21.version:0.9.5: 1,CLOSED instead of UNLINK
+                {
+                    log_message ("ESP8266_CLOSED");
+                    return ESP8266_CLOSED;
+                }
+                else if (! stricmp (answer, "OK"))
+                {
+                    log_message ("ESP8266_OK");
+                    return ESP8266_OK;
+                }
+                else if (! stricmp (answer, "SEND OK"))
+                {
+                    log_message ("ESP8266_SEND_OK");
+                    return ESP8266_SEND_OK;
+                }
+                else if (! stricmp (answer, "ERROR"))
+                {
+                    log_message ("ESP8266_ERROR");
+                    return ESP8266_ERROR;
+                }
+                else if (! stricmp (answer, "WIFI CONNECTED"))
+                {
+                    log_message ("ESP8266_WIFI_CONNECTED");
+                    return ESP8266_WIFI_CONNECTED;
+                }
+                else if (! stricmp (answer, "WIFI GOT IP"))
+                {
+                    log_message ("ESP8266_WIFI_GOT_IP");
+                    return ESP8266_WIFI_GOT_IP;
+                }
+                else if (! strnicmp (answer, "BUSY", 4))
+                {
+                    log_message ("ESP8266_BUSY");
+                    // esp8266_reset ();                                   // if we get busy, we must reset
+                    return ESP8266_BUSY;
+                }
+                else if (! strnicmp (answer, "ALREAY CONNECT", 14) || ! strnicmp (answer, "ALREADY CONNECT", 15))
+                {
+                    log_message ("ESP8266_ALREADY_CONNECT");
+                    // esp8266_reset ();                                   // old buggy software: if we are already connected, we must reset
+                    return ESP8266_ALREADY_CONNECT;
+                }
+                else if (! strnicmp (answer, "Link typ ERROR", 14))
+                {
+                    log_message ("ESP8266_LINK_TYPE_ERROR");
+                    // esp8266_reset ();                                   // old buggy software: if we are already connected, we must reset
+                    return ESP8266_LINK_TYPE_ERROR;
+                }
+                else if (! stricmp (answer, "READY"))
+                {
+                    log_message ("ESP8266_READY");
+                    return ESP8266_READY;
+                }
+                else if (! stricmp ((char *) answer, "NO CHANGE"))
+                {
+                    log_message ("ESP8266_NO_CHANGE");
+                    return ESP8266_NO_CHANGE;
+                }
+                else if (! strnicmp (answer, "+CWJAP:", 7))
+                {
+                    log_message ("ESP8266_ACCESS_POINT");
+                    return ESP8266_ACCESS_POINT;
+                }
+                else if (answer[0] == '+')
+                {
+                    log_message ("ESP8266_ANSWER");
+                    return ESP8266_ANSWER;
                 }
                 else
                 {
-                    if (mcurses_is_up)
-                    {
-                        move (line, 0);
-                        clrtoeol ();
-                        refresh ();
-                    }
+                    log_message ("ESP8266_UNSPECIFIED");
+                    return ESP8266_UNSPECIFIED;
                 }
+            }
+            else // l == 0
+            {
+                log_flush ();
             }
         }
     }
@@ -366,48 +367,37 @@ esp8266_send_cmd (char * cmd)
 
     length = strlen (cmd);
 
-    if (mcurses_is_up)
+    log_puts ("--> ");
+
+    for (i = 0; i < length; i++)
     {
-        move (ESP_SND_LINE, ESP_SND_COL);
-        clrtoeol ();
+        ch = cmd[i];
 
-        addstr ("Sending: ");
-
-        for (i = 0; i < length; i++)
+        if (ch >= 32 && ch < 127)
         {
-            ch = cmd[i];
-
-            if (ch >= 32 && ch < 127)
-            {
-                addch (ch);
-            }
-            else
-            {
-                printw ("<%02x>", ch);
-            }
+            log_putc (ch);
         }
-
-        addstr ("<0d>");
-
-        if (esp8266_needs_crlf)
+        else
         {
-            addstr ("<0a>");
+            log_hex (ch);
         }
-        refresh ();
     }
 
-    uart_flush();
+    log_puts ("<0d>");
+
+    if (esp8266_needs_crlf)
+    {
+        log_puts ("<0a>");
+    }
+
+    log_puts ("\r\n");
+    log_flush ();
+
+    esp8266_uart_flush();
 
     while (esp8266_poll (&ch, 20))                      // eat characters from input
     {
         ;
-    }
-
-    if (mcurses_is_up)
-    {
-        move (ESP_LOG_LINE, ESP_LOG_COL);
-        clrtoeol();
-        refresh ();
     }
 
     for (i = 0; i < length + 1 + (esp8266_needs_crlf ? 1 : 0); i++)
@@ -425,36 +415,17 @@ esp8266_send_cmd (char * cmd)
             send_ch = '\n';
         }
 
-        uart_putc (send_ch);
-        uart_flush ();
+        esp8266_uart_putc (send_ch);
+        esp8266_uart_flush ();
 
         do
         {
-            if (! esp8266_poll (&ch, 20))                   // read echo
+            if (! esp8266_poll (&ch, 10))                   // read echo
             {
-                if (mcurses_is_up)
-                {
-                    mvaddstr (ESP_LOG_LINE, ESP_LOG_COL, "NO ECHO!");
-                    clrtoeol();
-                }
+                log_puts ("NO ECHO!\r\n");
                 return 0;
             }
         } while (ch == 0x00);
-
-#if 0
-        if (mcurses_is_up)
-        {
-            if (ch >= 32 && ch < 127)
-            {
-                addch (ch);
-            }
-            else
-            {
-                printw ("<%02x>", ch);
-            }
-            refresh ();
-        }
-#endif
 
         if (ch == 0x0d && send_ch == 0x0a)      // old ESP8266 (FW 00150900) sends \r\r instead of \r\n or \r alone
         {
@@ -463,12 +434,14 @@ esp8266_send_cmd (char * cmd)
 
         if (ch != send_ch)
         {
-            if (mcurses_is_up)
-            {
-                mvprintw (ESP_LOG_LINE, ESP_LOG_COL, "wrong echo, got <%02x>, expected: <%02x>", ch, send_ch);
-                clrtoeol();
-                refresh ();
-            }
+            log_puts ("\r\n");
+            log_puts ("wrong echo, got ");
+            log_hex (ch);
+            log_puts ("expected: ");
+            log_hex (send_ch);
+            log_puts ("\r\n");
+            log_flush ();
+
             return 0;
         }
     }
@@ -480,14 +453,14 @@ esp8266_send_cmd (char * cmd)
  * send data to ESP8266
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
-uint_fast8_t
-esp8266_send_data (uint_fast8_t id, unsigned char * data, uint_fast8_t len)
+static uint_fast8_t
+esp8266_send_data (unsigned char * data, uint_fast8_t len)
 {
     char buf[64];
     uint_fast8_t    ch = '\0';
     uint_fast8_t    rtc = 1;
 
-    sprintf (buf, "AT+CIPSEND=%d,%d", id, len);
+    sprintf (buf, "AT+CIPSEND=1,%d", len);
 
     if (esp8266_send_cmd (buf))
     {
@@ -503,11 +476,11 @@ esp8266_send_data (uint_fast8_t id, unsigned char * data, uint_fast8_t len)
         {
             while (len)
             {
-                uart_putc (*data);
+                esp8266_uart_putc (*data);
                 len--;
                 data++;
             }
-            uart_flush ();
+            esp8266_uart_flush ();
         }
     }
 
@@ -553,36 +526,34 @@ esp8266_get_access_point_connected (void)
 {
     static char     esp_answer[ESP8266_MAX_ANSWER_LEN + 1];
     char *          p;
-    uint_fast8_t    len;
+    char *          pp;
 
     esp8266_send_cmd("AT+CWJAP?");
 
-    if (esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 100) == ESP8266_ACCESS_POINT)
+    if (esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) == ESP8266_ACCESS_POINT)
     {
-        esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 0, ESP_LOG_LINE, 100);      // some ESP answer with 2nd line: OK
+        esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100));  // some ESP answer with 2nd line: OK
 
         p = esp_answer + 7;                                     // skip "+CWJAP:"
 
         if (*p == '"')                                          // skip following double quote, too
         {
             p++;
-        }
 
-        len = strlen (p);
-
-        if (len > 1)                                            // more than one char?
-        {
-            if (p[len - 1] == '"')
+            for (pp = p; *pp; pp++)                             // search next double quote and strip string
             {
-                p[len - 1] = '\0';                              // strip double quote
+                if (*pp == '"')
+                {
+                    *pp = '\0';
+                    break;
+                }
             }
-            return p;
         }
+
+        return p;
     }
 
-    strcpy (esp_answer, "DUMMY");  // TODO
-    return esp_answer;
-//    return (char *) NULL;
+    return (char *) NULL;
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
@@ -606,7 +577,7 @@ esp8266_set_mux_on_off (uint_fast8_t on)
 
 
     if (esp8266_send_cmd(cmd) &&
-        esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 0, ESP_LOG_LINE, 100) != ESP8266_TIMEOUT)
+        esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
     {
         rtc = 1;
     }
@@ -614,16 +585,16 @@ esp8266_set_mux_on_off (uint_fast8_t on)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
- * INTERN: close any connection
+ * INTERN: close server connection
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 static uint_fast8_t
-esp8266_close_connection (void)
+esp8266_close_server_connection (void)
 {
     uint_fast8_t    rtc = 0;
 
     if (esp8266_send_cmd("AT+CIPCLOSE") &&
-        esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 0, ESP_LOG_LINE, 100) != ESP8266_TIMEOUT)
+        esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
     {
         rtc = 1;
     }
@@ -645,7 +616,7 @@ esp8266_server (uint_fast16_t port)
     if (esp8266_set_mux_on_off (1))
     {
         if (esp8266_send_cmd(cmd) &&
-            esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 0, ESP_LOG_LINE, 100) != ESP8266_TIMEOUT)
+            esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
         {
             rtc = 1;
         }
@@ -664,7 +635,7 @@ esp8266_check_up_status ()
 
     if (esp8266_send_cmd("AT"))
     {
-        if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 100) == ESP8266_OK)
+        if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) == ESP8266_OK)
         {
             rtc = 1;
         }
@@ -687,13 +658,13 @@ esp8266_get_ip_address (void)
 
     esp8266_send_cmd("AT+CIFSR");
 
-    rtc = esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 100);
+    rtc = esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100));
 
-    if (rtc == ESP8266_UNSPECIFIED)                             // 00150900 and 0018000902-AI03
-    {
-        rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 100);     // 0018000902-AI03 sends OK
-                                                                                                    // but 00150900 sends nothing
-        if (rtc == ESP8266_OK || rtc == ESP8266_TIMEOUT)
+    if (rtc == ESP8266_UNSPECIFIED)                             // 00150900, 00170901 and 0018000902-AI03
+    {                                                           // 0018000902-AI03 sends OK
+        rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100));
+
+        if (rtc == ESP8266_OK || rtc == ESP8266_TIMEOUT)        // but 00150900 + 00170901 sends nothing more
         {
             return esp_answer;
         }
@@ -716,7 +687,7 @@ esp8266_get_ip_address (void)
                 }
             }
 
-            rtc = esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, 0, ESP_LOG_LINE, 100);
+            rtc = esp8266_get_answer (esp_answer, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100));
         } while (rtc != ESP8266_TIMEOUT && rtc != ESP8266_OK);
 
         if (rtc == ESP8266_OK)
@@ -730,31 +701,29 @@ esp8266_get_ip_address (void)
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * reset ESP8266
+ *
+ * don't rely on rtc, some modules send "invalid" instead of "ready"
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
-uint_fast8_t
+void
 esp8266_reset (void)
 {
-    uint_fast8_t    rtc;
+    uint_fast8_t    esp8266_rtc;
+    uint_fast8_t    cnt;
 
     GPIO_WriteBit(ESP8266_RST_PORT, ESP8266_RST_PIN, RESET);
-    esp8266_wait (1);
+    esp8266_wait (5);
     GPIO_WriteBit(ESP8266_RST_PORT, ESP8266_RST_PIN, SET);
 
-    while ((rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 0, ESP_LOG_LINE, 500)) != ESP8266_TIMEOUT && rtc != ESP8266_READY)
+    for (cnt = 0; cnt < 50; cnt++)
     {
-        ;
-    }
+        esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(500));
 
-    if (rtc == ESP8266_READY)
-    {
-        rtc = 1;
+        if (esp8266_rtc == ESP8266_TIMEOUT || esp8266_rtc == ESP8266_READY)
+        {
+            break;
+        }
     }
-    else
-    {
-        rtc = 0;
-    }
-    return rtc;
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
@@ -785,24 +754,49 @@ uint_fast8_t
 esp8266_connect_to_access_point (char * ssid, char * key)
 {
     static char     cmd[ESP8266_MAX_CMD_LEN];
+    uint_fast8_t    esp8266_rtc = 0;
     uint_fast8_t    rtc = 0;
 
-    if (esp8266_send_cmd("AT+CWMODE=1"))
+    if (esp8266_send_cmd("AT+CWMODE_DEF=1") &&                                                  // AT 0.50 or higher
+        esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) == ESP8266_OK)
     {
-        if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 0, ESP_LOG_LINE, 100) != ESP8266_TIMEOUT)
-        {
-            strcpy (cmd, "AT+CWJAP=\"");
-            strcat (cmd, ssid);
-            strcat (cmd, "\",\"");
-            strcat (cmd, key);
-            strcat (cmd, "\"");
+        strcpy (cmd, "AT+CWJAP_DEF=\"");
+        strcat (cmd, ssid);
+        strcat (cmd, "\",\"");
+        strcat (cmd, key);
+        strcat (cmd, "\"");
 
-            if (esp8266_send_cmd(cmd))
+        if (esp8266_send_cmd(cmd))
+        {
+            do
             {
-                while (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) != ESP8266_TIMEOUT)     // wait min 30 seconds for connect
-                {
-                    ;
-                }
+                esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 3000);
+            } while (esp8266_rtc != ESP8266_TIMEOUT && esp8266_rtc != ESP8266_OK && esp8266_rtc != ESP8266_ERROR);
+
+            if (esp8266_rtc == ESP8266_OK)
+            {
+                rtc = 1;
+            }
+        }
+    }
+    else if (esp8266_send_cmd("AT+CWMODE=1") &&
+             esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
+    {
+        strcpy (cmd, "AT+CWJAP=\"");
+        strcat (cmd, ssid);
+        strcat (cmd, "\",\"");
+        strcat (cmd, key);
+        strcat (cmd, "\"");
+
+        if (esp8266_send_cmd(cmd))
+        {
+            do
+            {
+                esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 3000);
+            } while (esp8266_rtc != ESP8266_TIMEOUT && esp8266_rtc != ESP8266_OK && esp8266_rtc != ESP8266_ERROR);
+
+            if (esp8266_rtc == ESP8266_OK)
+            {
                 rtc = 1;
             }
         }
@@ -821,7 +815,7 @@ esp8266_disconnect_from_access_point (void)
 
     if (esp8266_send_cmd("AT+CWQAP"))
     {
-        while (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) != ESP8266_TIMEOUT)
+        while (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(500)) != ESP8266_TIMEOUT)
         {
             // wait min. 30 seconds for disconnect
         }
@@ -855,7 +849,7 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
     uint_fast8_t        ch;
     uint_fast8_t        rtc = 0;
 
-    if (uart_poll (&ch))
+    if (esp8266_uart_poll (&ch))
     {
         if (indata_channel == 0xff)
         {
@@ -927,6 +921,7 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
  *    0018000902-AI03
  *    0020000903
  *    AT version:0.21.0.0 SDK version:0.9.5
+ *    AT version:0.51.0.0 SDK version:1.5.0
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 char *
@@ -943,25 +938,35 @@ esp8266_get_firmware_version (void)
 
      esp8266_send_cmd("AT+GMR");
 
-    if (esp8266_get_answer (buf, ESP8266_MAX_F_VERSION_LEN, 1, ESP_LOG_LINE, 100) == ESP8266_UNSPECIFIED)
+    if (esp8266_get_answer (buf, ESP8266_MAX_F_VERSION_LEN, 20) == ESP8266_UNSPECIFIED)
     {
         if (! strnicmp (buf, "AT version:", 11))                                // AT version:0.21.0.0 SDK version:0.9.5
         {
             offset = 11;
         }
-        else                                                                    // 00150900, 0018000902-AI03, 0020000903
+        else                                                                    // 00150900, 00170901, 0018000902-AI03, 0020000903
         {
             offset = 0;
         }
 
         do
         {
-            rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 0, ESP_LOG_LINE, 100);
+            rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 20);
         } while (rtc != ESP8266_TIMEOUT && rtc != ESP8266_OK);
 
         if (rtc == ESP8266_OK)
         {
-            strcpy (firmware_version, buf + offset);
+            char * p;
+
+            strncpy (firmware_version, buf + offset, ESP8266_MAX_F_VERSION_LEN);
+
+            for (p = firmware_version; *p; p++)         // strip a date behind AT version, e.g. "(Nov 27 2015 13:37:21)"
+            {
+                if (*p == '(')
+                {
+                    *p = '\0';
+                }
+            }
             return firmware_version;
         }
     }
@@ -980,7 +985,7 @@ esp8266_check_online_status (ESP8266_CONNECTION_INFO * infop)
 
     if ((accesspoint = esp8266_get_access_point_connected ()) != (char *) NULL &&
         (ipaddress = esp8266_get_ip_address ()) != (char *) NULL &&
-        esp8266_close_connection ()  &&
+        esp8266_close_server_connection ()  &&
         esp8266_server (LISTEN_PORT))
     {
         infop->accesspoint  = accesspoint;
@@ -1014,40 +1019,15 @@ esp8266_get_time (char * timeserver, time_t * curtime_p)
 
         if (esp8266_send_cmd(buf))
         {
-            esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 300);
-
-            if (esp8266_rtc == ESP8266_CONNECT)                         // firmware 0020000903 and AT version:0.21.version:0.9.5
+            do
             {
-                if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_OK &&
-                    esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_IPD)
-                {
-                    esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500);
+                esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(200));
 
-                    if (esp8266_rtc == ESP8266_OK)                      // 0020000903 sends OK, then CLOSED, then OK
-                    {
-                        if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_CLOSED &&
-                            esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_OK)
-                        {
-                            rtc  = 1;
-                        }
-                    }
-                    else if (esp8266_rtc == ESP8266_CLOSED)             // AT version:0.21.version:0.9.5 sends only CLOSED
-                    {
-                        rtc = 1;
-                    }
-                }
-            }
-            else if (esp8266_rtc == ESP8266_OK)                         // firmware 00150900 and 0018000902-AI03
-            {
-                if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_LINKED &&
-                    esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_IPD &&
-                    esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_OK &&
-                    esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_OK &&
-                    esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_UNLINK)
+                if (esp8266_rtc == ESP8266_IPD)     // check only IPD, all other answers depend from ESP8266 firmware version
                 {
                     rtc = 1;
                 }
-            }
+            } while (esp8266_rtc != ESP8266_TIMEOUT);
         }
 
         if (rtc)
@@ -1074,7 +1054,6 @@ esp8266_get_ntp_time (char * timeserver, time_t * curtime_p)
 {
     static char     buf[ESP8266_MAX_ANSWER_LEN];
     unsigned char   ntp_buf[NTP_PACKET_SIZE];
-    uint_fast8_t    channel_id = 2;
     uint_fast8_t    esp8266_rtc = 0;
     uint_fast8_t    rtc = 0;
 
@@ -1092,69 +1071,40 @@ esp8266_get_ntp_time (char * timeserver, time_t * curtime_p)
         ntp_buf[14] = 49;
         ntp_buf[15] = 52;
 
-        sprintf (buf, "AT+CIPSTART=%d,\"UDP\",\"", channel_id);
+        strcpy (buf, "AT+CIPSTART=1,\"UDP\",\"");
         strcat (buf, timeserver);
         strcat (buf, "\",123,8123,0");
 
         if (esp8266_send_cmd(buf))
         {
-            esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 300);
+            esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(300));
 
-            if (esp8266_rtc == ESP8266_CONNECT)                         // firmware 0020000903 and AT version:0.21.version:0.9.5
+            if (esp8266_rtc == ESP8266_CONNECT)                 // firmware 0020000903 and AT version:0.21.version:0.9.5 or higher
+            {                                                   // send CONNECT, then OK
+                esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100));
+            }
+
+            if (esp8266_rtc == ESP8266_OK)
             {
-                if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500) == ESP8266_OK)
-                {
-                    esp8266_send_data (channel_id, ntp_buf, NTP_PACKET_SIZE);
+                esp8266_send_data (ntp_buf, NTP_PACKET_SIZE);
 
-                    if ((esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 300)) == ESP8266_UNSPECIFIED &&
-                        (esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_IPD &&
-                        (esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_OK &&
-                        (esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_SEND_OK)
+                do
+                {
+                    esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100));
+
+                    if (esp8266_rtc == ESP8266_IPD)             // check only IPD, all other answers depend from ESP8266 firmware version
                     {
                         rtc = 1;
                     }
+                } while (esp8266_rtc != ESP8266_TIMEOUT);
 
-                    sprintf (buf, "AT+CIPCLOSE=%d", channel_id);
-
-                    if (esp8266_send_cmd(buf))
-                    {
-                        if ((esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_CLOSED &&
-                            (esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_OK)
-                        {
-                            ;
-                        }
-                        else
-                        {
-                            rtc = 0;
-                        }
-                    }
-                }
-            }
-            else if (esp8266_rtc == ESP8266_OK)                         // firmware 00150900 and 0018000902-AI03
-            {
-                esp8266_send_data (channel_id, ntp_buf, NTP_PACKET_SIZE);
-
-                if ((esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 300)) == ESP8266_UNSPECIFIED &&
-                    (esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_IPD &&
-                    (esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_OK &&
-                    (esp8266_rtc = esp8266_get_answer (buf, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_SEND_OK)
+                if (esp8266_send_cmd("AT+CIPCLOSE=1"))
                 {
-                    rtc = 1;
-                }
-
-                sprintf (buf, "AT+CIPCLOSE=%d", channel_id);
-
-                if (esp8266_send_cmd(buf))
-                {
-                    if ((esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_OK &&
-                        (esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, 1, ESP_LOG_LINE, 500)) == ESP8266_UNLINK)
+                    do
                     {
-                        ;
-                    }
-                    else
-                    {
-                        rtc = 0;
-                    }
+                        // ignore answers, they depend from ESP8266 firmware version
+                        esp8266_rtc = esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100));
+                    } while (esp8266_rtc != ESP8266_TIMEOUT);
                 }
             }
         }
@@ -1189,11 +1139,14 @@ esp8266_init (void)
     {
         already_called = 1;
 
+        log_init (115200);
+        log_puts ("ESP8266 LOGGER\r\n");
+
         esp8266_gpio_init ();
 
         for (i = 0; i < MAX_BAUDRATES; i++)
         {
-            uart_init (baudrates[i]);
+            esp8266_uart_init (baudrates[i]);
 
             esp8266_reset ();
 
@@ -1204,7 +1157,7 @@ esp8266_init (void)
                 if (baudrates[i] != 115200)
                 {
                     (void) esp8266_send_cmd ("AT+CIOBAUD=115200");      // change baud rate of ESP8266 to 115200
-                    uart_init (115200);                                 // change baud rate of UART to 115200
+                    esp8266_uart_init (115200);                                 // change baud rate of UART to 115200
                 }
                 break;
             }
@@ -1215,7 +1168,7 @@ esp8266_init (void)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
-
+ * Should be called every ten msec
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 void

@@ -22,7 +22,12 @@
 #include "rtc.h"
 #include "ldr.h"
 #include "dsp.h"
+
+#if WCLOCK24H == 1
 #include "tables.h"
+#else
+#include "tables12h.h"
+#endif
 
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -43,7 +48,11 @@ monitor_show_letter (uint_fast8_t y, uint_fast8_t x, uint_fast8_t onoff)
             attrset (A_NORMAL);
         }
 
+#if WCLOCK24H == 1
         mvaddch (y, x, display[0][y][x]);
+#else
+        mvaddch (y, x, display[y][x]);
+#endif
     }
 }
 
@@ -76,9 +85,15 @@ monitor_show_all_letters_off (void)
 static void
 monitor_show_word (uint_fast8_t idx)
 {
+#if WCLOCK24H == 1
     uint_fast8_t y = illumination[0][idx].row;
     uint_fast8_t x = illumination[0][idx].col;
     uint_fast8_t l = illumination[0][idx].len;
+#else
+    uint_fast8_t y = illumination[idx].row;
+    uint_fast8_t x = illumination[idx].col;
+    uint_fast8_t l = illumination[idx].len;
+#endif
 
     if (mcurses_is_up)
     {
@@ -106,9 +121,6 @@ monitor_show_temperature (uint_fast8_t temperature_index)
 {
     if (mcurses_is_up)
     {
-        uint_fast8_t   temp_mode = MODES_COUNT - 1;
-        uint_fast8_t   idx = 0;
-
         move (TEMP_DEGREE_LINE, TEMP_DEGREE_COL);
 
         if (temperature_index != 0xFF)
@@ -126,8 +138,11 @@ monitor_show_temperature (uint_fast8_t temperature_index)
             addstr ("<unknown>");
         }
 
+#if WCLOCK24H == 1
         if (temperature_index >= 20 && temperature_index < 80)
         {
+            uint_fast8_t                    temp_mode = MODES_COUNT - 1;
+            uint_fast8_t                    idx = 0;
             uint8_t                         minute_mode;
             const struct MinuteDisplay *    tbl_minute;
 
@@ -148,6 +163,7 @@ monitor_show_temperature (uint_fast8_t temperature_index)
             attrset (A_NORMAL);
             refresh ();
         }
+#endif
     }
 }
 
@@ -161,15 +177,25 @@ monitor_show_clock (uint_fast8_t mode, uint_fast8_t hour, uint_fast8_t minute, u
     static uint8_t                  words[WP_COUNT];
     uint_fast8_t                    hour_mode;
     uint_fast8_t                    minute_mode;
+#if WCLOCK24H == 1
     const struct MinuteDisplay *    tbl_minute;
+#else
+    const struct minute_display *   tbl_minute;
+#endif
     const uint8_t *                 word_idx_p;
     uint_fast8_t                    idx = 0;
 
     if (mcurses_is_up)
     {
-        hour_mode   = tbl_modes[mode].hour_txt;
+#if WCLOCK24H == 1
         minute_mode = tbl_modes[mode].minute_txt;
         tbl_minute  = &tbl_minutes[minute_mode][minute];
+        hour_mode = tbl_modes[mode].hour_txt;
+#else
+        minute_mode = mode;
+        tbl_minute  = &tbl_minutes[minute_mode][minute];
+        hour_mode = tbl_minute->hour_mode;
+#endif
 
         memset (words, 0, WP_COUNT);
         monitor_show_all_letters_off ();
@@ -184,8 +210,21 @@ monitor_show_clock (uint_fast8_t mode, uint_fast8_t hour, uint_fast8_t minute, u
             words[tbl_minute->wordIdx[idx]] = 1;
         }
 
-        hour += tbl_minute->hourOffset;                         // correct the hour offset from the minutes
-        word_idx_p = tbl_hours[hour_mode][hour];                // get the hour words from hour table
+#if WCLOCK24H == 0                                                  // WC12h: we have only 12 hours
+        if (hour >= HOUR_COUNT)
+        {
+            hour -= HOUR_COUNT;
+        }
+#endif
+
+        hour += tbl_minute->hourOffset;                             // correct the hour offset from the minutes
+
+        if (hour >= HOUR_COUNT)
+        {
+            hour -= HOUR_COUNT;
+        }
+
+        word_idx_p = tbl_hours[hour_mode][hour];                    // get the hour words from hour table
 
         for (idx = 0; idx < MAX_HOUR_WORDS && word_idx_p[idx] != 0; idx++)
         {
@@ -231,7 +270,11 @@ monitor_show_modes (uint_fast8_t display_mode, uint_fast8_t animation_mode)
         addstr (animation_modes[animation_mode]);
         clrtoeol ();
         mvprintw (DISPLAY_MODE_LINE, DISPLAY_MODE_COL,     "Disp. Mode: %2d: ", display_mode);
+#if WCLOCK24H == 1
         addstr (tbl_modes[display_mode].description);
+#else
+        addstr (tbl_modes[display_mode]);
+#endif
         clrtoeol ();
     }
 }

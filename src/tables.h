@@ -7,6 +7,9 @@
 // illumination[1][WP_COUNT]: 225 bytes
 // total (tbl_minutes + tbl_hours + tbl_modes + illumination): 7098 bytes
 
+#include "wclock24h-config.h"
+#if WCLOCK24H == 1
+
 #ifndef TABLES_H
 #define TABLES_H
 
@@ -145,4 +148,6 @@ extern const uint8_t tbl_hours[HOUR_MODES_COUNT][HOUR_COUNT][MAX_HOUR_WORDS];
 extern const struct MinuteDisplay tbl_minutes[MINUTE_MODES_COUNT][MINUTE_COUNT];
 extern const struct WordIllu illumination[1][WP_COUNT]; // dummy-dimension for screen-saver-variant with capital ß
 extern const char* display[1][WC_ROWS]; // dummy-dimension for screen-saver-variant with capital ß
+
 #endif // TABLES_H
+#endif

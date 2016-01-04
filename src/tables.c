@@ -4,6 +4,9 @@
 //
 // modified by Frank Meyer (fm) 2015-03-18
 
+#include "wclock24h-config.h"
+#if WCLOCK24H == 1
+
 #include "tables.h"
 const struct Modes tbl_modes[MODES_COUNT] = {
 { MM_8, HM_5, "ES IST HH UHR MM (12)" },
@@ -1033,3 +1036,5 @@ const char* display[1][WC_ROWS]= {{ // dummy-dimension for screen-saver-variant 
 "ABENDSMITTERNACHTS",
 "MORGENSWARMMITTAGS"
 }};
+
+#endif

@@ -22,8 +22,8 @@
 #  define ONE_WIRE_CLK_CMD          RCC_AHB1PeriphClockCmd
 #  define ONE_WIRE_CLK              RCC_AHB1Periph_GPIOD
 #elif defined (STM32F10X)
-#  define ONE_WIRE_PIN              GPIO_Pin_9
-#  define ONE_WIRE_PORT             GPIOA
+#  define ONE_WIRE_PIN              GPIO_Pin_14
+#  define ONE_WIRE_PORT             GPIOB
 #  define ONE_WIRE_CLK_CMD          RCC_APB2PeriphClockCmd
 #  define ONE_WIRE_CLK              RCC_APB2Periph_GPIOD
 #endif

@@ -130,8 +130,8 @@
 #  define IRMP_PORT_LETTER                      C
 #  define IRMP_BIT_NUMBER                       10
 #elif defined (STM32F103)
-#  define IRMP_PORT_LETTER                      A
-#  define IRMP_BIT_NUMBER                       7
+#  define IRMP_PORT_LETTER                      B
+#  define IRMP_BIT_NUMBER                       12
 #else
 #  error unknown STM32
 #endif

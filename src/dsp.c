@@ -14,7 +14,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "wclock24h-config.h"
+
+#if WCLOCK24H == 1
 #include "tables.h"
+#else
+#include "tables12h.h"
+#endif
+
 #include "dsp.h"
 #include "irmp.h"
 #include "ws2812.h"
@@ -555,9 +561,15 @@ dsp_led_on (uint_fast8_t y, uint_fast8_t x)
 static void
 dsp_word_on (uint_fast8_t idx)
 {
+#if WCLOCK24H == 1
     uint_fast8_t y = illumination[0][idx].row;
     uint_fast8_t x = illumination[0][idx].col;
     uint_fast8_t l = illumination[0][idx].len;
+#else
+    uint_fast8_t y = illumination[idx].row;
+    uint_fast8_t x = illumination[idx].col;
+    uint_fast8_t l = illumination[idx].len;
+#endif
 
     while (l--)
     {
@@ -1336,6 +1348,7 @@ dsp_animation (void)
  * the last  temperature we can show is 39,5°C (index = 79, temperature_index == 159)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
+#if WCLOCK24H == 1                                                          // yet only available on WC24H
 void
 dsp_temperature (uint_fast8_t power_is_on, uint_fast8_t temperature_index)
 {
@@ -1379,6 +1392,7 @@ dsp_temperature (uint_fast8_t power_is_on, uint_fast8_t temperature_index)
         animation_start_flag = 1;
     }
 }
+#endif
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * display clock time
@@ -1393,7 +1407,11 @@ dsp_clock (uint_fast8_t power_is_on, uint_fast8_t hour, uint_fast8_t minute)
     static uint_fast8_t             last_power_is_on    = 0xff;
     uint8_t                         hour_mode;
     uint8_t                         minute_mode;
+#if WCLOCK24H == 1
     const struct MinuteDisplay *    tbl_minute;
+#else
+    const struct minute_display *   tbl_minute;
+#endif
     const uint8_t *                 word_idx_p;
     uint_fast16_t                   idx;
 
@@ -1413,9 +1431,15 @@ dsp_clock (uint_fast8_t power_is_on, uint_fast8_t hour, uint_fast8_t minute)
         // Now all LEDs have the desired colors of last time.
         // We can now set the new values:
 
-        hour_mode   = tbl_modes[display_mode].hour_txt;
+#if WCLOCK24H == 1
         minute_mode = tbl_modes[display_mode].minute_txt;
         tbl_minute  = &tbl_minutes[minute_mode][minute];
+        hour_mode = tbl_modes[display_mode].hour_txt;
+#else
+        minute_mode = display_mode;
+        tbl_minute  = &tbl_minutes[minute_mode][minute];
+        hour_mode = tbl_minute->hour_mode;
+#endif
 
         memset (words, 0, WP_COUNT);
         reset_led_states ();
@@ -1430,7 +1454,20 @@ dsp_clock (uint_fast8_t power_is_on, uint_fast8_t hour, uint_fast8_t minute)
                 words[tbl_minute->wordIdx[idx]] = 1;
             }
 
+#if WCLOCK24H == 0                                                      // WC12h: we have only 12 hours
+            if (hour >= HOUR_COUNT)
+            {
+                hour -= HOUR_COUNT;
+            }
+#endif
+
             hour += tbl_minute->hourOffset;                             // correct the hour offset from the minutes
+
+            if (hour >= HOUR_COUNT)
+            {
+                hour -= HOUR_COUNT;
+            }
+
             word_idx_p = tbl_hours[hour_mode][hour];                    // get the hour words from hour table
 
             for (idx = 0; idx < MAX_HOUR_WORDS && word_idx_p[idx] != 0; idx++)

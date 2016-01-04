@@ -1,18 +1,18 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart.c - UART routines for STM32F4XX or STM32F10X
+ * uart-driver.h - UART driver routines for STM32F4XX or STM32F10X
  *
- * Possible UARTs of STM32F4xx:
- *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
- *  +--------------------------------------------------+
- *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
- *  |======|======|======||======|======||======|======|
- *  | 1    | PA9  | PA10 || PB6  | PB7  ||      |      |
- *  | 2    | PA2  | PA3  || PD5  | PD6  ||      |      |
- *  | 3    | PB10 | PB11 || PC10 | PC11 || PD8  | PD9  |
- *  | 4    | PA0  | PA1  || PC10 | PC11 ||      |      |
- *  | 5    | PC12 | PD2  ||      |      ||      |      |
- *  | 6    | PC6  | PC7  || PG14 | PG9  ||      |      |
- *  +--------------------------------------------------+
+ * Copyright (c) 2015-2016 Frank Meyer - frank(at)fli4l.de
+ *
+ * example of usage:
+ *
+ * #define UART_PREFIX         log                      // prefix for all USART functions, e.g. log_uart_puts()
+ * #define UART_NUMBER         3                        // UART number on STM32F1xx (1-3 for STM32F1xx, 1-6 for STM32F4xx)
+ * #define UART_ALTERNATE      0                        // ALTERNATE pin number, see below for possible values
+ *
+ * #define UART_TXBUFLEN       64                       // ringbuffer size for UART TX
+ * #define UART_RXBUFLEN       64                       // ringbuffer size for UART RX
+ *
+ * include "uart-driver.h"                              // at least include this file
  *
  * Possible UARTs of STM32F10x:
  *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
@@ -24,7 +24,28 @@
  *  | 3    | PB10 | PB11 || PC10 | PC11 || PD8  | PD9  |
  *  +--------------------------------------------------+
  *
- * Copyright (c) 2015 Frank Meyer - frank(at)fli4l.de
+ * Possible UARTs of STM32F401 / STM32F411:
+ *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
+ *  +--------------------------------------------------+
+ *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
+ *  |======|======|======||======|======||======|======|
+ *  | 1    | PA9  | PA10 || PB6  | PB7  ||      |      |
+ *  | 2    | PA2  | PA3  || PD5  | PD6  ||      |      |
+ *  | 6    | PC6  | PC7  || PA11 | PA12 ||      |      |
+ *  +--------------------------------------------------+
+ *
+ * Possible UARTs of STM32F407:
+ *           ALTERNATE=0    ALTERNATE=1    ALTERNATE=2
+ *  +--------------------------------------------------+
+ *  | UART | TX   | RX   || TX   | RX   || TX   | RX   |
+ *  |======|======|======||======|======||======|======|
+ *  | 1    | PA9  | PA10 || PB6  | PB7  ||      |      |
+ *  | 2    | PA2  | PA3  || PD5  | PD6  ||      |      |
+ *  | 3    | PB10 | PB11 || PC10 | PC11 || PD8  | PD9  |
+ *  | 4    | PA0  | PA1  || PC10 | PC11 ||      |      |
+ *  | 5    | PC12 | PD2  ||      |      ||      |      |
+ *  | 6    | PC6  | PC7  || PG14 | PG9  ||      |      |
+ *  +--------------------------------------------------+
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,15 +75,11 @@
 #endif
 
 #include "uart.h"
-#include "uart-config.h"
 
 static volatile uint_fast8_t        uart_txbuf[UART_TXBUFLEN];                  // tx ringbuffer
 static volatile uint_fast8_t        uart_txsize = 0;                            // tx size
 static volatile uint_fast8_t        uart_rxbuf[UART_RXBUFLEN];                  // rx ringbuffer
 static volatile uint_fast8_t        uart_rxsize = 0;                            // rx size
-
-#define _CONCAT(a,b)                a##b
-#define CONCAT(a,b)                 _CONCAT(a,b)
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * Possible UARTs of STM32F4xx:
@@ -397,34 +414,40 @@ static volatile uint_fast8_t        uart_rxsize = 0;                            
 
 #if UART_NUMBER == 3
 #  if UART_ALTERNATE == 0
-#    define UART_GPIO_REMAP         CONCAT(GPIO_Remap_USART, UART_NUMBER)
+#    define UART_GPIO_REMAP         UART_CONCAT(GPIO_Remap_USART, UART_NUMBER)
 #  elif UART_ALTERNATE == 1
-#    define UART_GPIO_REMAP         CONCAT(GPIO_PartialRemap_USART, UART_NUMBER)
+#    define UART_GPIO_REMAP         UART_CONCAT(GPIO_PartialRemap_USART, UART_NUMBER)
 #  elif UART_ALTERNATE == 2
-#    define UART_GPIO_REMAP         CONCAT(GPIO_FullRemap_USART, UART_NUMBER)
+#    define UART_GPIO_REMAP         UART_CONCAT(GPIO_FullRemap_USART, UART_NUMBER)
 #  endif
 #else
-#  define UART_GPIO_REMAP           CONCAT(GPIO_Remap_USART, UART_NUMBER)
+#  define UART_GPIO_REMAP           UART_CONCAT(GPIO_Remap_USART, UART_NUMBER)
 #endif
 
 #endif
 
-#define UART_TX_PORT                CONCAT(GPIO, UART_TX_PORT_LETTER)
-#define UART_TX_GPIO_CLOCK          CONCAT(UART_GPIO, UART_TX_PORT_LETTER)
-#define UART_TX_PIN                 CONCAT(GPIO_Pin_, UART_TX_PIN_NUMBER)
-#define UART_TX_PINSOURCE           CONCAT(GPIO_PinSource,  UART_TX_PIN_NUMBER)
-#define UART_RX_PORT                CONCAT(GPIO, UART_RX_PORT_LETTER)
-#define UART_RX_GPIO_CLOCK          CONCAT(UART_GPIO, UART_RX_PORT_LETTER)
-#define UART_RX_PIN                 CONCAT(GPIO_Pin_, UART_RX_PIN_NUMBER)
-#define UART_RX_PINSOURCE           CONCAT(GPIO_PinSource, UART_RX_PIN_NUMBER)
+#define UART_TX_PORT                UART_CONCAT(GPIO, UART_TX_PORT_LETTER)
+#define UART_TX_GPIO_CLOCK          UART_CONCAT(UART_GPIO, UART_TX_PORT_LETTER)
+#define UART_TX_PIN                 UART_CONCAT(GPIO_Pin_, UART_TX_PIN_NUMBER)
+#define UART_TX_PINSOURCE           UART_CONCAT(GPIO_PinSource,  UART_TX_PIN_NUMBER)
+#define UART_RX_PORT                UART_CONCAT(GPIO, UART_RX_PORT_LETTER)
+#define UART_RX_GPIO_CLOCK          UART_CONCAT(UART_GPIO, UART_RX_PORT_LETTER)
+#define UART_RX_PIN                 UART_CONCAT(GPIO_Pin_, UART_RX_PIN_NUMBER)
+#define UART_RX_PINSOURCE           UART_CONCAT(GPIO_PinSource, UART_RX_PIN_NUMBER)
 
+#define UART_PREFIX_INIT            UART_CONCAT(UART_PREFIX, _uart_init)
+#define UART_PREFIX_PUTC            UART_CONCAT(UART_PREFIX, _uart_putc)
+#define UART_PREFIX_PUTS            UART_CONCAT(UART_PREFIX, _uart_puts)
+#define UART_PREFIX_GETC            UART_CONCAT(UART_PREFIX, _uart_getc)
+#define UART_PREFIX_POLL            UART_CONCAT(UART_PREFIX, _uart_poll)
+#define UART_PREFIX_FLUSH           UART_CONCAT(UART_PREFIX, _uart_flush)
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * uart_init (uint_fast32_t
+ * uart_init (uint32_t baudrate)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-uart_init (uint32_t baudrate)
+UART_PREFIX_INIT (uint32_t baudrate)
 {
     static uint32_t last_baudrate = 0;
 
@@ -519,7 +542,7 @@ uart_init (uint32_t baudrate)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-uart_putc (uint_fast8_t ch)
+UART_PREFIX_PUTC (uint_fast8_t ch)
 {
     static uint_fast8_t uart_txstop  = 0;                                       // tail
 
@@ -547,13 +570,13 @@ uart_putc (uint_fast8_t ch)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-uart_puts (char * s)
+UART_PREFIX_PUTS (char * s)
 {
     uint_fast8_t ch;
 
     while ((ch = (uint_fast8_t) *s) != '\0')
     {
-        uart_putc (ch);
+        UART_PREFIX_PUTC (ch);
         s++;
     }
 }
@@ -563,7 +586,7 @@ uart_puts (char * s)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-uart_getc (void)
+UART_PREFIX_GETC (void)
 {
     static uint_fast8_t  uart_rxstart = 0;                                      // head
     uint_fast8_t         ch;
@@ -592,7 +615,7 @@ uart_getc (void)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-uart_poll (uint_fast8_t * chp)
+UART_PREFIX_POLL (uint_fast8_t * chp)
 {
     static uint_fast8_t uart_rxstart = 0;                                       // head
     uint_fast8_t        ch;
@@ -623,7 +646,7 @@ uart_poll (uint_fast8_t * chp)
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-uart_flush ()
+UART_PREFIX_FLUSH ()
 {
     while (uart_txsize > 0)                                                     // tx buffer empty?
     {

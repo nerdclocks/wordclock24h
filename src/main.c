@@ -35,14 +35,15 @@
  *    +-------------------------+---------------------------+---------------------------+
  *    | Device                  | STM32F4x1 Nucleo          | STM32F103C8T6             |
  *    +-------------------------+---------------------------+---------------------------+
- *    | TSOP31238 (IRMP)        | GPIO:   PC10              | GPIO:   PA7|              |
- *    | DCF77                   | GPIO:   PC11              | GPIO:   PA4               |
- *    | MCURSES terminal (USB)  | USART2: TX=PA2  RX=PA3    | USART2: TX=PA2  RX=PA3    |
- *    | ESP8266 USART           | USART6: TX=PA11 RX=PA12   | USART3: TX=PB10 RX=PB11   |
+ *    | TSOP31238 (IRMP)        | GPIO:   PC10              | GPIO:   PB12              |
+ *    | DCF77                   | GPIO:   PC11              | GPIO:   PB13              |
+ *    | DS18xx (OneWire)        | GPIO:   PD2               | GPIO:   PB14              |
+ *    | MCURSES terminal (USB)  | USART2: TX=PA2  RX=PA3    | USART1: TX=PA9  RX=PA10   |
+ *    | ESP8266 USART           | USART6: TX=PA11 RX=PA12   | USART2: TX=PA2  RX=PA3    |
  *    | ESP8266 GPIO            | GPIO:   RST=PA7 CH_PD=PA6 | GPIO:   RST=PA0 CH_PD=PA1 |
+ *    | ESP8266 DEBUG (opt)     | USART1: TX=PA9  RX=PA10   | USART3: TX=PB10 RX=PB11   |
  *    | I2C DS3231 & EEPROM     | I2C3:   SCL=PA8 SDA=PC9   | I2C1:   SCL=PB6 SDA=PB7   |
  *    | WS2812                  | DMA1:   PC6               | DMA1:   PA8               |
- *    | DS18xx (OneWire)        | GPIO:   PD2               | GPIO:   PA9               |
  *    | LDR                     | ADC:    ACD1_IN14=PC4     | ADC:    ADC12_IN5=PA5     |
  *    +-------------------------+---------------------------+---------------------------+
  *
@@ -796,15 +797,15 @@ main ()
             if (ds18xx_is_up)
             {
                 uint32_t stop_time;
-                uint_fast8_t on = power_is_on ? night_power_is_on : power_is_on;
 
                 short_isr = 1;
                 temperature_index = temp_read_temp_index ();
                 short_isr = 0;
 
                 monitor_show_temperature (temperature_index);
-                dsp_temperature (on, temperature_index);
-
+#if WCLOCK24H == 1                                                          // yet only available on WC24H
+                dsp_temperature (power_is_on ? night_power_is_on : power_is_on, temperature_index);
+#endif
                 stop_time = uptime + 5;
 
                 while (uptime < stop_time)

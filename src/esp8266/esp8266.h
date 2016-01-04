@@ -27,18 +27,20 @@
 #define ESP8266_OK              1
 #define ESP8266_SEND_OK         2
 #define ESP8266_ERROR           3
-#define ESP8266_ACCESS_POINT    4
-#define ESP8266_LINKED          5
-#define ESP8266_UNLINK          6
-#define ESP8266_CONNECT         7               // firmware AT version:0.21.version:0.9.5:: 1,CONNECT instead of LINK
-#define ESP8266_CLOSED          8               // firmware AT version:0.21.version:0.9.5:: 1,CLOSED instead of UNLINK
-#define ESP8266_BUSY            9
-#define ESP8266_ALREADY_CONNECT 10
-#define ESP8266_LINK_TYPE_ERROR 11
-#define ESP8266_READY           12
-#define ESP8266_NO_CHANGE       13
-#define ESP8266_IPD             14
-#define ESP8266_ANSWER          15
+#define ESP8266_WIFI_CONNECTED  4
+#define ESP8266_WIFI_GOT_IP     5
+#define ESP8266_ACCESS_POINT    6
+#define ESP8266_LINKED          7
+#define ESP8266_UNLINK          8
+#define ESP8266_CONNECT         9               // firmware AT version:0.21.version:0.9.5:: 1,CONNECT instead of LINK
+#define ESP8266_CLOSED          10               // firmware AT version:0.21.version:0.9.5:: 1,CLOSED instead of UNLINK
+#define ESP8266_BUSY            11
+#define ESP8266_ALREADY_CONNECT 12
+#define ESP8266_LINK_TYPE_ERROR 13
+#define ESP8266_READY           14
+#define ESP8266_NO_CHANGE       15
+#define ESP8266_IPD             16
+#define ESP8266_ANSWER          17
 #define ESP8266_UNSPECIFIED   0xFF
 
 typedef struct
@@ -58,9 +60,9 @@ extern uint_fast8_t             esp8266_is_up;
 extern uint_fast8_t             esp8266_is_online;
 extern volatile uint_fast8_t    esp8266_ten_ms_tick;
 
-extern uint_fast8_t             esp8266_get_answer (char *, uint_fast8_t, uint_fast8_t, uint_fast8_t, uint_fast16_t);
+extern uint_fast8_t             esp8266_get_answer (char *, uint_fast8_t, uint_fast16_t);
 extern uint_fast8_t             esp8266_send_cmd (char *);
-extern uint_fast8_t             esp8266_reset (void);
+extern void                     esp8266_reset (void);
 extern void                     esp8266_powerdown (void);
 extern void                     esp8266_powerup (void);
 extern uint_fast8_t             esp8266_connect_to_access_point (char *, char *);

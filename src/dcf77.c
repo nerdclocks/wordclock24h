@@ -32,9 +32,9 @@
 #elif defined (STM32F103)
 
 #  define DCF77_PERIPH_CLOCK_CMD  RCC_APB2PeriphClockCmd
-#  define DCF77_PERIPH            RCC_APB2Periph_GPIOA
-#  define DCF77_PORT              GPIOA
-#  define DCF77_PIN               GPIO_Pin_4
+#  define DCF77_PERIPH            RCC_APB2Periph_GPIOB
+#  define DCF77_PORT              GPIOB
+#  define DCF77_PIN               GPIO_Pin_13
 
 #else
 #  error STM32 unknown

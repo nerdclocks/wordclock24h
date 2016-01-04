@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * wclock24h-config.h - configuration constants of wclock24h project
+ * esp8266-config.h - configuration of ESP8266 routines
  *
- * Copyright (c) 2014-2016 Frank Meyer - frank(at)fli4l.de
+ * Copyright (c) 2015-2016 Frank Meyer - frank(at)fli4l.de
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,9 +9,9 @@
  * (at your option) any later version.
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-#ifndef WCLOCK24H_CONFIG_H
-#define WCLOCK24H_CONFIG_H
+#ifndef ESP8266_CONFIG_H
+#define ESP8266_CONFIG_H
 
-// not used yet, see project settings for WCLOCK24H=1 (WCLOCK24H) or WCLOCK24H=0 (WCLOCK12H)
+#define ESP8266_DEBUG       1                                   // 0: DEBUG off, 1: DEBUG on
 
-#endif
+#endif // ESP8266_CONFIG_H

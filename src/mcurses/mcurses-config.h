@@ -14,7 +14,7 @@
 #  define MCURSES_UART_NUMBER       2                   // UART number on STM32Fxx (1-6 for UART, 0 for USB), ignored on other µCs
 #  define MCURSES_BAUD              115200              // UART baudrate
 #elif defined (STM32F103)                               // STM32F103C8T6 Mini Development Board: we use USART2
-#  define MCURSES_UART_NUMBER       2                   // UART number on STM32Fxx (1-6 for UART, 0 for USB), ignored on other µCs
+#  define MCURSES_UART_NUMBER       1                   // UART number on STM32Fxx (1-6 for UART, 0 for USB), ignored on other µCs
 #  define MCURSES_BAUD              115200              // UART baudrate
 #else
 #  errror unknown STM32
