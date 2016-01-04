@@ -29,7 +29,7 @@
 #include "uart.h"
 
 #define NTP_PACKET_SIZE     48
-#define LISTEN_PORT         2525
+#define LISTEN_PORT         2424
 
 #define TIMEOUT_MSEC(x)     (x/10)
 #define TIMEOUT
@@ -236,12 +236,12 @@ esp8266_get_answer (char * answer, uint_fast8_t max_len, uint_fast16_t timeout_t
                     return ESP8266_IPD;
                 }
             }
-            else if (l == 9 && ! strncmp ((char *) answer, "+IPD,1,4:", 9))
+            else if (l == 9 && ! strncmp ((char *) answer, "+IPD,2,4:", 9))
             {
                 in_data = 4;
                 data_buf_len = 0;
             }
-            else if (l == 10 && ! strncmp ((char *) answer, "+IPD,1,48:", 10))
+            else if (l == 10 && ! strncmp ((char *) answer, "+IPD,2,48:", 10))
             {
                 in_data = 48;
                 data_buf_len = 0;
@@ -460,7 +460,7 @@ esp8266_send_data (unsigned char * data, uint_fast8_t len)
     uint_fast8_t    ch = '\0';
     uint_fast8_t    rtc = 1;
 
-    sprintf (buf, "AT+CIPSEND=1,%d", len);
+    sprintf (buf, "AT+CIPSEND=2,%d", len);
 
     if (esp8266_send_cmd (buf))
     {
@@ -608,7 +608,7 @@ esp8266_close_server_connection (void)
 static uint_fast8_t
 esp8266_server (uint_fast16_t port)
 {
-    static char     cmd[32];
+    static char     cmd[64];
     uint_fast8_t    rtc = 0;
 
     sprintf (cmd, "AT+CIPSERVER=1,%d", port);
@@ -618,7 +618,13 @@ esp8266_server (uint_fast16_t port)
         if (esp8266_send_cmd(cmd) &&
             esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
         {
-            rtc = 1;
+            sprintf (cmd, "AT+CIPSTART=0,\"UDP\",\"0\",0,%d,2", port);
+
+            if (esp8266_send_cmd(cmd) &&
+                esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
+            {
+                rtc = 1;
+            }
         }
     }
     return rtc;
@@ -851,6 +857,8 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
 
     if (esp8266_uart_poll (&ch))
     {
+        log_hex (ch);
+
         if (indata_channel == 0xff)
         {
             if (bufpos < ESP8266_MAX_BUF_LEN - 1)
@@ -863,10 +871,17 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
 
                         if (!strncmp ((char *) buf, "+IPD,", 5))
                         {
+                            log_puts (buf);
+                            log_puts ("\r\n");
+
                             uint_fast8_t channel = buf[5] - '0';
 
                             if (buf[6] == ',' && channel < ESP8266_MAX_CHANNELS)
                             {
+                                if (channel == 1)                   // Firmware 001xxxxx
+                                {
+                                    channel = 0;
+                                }
                                 indata_channel = channel;
                                 indata_idx = 0;
                                 indata_len = atoi ((char *) buf + 7);
@@ -1013,7 +1028,7 @@ esp8266_get_time (char * timeserver, time_t * curtime_p)
 
     if (esp8266_set_mux_on_off (1))
     {
-        strcpy (buf, "AT+CIPSTART=1,\"TCP\",\"");
+        strcpy (buf, "AT+CIPSTART=2,\"TCP\",\"");
         strcat (buf, timeserver);
         strcat (buf, "\",37");
 
@@ -1071,7 +1086,7 @@ esp8266_get_ntp_time (char * timeserver, time_t * curtime_p)
         ntp_buf[14] = 49;
         ntp_buf[15] = 52;
 
-        strcpy (buf, "AT+CIPSTART=1,\"UDP\",\"");
+        strcpy (buf, "AT+CIPSTART=2,\"UDP\",\"");
         strcat (buf, timeserver);
         strcat (buf, "\",123,8123,0");
 
@@ -1098,7 +1113,7 @@ esp8266_get_ntp_time (char * timeserver, time_t * curtime_p)
                     }
                 } while (esp8266_rtc != ESP8266_TIMEOUT);
 
-                if (esp8266_send_cmd("AT+CIPCLOSE=1"))
+                if (esp8266_send_cmd("AT+CIPCLOSE=2"))
                 {
                     do
                     {
