@@ -124,7 +124,7 @@
 
 static volatile uint32_t            ws2812_dma_status;                                          // DMA status
 static WS2812_RGB                   rgb_buf[WS2812_MAX_LEDS];                                   // RGB values
-static uint16_t                     timer_buf[WS2812_TIMER_BUF_LEN(WS2812_MAX_LEDS)];           // DMA buffer
+static uint8_t                      timer_buf[WS2812_TIMER_BUF_LEN(WS2812_MAX_LEDS)];           // 8bit DMA buffer
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
  * INTERN: initialize DMA
@@ -142,7 +142,7 @@ ws2812_dma_init (uint16_t n_leds)
     dma.DMA_Mode                = DMA_Mode_Normal;
     dma.DMA_PeripheralBaseAddr  = (uint32_t) &WS2812_TIM_CCR_REG1;
     dma.DMA_PeripheralDataSize  = DMA_PeripheralDataSize_HalfWord;          // 16bit
-    dma.DMA_MemoryDataSize      = DMA_MemoryDataSize_HalfWord;
+    dma.DMA_MemoryDataSize      = DMA_MemoryDataSize_Byte;                  //  8bit, not DMA_MemoryDataSize_HalfWord
     dma.DMA_BufferSize          = WS2812_TIMER_BUF_LEN(n_leds);
     dma.DMA_PeripheralInc       = DMA_PeripheralInc_Disable;
     dma.DMA_MemoryInc           = DMA_MemoryInc_Enable;

@@ -871,7 +871,7 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
 
                         if (!strncmp ((char *) buf, "+IPD,", 5))
                         {
-                            log_puts (buf);
+                            log_puts ((char *) buf);
                             log_puts ("\r\n");
 
                             uint_fast8_t channel = buf[5] - '0';
