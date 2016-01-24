@@ -3,7 +3,7 @@
  *
  * DO NOT INCLUDE THIS FILE, WILL BE INCLUDED BY IRMP.H!
  *
- * Copyright (c) 2009-2015 Frank Meyer - frank(at)fli4l.de
+ * Copyright (c) 2009-2016 Frank Meyer - frank(at)fli4l.de
  * Extensions for PIC 12F1820 W.Strobl 2014-07-20
  *
  * $Id: irmpconfig.h,v 1.123 2015/01/19 10:54:37 fm Exp $
@@ -129,9 +129,9 @@
 #elif defined (STM32F401RE) || defined (STM32F411RE)                    // STM32F401/STM32F411 Nucleo Board: we use C10
 #  define IRMP_PORT_LETTER                      C
 #  define IRMP_BIT_NUMBER                       10
-#elif defined (STM32F103)
+#elif defined (STM32F103)                                               // STM32F103 Mini Development Board: we use B3
 #  define IRMP_PORT_LETTER                      B
-#  define IRMP_BIT_NUMBER                       12
+#  define IRMP_BIT_NUMBER                       3
 #else
 #  error unknown STM32
 #endif

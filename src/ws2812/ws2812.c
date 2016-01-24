@@ -1,7 +1,7 @@
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
  * ws2812.c - WS2812 driver
  *
- * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
+ * Copyright (c) 2014-2016 Frank Meyer - frank(at)fli4l.de
  *
  * Timings:
  *          WS2812          WS2812B         Tolerance       Common symmetric(!) values
@@ -10,7 +10,7 @@
  *   T0L    800 ns          850 ns          +/- 150 ns      800 ns
  *   T1L    600 ns          450 ns          +/- 150 ns      470 ns
  *
- * WS23812 format : (8G 8R 8B)
+ * WS2812 format : (8G 8R 8B)
  *   24bit per LED  (24 * 1.25 = 30us per LED)
  *    8bit per color (MSB first)
  *
@@ -26,7 +26,7 @@
 #include "ws2812.h"
 #include "ws2812-config.h"
 
-#include "delay.h"
+#if DSP_USE_WS2812 == 1
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * timer calculation:
@@ -64,7 +64,7 @@
 #define  WS2812_PAUSE_LEN            (2 * WS2812_BIT_PER_LED)   // pause, should be longer than 50us (2 * 24 * 1.25us = 60us)
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
- * Timer for data: TIM3
+ * Timer for data: TIM3 for STM32F4xx, TIM1 for STM32F10X
  *-----------------------------------------------------------------------------------------------------------------------------------------------
  */
 #if defined (STM32F4XX)
@@ -124,7 +124,11 @@
 
 static volatile uint32_t            ws2812_dma_status;                                          // DMA status
 static WS2812_RGB                   rgb_buf[WS2812_MAX_LEDS];                                   // RGB values
-static uint8_t                      timer_buf[WS2812_TIMER_BUF_LEN(WS2812_MAX_LEDS)];           // 8bit DMA buffer
+#if defined (STM32F4XX)                                                                         // STM32F4xx
+static uint16_t                     timer_buf[WS2812_TIMER_BUF_LEN(WS2812_MAX_LEDS)];           // 16bit DMA buffer, must be aligned to 16 bit
+#else                                                                                           // STM32F10x
+static uint8_t                      timer_buf[WS2812_TIMER_BUF_LEN(WS2812_MAX_LEDS)];           // 8bit DMA buffer saves RAM
+#endif
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
  * INTERN: initialize DMA
@@ -141,8 +145,13 @@ ws2812_dma_init (uint16_t n_leds)
 
     dma.DMA_Mode                = DMA_Mode_Normal;
     dma.DMA_PeripheralBaseAddr  = (uint32_t) &WS2812_TIM_CCR_REG1;
+#if defined(STM32F4XX)                                                      // STM32F4xx
     dma.DMA_PeripheralDataSize  = DMA_PeripheralDataSize_HalfWord;          // 16bit
-    dma.DMA_MemoryDataSize      = DMA_MemoryDataSize_Byte;                  //  8bit, not DMA_MemoryDataSize_HalfWord
+    dma.DMA_MemoryDataSize      = DMA_MemoryDataSize_HalfWord;              // 16bit
+#else                                                                       // STM32F10x
+    dma.DMA_PeripheralDataSize  = DMA_PeripheralDataSize_HalfWord;          // 16bit
+    dma.DMA_MemoryDataSize      = DMA_MemoryDataSize_Byte;                  // 8bit, saves RAM
+#endif
     dma.DMA_BufferSize          = WS2812_TIMER_BUF_LEN(n_leds);
     dma.DMA_PeripheralInc       = DMA_PeripheralInc_Disable;
     dma.DMA_MemoryInc           = DMA_MemoryInc_Enable;
@@ -178,12 +187,11 @@ ws2812_dma_start (uint16_t n_leds)
 {
     ws2812_dma_status = 1;                                                          // set status to "busy"
 
-    ws2812_dma_init (n_leds);
-    // fm: other method instead of ws2812_dma_init():
-    // DMA_SetCurrDataCounter(DMA1_Channel1, WS2812_TIMER_BUF_LEN(n_leds));         // set new buffer size
-
+    TIM_Cmd (WS2812_TIM, DISABLE);                                                  // disable timer
+    DMA_Cmd (WS2812_DMA_STREAM, DISABLE);                                           // disable DMA
+    DMA_SetCurrDataCounter(WS2812_DMA_STREAM, WS2812_TIMER_BUF_LEN(n_leds));        // set new buffer size
     DMA_ITConfig(WS2812_DMA_STREAM, DMA_IT_TC, ENABLE);                             // enable transfer complete interrupt
-    DMA_Cmd(WS2812_DMA_STREAM, ENABLE);                                             // DMA enable
+    DMA_Cmd (WS2812_DMA_STREAM, ENABLE);                                            // enable DMA
     TIM_Cmd(WS2812_TIM, ENABLE);                                                    // Timer enable
 }
 
@@ -263,8 +271,6 @@ WS2812_DMA_CHANNEL_ISR (void)
     {
         DMA_ClearITPendingBit (WS2812_DMA_CHANNEL_IRQ_FLAG);
 #endif
-        TIM_Cmd (WS2812_TIM, DISABLE);                                              // disable timer
-        DMA_Cmd (WS2812_DMA_STREAM, DISABLE);                                       // disable DMA
         ws2812_dma_status = 0;                                                      // set status to ready
     }
 }
@@ -408,3 +414,5 @@ ws2812_init (void)
     ws2812_dma_init (WS2812_MAX_LEDS);
     ws2812_clear_all (WS2812_MAX_LEDS);
 }
+
+#endif // DSP_USE_WS2812

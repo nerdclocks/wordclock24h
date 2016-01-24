@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * irmp.c - infrared multi-protocol decoder, supports several remote control protocols
  *
- * Copyright (c) 2009-2015 Frank Meyer - frank(at)fli4l.de
+ * Copyright (c) 2009-2016Frank Meyer - frank(at)fli4l.de
  *
  * $Id: irmp.c,v 1.169 2015/01/26 12:49:52 fm Exp $
  *
@@ -21,6 +21,8 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
+
+#ifndef DEBUG
 
 #include "irmp.h"
 #include "mcurses.h"
@@ -5111,3 +5113,5 @@ main (int argc, char ** argv)
 }
 
 #endif // ANALYZE
+
+#endif // DEBUG

@@ -682,33 +682,50 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\adc\adc.h" />
-		<Unit filename="src\button.c">
+		<Unit filename="src\apa102\apa102-config.h" />
+		<Unit filename="src\apa102\apa102.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\button.h" />
-		<Unit filename="src\cmd.h" />
-		<Unit filename="src\dcf77.c">
+		<Unit filename="src\apa102\apa102.h" />
+		<Unit filename="src\board-led\board-led.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\dcf77.h" />
+		<Unit filename="src\board-led\board-led.h" />
+		<Unit filename="src\button\button.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\button\button.h" />
+		<Unit filename="src\dcf77\dcf77.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\dcf77\dcf77.h" />
 		<Unit filename="src\delay\delay.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\delay\delay.h" />
+		<Unit filename="src\display\display-config.h" />
+		<Unit filename="src\display\display.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\display\display.h" />
+		<Unit filename="src\display\tables.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\display\tables.h" />
+		<Unit filename="src\display\tables12h.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src\display\tables12h.h" />
 		<Unit filename="src\ds18xx\ds18xx-config.h" />
 		<Unit filename="src\ds18xx\ds18xx.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\ds18xx\ds18xx.h" />
-		<Unit filename="src\dsp.c">
+		<Unit filename="src\eeprom\eeprom-data.h" />
+		<Unit filename="src\eeprom\eeprom.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\dsp.h" />
-		<Unit filename="src\eeprom-data.h" />
-		<Unit filename="src\eeprom.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src\eeprom.h" />
+		<Unit filename="src\eeprom\eeprom.h" />
 		<Unit filename="src\esp8266\esp8266-config.h" />
 		<Unit filename="src\esp8266\esp8266-log.c">
 			<Option compilerVar="CC" />
@@ -731,18 +748,14 @@
 		<Unit filename="src\irmp\irmpconfig.h" />
 		<Unit filename="src\irmp\irmpprotocols.h" />
 		<Unit filename="src\irmp\irmpsystem.h" />
-		<Unit filename="src\ldr.c">
+		<Unit filename="src\ldr\ldr.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\ldr.h" />
-		<Unit filename="src\led-green.c">
+		<Unit filename="src\ldr\ldr.h" />
+		<Unit filename="src\listener\listener.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\led-green.h" />
-		<Unit filename="src\listener.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src\listener.h" />
+		<Unit filename="src\listener\listener.h" />
 		<Unit filename="src\main.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -751,45 +764,38 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\mcurses\mcurses.h" />
-		<Unit filename="src\monitor.c">
+		<Unit filename="src\monitor\monitor.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\monitor.h" />
+		<Unit filename="src\monitor\monitor.h" />
 		<Unit filename="src\onewire\onewire-config.h" />
 		<Unit filename="src\onewire\onewire.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\onewire\onewire.h" />
-		<Unit filename="src\remote-ir.c">
+		<Unit filename="src\remote-ir\remote-ir-cmd.h" />
+		<Unit filename="src\remote-ir\remote-ir.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\remote-ir.h" />
-		<Unit filename="src\rtc.c">
+		<Unit filename="src\remote-ir\remote-ir.h" />
+		<Unit filename="src\rtc\rtc.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\rtc.h" />
+		<Unit filename="src\rtc\rtc.h" />
 		<Unit filename="src\startup_stm32f4xx.S">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\system_stm32f4xx.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\tables.c">
+		<Unit filename="src\tempsensor\tempsensor.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\tables.h" />
-		<Unit filename="src\tables12h.c">
+		<Unit filename="src\tempsensor\tempsensor.h" />
+		<Unit filename="src\timeserver\timeserver.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src\tables12h.h" />
-		<Unit filename="src\tempsensor.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src\tempsensor.h" />
-		<Unit filename="src\timeserver.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src\timeserver.h" />
+		<Unit filename="src\timeserver\timeserver.h" />
 		<Unit filename="src\uart\uart-config.h" />
 		<Unit filename="src\uart\uart.h" />
 		<Unit filename="src\wclock24h-config.h" />
@@ -803,24 +809,7 @@
 		<Extensions>
 			<code_completion />
 			<debugger>
-				<target_debugging_settings target="WC24h-Nucleo401-Debug" active_interface="ST-link">
-					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
-						<family_options family_id="STMicroelectronics">
-							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
-							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
-							<option opt_id="ID_RESET_TYPE" opt_value="System" />
-							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
-							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
-							<option opt_id="ID_RAM_EXEC" opt_value="0" />
-							<option opt_id="ID_VEC_TABLE" opt_value="1" />
-							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
-							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
-							<option opt_id="ID_DEV_ADDR" opt_value="" />
-							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
-						</family_options>
-					</debug_interface>
-				</target_debugging_settings>
-				<target_debugging_settings target="WC24h-Nucleo411-Release" active_interface="ST-link">
+				<target_debugging_settings target="WC12h-Nucleo401-Debug" active_interface="ST-link">
 					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
 						<family_options family_id="STMicroelectronics">
 							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
@@ -854,24 +843,7 @@
 						</family_options>
 					</debug_interface>
 				</target_debugging_settings>
-				<target_debugging_settings target="WC24h-Nucleo401-Release" active_interface="ST-link">
-					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
-						<family_options family_id="STMicroelectronics">
-							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
-							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
-							<option opt_id="ID_RESET_TYPE" opt_value="System" />
-							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
-							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
-							<option opt_id="ID_RAM_EXEC" opt_value="0" />
-							<option opt_id="ID_VEC_TABLE" opt_value="1" />
-							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
-							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
-							<option opt_id="ID_DEV_ADDR" opt_value="" />
-							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
-						</family_options>
-					</debug_interface>
-				</target_debugging_settings>
-				<target_debugging_settings target="WC12h-Nucleo401-Debug" active_interface="ST-link">
+				<target_debugging_settings target="WC24h-Nucleo411-Release" active_interface="ST-link">
 					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
 						<family_options family_id="STMicroelectronics">
 							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
@@ -889,6 +861,40 @@
 					</debug_interface>
 				</target_debugging_settings>
 				<target_debugging_settings target="WC12h-Nucleo401-Release" active_interface="ST-link">
+					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
+						<family_options family_id="STMicroelectronics">
+							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
+							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
+							<option opt_id="ID_RESET_TYPE" opt_value="System" />
+							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
+							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
+							<option opt_id="ID_RAM_EXEC" opt_value="0" />
+							<option opt_id="ID_VEC_TABLE" opt_value="1" />
+							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
+							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
+							<option opt_id="ID_DEV_ADDR" opt_value="" />
+							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
+						</family_options>
+					</debug_interface>
+				</target_debugging_settings>
+				<target_debugging_settings target="WC24h-Nucleo401-Debug" active_interface="ST-link">
+					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
+						<family_options family_id="STMicroelectronics">
+							<option opt_id="ID_JTAG_SWD" opt_value="swd" />
+							<option opt_id="ID_VECTOR_START" opt_value="0x08000000" />
+							<option opt_id="ID_RESET_TYPE" opt_value="System" />
+							<option opt_id="ID_LOAD_PROGRAM" opt_value="1" />
+							<option opt_id="ID_SEMIHOST_CHECK" opt_value="0" />
+							<option opt_id="ID_RAM_EXEC" opt_value="0" />
+							<option opt_id="ID_VEC_TABLE" opt_value="1" />
+							<option opt_id="ID_DONT_CONN_RESET" opt_value="0" />
+							<option opt_id="ID_ALL_MODE_DEBUG" opt_value="0" />
+							<option opt_id="ID_DEV_ADDR" opt_value="" />
+							<option opt_id="ID_VERBOSE_LEVEL" opt_value="3" />
+						</family_options>
+					</debug_interface>
+				</target_debugging_settings>
+				<target_debugging_settings target="WC24h-Nucleo401-Release" active_interface="ST-link">
 					<debug_interface interface_id="ST-link" ip_address="localhost" ip_port="4242" path="${EMBLOCKS}\share\contrib" executable="STLinkGDB.exe" description="" dont_start_server="false" backoff_time="1000" options="0" reg_filter="0" active_family="STMicroelectronics">
 						<family_options family_id="STMicroelectronics">
 							<option opt_id="ID_JTAG_SWD" opt_value="swd" />

@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * ws2812.h - interface declarations of WS2812 driver
  *
- * Copyright (c) 2014-2015 Frank Meyer - frank(at)fli4l.de
+ * Copyright (c) 2014-2016 Frank Meyer - frank(at)fli4l.de
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,8 +27,6 @@
 #endif
 
 #include "misc.h"
-
-#include "ws2812-config.h"
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * RGB LED color definition
