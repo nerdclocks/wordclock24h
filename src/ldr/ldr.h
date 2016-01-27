@@ -28,7 +28,8 @@ extern uint_fast8_t     ldr_is_up;
 
 extern void             ldr_start_conversion (void);
 extern uint_fast8_t     ldr_poll_brightness (uint_fast8_t *);
-void                    ldr_configure (uint_fast8_t);
+extern uint_fast8_t     ldr_get_ldr_status (void);
+extern void             ldr_set_ldr_status (uint_fast8_t);
 extern void             ldr_init (void);
 
 #endif // LDR_H

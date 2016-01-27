@@ -10,7 +10,6 @@
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 
-#include "mcurses.h"
 #include "adc.h"
 #include "ldr.h"
 #include "eeprom.h"
@@ -94,40 +93,23 @@ ldr_write_data_to_eeprom (void)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
- * ask user for SSID and key of access point, then configure ESP8266
+ * get LDR status
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+ldr_get_ldr_status (void)
+{
+    return use_ldr;
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------------------
+ * set LDR status
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 void
-ldr_configure (uint_fast8_t next_line)
+ldr_set_ldr_status (uint_fast8_t connected)
 {
-    uint8_t         ch;
-
-    mvaddstr (next_line, 10, "Current configuration: ");
-
-    if (use_ldr)
-    {
-        addstr ("LDR connected");
-    }
-    else
-    {
-        addstr ("LDR not connected");
-    }
-
-    next_line += 2;
-
-    mvaddstr (next_line, 10, "1. LDR connected");       next_line++;
-    mvaddstr (next_line, 10, "2. LDR not connected");   next_line++;
-    mvaddstr (next_line, 10, "0. Exit");                next_line += 2;
-
-    move (next_line, 10);
-    refresh ();
-
-    while ((ch = getch()) < '0' || ch > '2')
-    {
-        ;
-    }
-
-    if (ch == '1')
+    if (connected)
     {
         if (! use_ldr)
         {
@@ -136,7 +118,7 @@ ldr_configure (uint_fast8_t next_line)
             ldr_init ();
         }
     }
-    else if (ch == '2')
+    else
     {
         if (use_ldr)
         {

@@ -12,13 +12,12 @@
 #include "wclock24h-config.h"
 #include "irmp.h"
 #include "remote-ir.h"
-#include "mcurses.h"
-#include "monitor.h"
 #include "display.h"
 #include "eeprom.h"
 #include "eeprom-data.h"
+#include "log.h"
 
-#ifndef DEBUG
+#if SAVE_RAM == 0
 
 static  IRMP_DATA   irmp_data_array[N_REMOTE_IR_CMDS];
 
@@ -61,11 +60,6 @@ remote_ir_get_cmd (void)
     {
         frame++;
 
-        if (mcurses_is_up)
-        {
-            mvprintw (IRMP_FRAME_LINE, IRMP_FRAME_COL, "%3d", frame);
-        }
-
         if (last_repetition_flag == 0 && (irmp_data.flags & IRMP_FLAG_REPETITION))  // ignore first repetition frame
         {
             last_repetition_flag = 1;
@@ -86,60 +80,44 @@ remote_ir_get_cmd (void)
 uint_fast8_t
 remote_ir_learn (void)
 {
-    char *          s;
-    char *          dec;
-    char *          inc;
     uint_fast8_t    rtc = 1;
     uint_fast8_t    i;
-
-    s = "IRMP: press key for ";
-    dec = "decrement ";
-    inc = "increment ";
+    IRMP_DATA       dummy;
+    char *          t;
 
     for (i = 0; i < N_REMOTE_IR_CMDS; i++)
     {
-        display_reset_led_states ();                            // switch LEDs off
-        display_led_on (0, i);                                  // switch one LED on
-
-        if (mcurses_is_up)
+        switch (i)
         {
-            monitor_show_all_letters_off ();                    // show table off
-            monitor_show_letter (0, i, 1);                      // switch on letter on
-            attrset (A_NORMAL);
-            move (LOG_LINE, LOG_COL);
-
-            switch (i)
-            {
-                case REMOTE_IR_CMD_POWER:                         addstr (s);                 addstr ("power off/on");            break;
-                case REMOTE_IR_CMD_OK:                            addstr (s);                 addstr ("OK");                      break;
-                case REMOTE_IR_CMD_DECREMENT_DISPLAY_MODE:        addstr (s); addstr (dec);   addstr ("display mode");            break;
-                case REMOTE_IR_CMD_INCREMENT_DISPLAY_MODE:        addstr (s); addstr (inc);   addstr ("display mode");            break;
-                case REMOTE_IR_CMD_DECREMENT_ANIMATION_MODE:      addstr (s); addstr (dec);   addstr ("animation mode");          break;
-                case REMOTE_IR_CMD_INCREMENT_ANIMATION_MODE:      addstr (s); addstr (inc);   addstr ("animation mode");          break;
-                case REMOTE_IR_CMD_DECREMENT_HOUR:                addstr (s); addstr (dec);   addstr ("hour");                    break;
-                case REMOTE_IR_CMD_INCREMENT_HOUR:                addstr (s); addstr (inc);   addstr ("hour");                    break;
-                case REMOTE_IR_CMD_DECREMENT_MINUTE:              addstr (s); addstr (dec);   addstr ("minute");                  break;
-                case REMOTE_IR_CMD_INCREMENT_MINUTE:              addstr (s); addstr (inc);   addstr ("minute");                  break;
-                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_RED:      addstr (s); addstr (dec);   addstr ("red brightness");          break;
-                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_RED:      addstr (s); addstr (inc);   addstr ("red brightness");          break;
-                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_GREEN:    addstr (s); addstr (dec);   addstr ("green brightness");        break;
-                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_GREEN:    addstr (s); addstr (inc);   addstr ("green brightness");        break;
-                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_BLUE:     addstr (s); addstr (dec);   addstr ("blue brightness");         break;
-                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_BLUE:     addstr (s); addstr (inc);   addstr ("blue brightness");         break;
-                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS:          addstr (s); addstr (dec);   addstr ("global brightness");       break;
-                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS:          addstr (s); addstr (inc);   addstr ("global brightness");       break;
-                case REMOTE_IR_CMD_AUTO_BRIGHTNESS_CONTROL:       addstr (s);                 addstr ("toggle auto brightness");  break;
-                case REMOTE_IR_CMD_GET_TEMPERATURE:               addstr (s);                 addstr ("get temperature");         break;
-            }
-
-            clrtoeol ();
-            refresh ();
+            case REMOTE_IR_CMD_POWER:                         t = "  power off/on";                     break;
+            case REMOTE_IR_CMD_OK:                            t = "  ok";                               break;
+            case REMOTE_IR_CMD_DECREMENT_DISPLAY_MODE:        t = "  decrement display mode";           break;
+            case REMOTE_IR_CMD_INCREMENT_DISPLAY_MODE:        t = "  increment display mode";           break;
+            case REMOTE_IR_CMD_DECREMENT_ANIMATION_MODE:      t = "  decrement animation mode";         break;
+            case REMOTE_IR_CMD_INCREMENT_ANIMATION_MODE:      t = "  increment animation mode";         break;
+            case REMOTE_IR_CMD_DECREMENT_HOUR:                t = "  decrement hour";                   break;
+            case REMOTE_IR_CMD_INCREMENT_HOUR:                t = "  increment hour";                   break;
+            case REMOTE_IR_CMD_DECREMENT_MINUTE:              t = "  decrement minute";                 break;
+            case REMOTE_IR_CMD_INCREMENT_MINUTE:              t = "  increment minute";                 break;
+            case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_RED:      t = "  decrement red brightness";         break;
+            case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_RED:      t = "  increment red brightness";         break;
+            case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_GREEN:    t = "  decrement green brightness";       break;
+            case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_GREEN:    t = "  increment green brightness";       break;
+            case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_BLUE:     t = "  decrement blue brightness";        break;
+            case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_BLUE:     t = "  increment blue brightness";        break;
+            case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS:          t = "  decrement global brightness";      break;
+            case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS:          t = "  increment global brightness";      break;
+            case REMOTE_IR_CMD_AUTO_BRIGHTNESS_CONTROL:       t = "  toggle auto brightness";           break;
+            case REMOTE_IR_CMD_GET_TEMPERATURE:               t = "  get temperature";                  break;
         }
+
+        display_banner (t);
+        log_msg (t);
+
+        irmp_get_data (&dummy);
 
         while (1)
         {
-            display_animation ();
-
             if (irmp_get_data (&irmp_data_array[i]))                                            // read ir data
             {
                 if ((irmp_data_array[i].flags & IRMP_FLAG_REPETITION) == 0)                     // no repetition
@@ -153,16 +131,8 @@ remote_ir_learn (void)
         }
     }
 
-    display_reset_led_states ();                                                                // switch LEDs off
-    display_animation ();
+    display_banner ("  Thank you!");
 
-    if (mcurses_is_up)
-    {
-        monitor_show_all_letters_off ();
-        move (LOG_LINE, LOG_COL);
-        clrtoeol ();
-        refresh ();
-    }
     return rtc;
 }
 

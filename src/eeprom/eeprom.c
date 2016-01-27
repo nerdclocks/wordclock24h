@@ -10,7 +10,6 @@
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 #include "eeprom.h"
-#include "mcurses.h"
 #include "i2c.h"
 
 #define EEPROM_FIRST_ADDR       0xA0
@@ -153,6 +152,7 @@ eeprom_write (uint_fast16_t start_addr, uint8_t * buffer, uint_fast16_t cnt)
 void
 eeprom_dump (void)
 {
+#if 0 // TODO
     uint8_t         buffer[16];
     uint_fast16_t   start_addr = 0;
     uint_fast8_t    l;
@@ -198,4 +198,5 @@ eeprom_dump (void)
     {
         ;
     }
+#endif
 }

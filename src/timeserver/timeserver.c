@@ -13,10 +13,9 @@
 #include <stdlib.h>
 #include "timeserver.h"
 #include "esp8266.h"
-#include "mcurses.h"
-#include "monitor.h"
 #include "eeprom.h"
 #include "eeprom-data.h"
+#include "log.h"
 
 #define MAX_SSID_LEN            32
 #define MAX_KEY_LEN             32
@@ -121,6 +120,7 @@ timeserver_write_data_to_eeprom (void)
 void
 timeserver_cmd (void)
 {
+#if 0 // TODO
     static char     cmd[ESP8266_MAX_CMD_LEN];
     uint_fast8_t    line;
 
@@ -197,15 +197,103 @@ timeserver_cmd (void)
             }
         }
     } while (*cmd);
+#endif
 }
 
+uint_fast8_t
+timeserver_set_timezone (int_fast16_t newtimezone)
+{
+    uint_fast8_t rtc = 0;
+
+    if (newtimezone >= -12 && newtimezone >= 12)
+    {
+        if (timezone != newtimezone)
+        {
+            timezone = newtimezone;
+            timeserver_write_data_to_eeprom ();
+        }
+
+        rtc = 1;
+    }
+    return rtc;
+}
+
+int_fast16_t
+timeserver_get_timezone (void)
+{
+    return timezone;
+}
+
+unsigned char *
+timeserver_get_timeserver (void)
+{
+    return timeserver;
+}
 /*--------------------------------------------------------------------------------------------------------------------------------------
- * ask user for SSID and key of access point, then configure ESP8266
+ * Set new timeserver
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
+timeserver_set_timeserver (char * new_timeserver)
+{
+    uint_fast8_t    ntp_success = 0;
+    uint_fast8_t    time_success = 0;
+    uint_fast8_t    new_is_ntp_server = 0;
+    uint_fast8_t    rtc = 0;
+
+    if (*new_timeserver)
+    {
+        time_t          check_time;
+
+        log_msg ("Checking NTP protocol ... ");
+
+        if (esp8266_get_ntp_time (new_timeserver, &check_time))
+        {
+            log_msg ("successful!");
+            ntp_success = 1;
+            new_is_ntp_server = 1;
+        }
+        else
+        {
+            log_msg ("failed!");
+        }
+
+        log_msg ("Checking TIME protocol (RFC 868) ... ");
+
+        if (esp8266_get_time (new_timeserver, &check_time))
+        {
+            log_msg ("successful!");
+            time_success = 1;
+        }
+        else
+        {
+            log_msg ("failed!");
+        }
+
+        if (ntp_success || time_success)
+        {
+            log_msg ("Timeserver successfully changed.");
+
+            if (strcmp ((char *) timeserver, new_timeserver) || is_ntp_server != new_is_ntp_server)
+            {
+                is_ntp_server = new_is_ntp_server;
+                strcpy ((char *) timeserver, new_timeserver);
+                timeserver_write_data_to_eeprom ();
+            }
+            rtc = 1;
+        }
+        else
+        {
+            log_msg ("Timeserver NOT changed.");
+        }
+    }
+    return rtc;
+}
+#if 0 // TODO
+uint_fast8_t
 timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_connection_infop)
 {
+    uint_fast8_t    rtc = 0;
     static char     ssid[MAX_SSID_LEN + 1];
     static char     key[MAX_KEY_LEN + 1];
     static char     new_timeserver[MAX_IPADDR_LEN + 1];
@@ -213,7 +301,6 @@ timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_
     uint8_t         ch;
     uint_fast8_t    i;
 
-    uint_fast8_t    rtc = 0;
 
     mvaddstr (next_line, 10, "1. Configure access to AP");  next_line++;
     mvaddstr (next_line, 10, "2. Configure time server");   next_line++;
@@ -365,6 +452,7 @@ timeserver_configure (uint_fast8_t next_line, ESP8266_CONNECTION_INFO * esp8266_
     }
     return rtc;
 }
+#endif
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * get time from time server via TCP (see RFC 868)

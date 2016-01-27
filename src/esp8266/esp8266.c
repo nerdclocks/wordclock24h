@@ -21,15 +21,17 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include "log.h"
 #include "esp8266.h"
 #include "esp8266-config.h"
-#include "monitor.h"
 
+#undef UART_PREFIX
 #define UART_PREFIX         esp8266
 #include "uart.h"
 
 #define NTP_PACKET_SIZE     48
 #define LISTEN_PORT         2424
+#define HTTP_PORT           80
 
 #define TIMEOUT_MSEC(x)     (x/10)
 #define TIMEOUT
@@ -283,6 +285,11 @@ esp8266_get_answer (char * answer, uint_fast8_t max_len, uint_fast16_t timeout_t
                     log_message ("ESP8266_SEND_OK");
                     return ESP8266_SEND_OK;
                 }
+                else if (! strnicmp (answer, "RECV ", 5))
+                {
+                    log_message ("ESP8266_RECV");
+                    return ESP8266_RECV;
+                }
                 else if (! stricmp (answer, "ERROR"))
                 {
                     log_message ("ESP8266_ERROR");
@@ -395,10 +402,19 @@ esp8266_send_cmd (char * cmd)
 
     esp8266_uart_flush();
 
-    while (esp8266_poll (&ch, 20))                      // eat characters from input
+    log_msg ("begin:");
+    while (esp8266_poll (&ch, 40))                      // eat characters from input
     {
-        ;
+        if (ch >= 32 && ch < 127)
+        {
+            log_char (ch);
+        }
+        else
+        {
+            log_hex (ch);
+        }
     }
+    log_msg (" end");
 
     for (i = 0; i < length + 1 + (esp8266_needs_crlf ? 1 : 0); i++)
     {
@@ -453,18 +469,18 @@ esp8266_send_cmd (char * cmd)
  * send data to ESP8266
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
-static uint_fast8_t
-esp8266_send_data (unsigned char * data, uint_fast8_t len)
+uint_fast8_t
+esp8266_send_data (uint_fast8_t channel, unsigned char * data, uint_fast8_t len)
 {
     char buf[64];
     uint_fast8_t    ch = '\0';
     uint_fast8_t    rtc = 1;
 
-    sprintf (buf, "AT+CIPSEND=2,%d", len);
+    sprintf (buf, "AT+CIPSEND=%d,%d", channel, len);
 
     if (esp8266_send_cmd (buf))
     {
-        while (esp8266_poll (&ch, 20))                                  // wait for prompt "> "
+        while (esp8266_poll (&ch, 5))                                  // wait for prompt "> "
         {
             if (ch == ' ')
             {
@@ -480,7 +496,25 @@ esp8266_send_data (unsigned char * data, uint_fast8_t len)
                 len--;
                 data++;
             }
+
+            log_msg ("sent");
             esp8266_uart_flush ();
+        }
+        else
+        {
+            log_msg ("not sent");
+        }
+        esp8266_uart_flush ();
+
+        if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(200)) == ESP8266_RECV)
+        {
+            log_msg ("got RECV");
+            esp8266_uart_flush ();
+
+            if (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(500)) == ESP8266_SEND_OK)
+            {
+                log_msg ("got SEND_OK");
+            }
         }
     }
 
@@ -602,28 +636,36 @@ esp8266_close_server_connection (void)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
- * INTERN: start server listening on port
+ * INTERN: start server listening on UDP port and TCP port (HTTP)
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 static uint_fast8_t
-esp8266_server (uint_fast16_t port)
+esp8266_server (uint_fast16_t udp_port, uint_fast16_t tcp_port)
 {
     static char     cmd[64];
     uint_fast8_t    rtc = 0;
 
-    sprintf (cmd, "AT+CIPSERVER=1,%d", port);
-
     if (esp8266_set_mux_on_off (1))
     {
+#if 0
+        sprintf (cmd, "AT+CIPSERVER=1,%d", udp_port);
+
         if (esp8266_send_cmd(cmd) &&
             esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
+#endif
         {
-            sprintf (cmd, "AT+CIPSTART=0,\"UDP\",\"0\",0,%d,2", port);
+            sprintf (cmd, "AT+CIPSTART=0,\"UDP\",\"0\",0,%d,2", udp_port);
 
             if (esp8266_send_cmd(cmd) &&
                 esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
             {
-                rtc = 1;
+                sprintf (cmd, "AT+CIPSERVER=1,%d", tcp_port);
+
+                if (esp8266_send_cmd(cmd) &&
+                    esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
+                {
+                    rtc = 1;
+                }
             }
         }
     }
@@ -684,6 +726,16 @@ esp8266_get_ip_address (void)
                 if (! strnicmp (esp_answer, "+CIFSR:STAIP,\"", 14))
                 {
                     strcpy (ip_address, esp_answer + 14);
+                    len = strlen (ip_address);
+
+                    if (len > 0)
+                    {
+                        ip_address[len - 1] = '\0';                    // strip "
+                    }
+                }
+                else if (*ip_address == '\0' && ! strnicmp (esp_answer, "+CIFSR:APIP,\"", 13))
+                {
+                    strcpy (ip_address, esp_answer + 13);
                     len = strlen (ip_address);
 
                     if (len > 0)
@@ -811,6 +863,43 @@ esp8266_connect_to_access_point (char * ssid, char * key)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
+ * start as access point
+ *
+ *   chl = channel number, e.g. 5
+ *   ecn = encryption, e.g. WPA2_PSK
+ *         possible values:
+ *              0 ESP8266_OPEN
+ *              2 ESP8266_WPA_PSK
+ *              3 ESP8266_WPA2_PSK
+ *              4 ESP8266_WPA_WPA2_PSK
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+esp8266_accesspoint (char * ssid, char * pwd, uint_fast8_t chl, uint_fast8_t ecn)
+{
+    static char     cmd[ESP8266_MAX_CMD_LEN];
+    uint_fast8_t    rtc = 0;
+
+    esp8266_disconnect_from_access_point ();
+
+    if (esp8266_send_cmd("AT+CWMODE=2") &&
+             esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(100)) != ESP8266_TIMEOUT)
+    {
+        sprintf (cmd, "AT+CWSAP=\"%s\",\"%s\",%d,%d", ssid, pwd, chl, ecn);
+
+        if (esp8266_send_cmd(cmd))
+        {
+            while (esp8266_get_answer ((char *) NULL, ESP8266_MAX_ANSWER_LEN, TIMEOUT_MSEC(500)) != ESP8266_TIMEOUT)
+            {
+                // wait min. 30 seconds
+            }
+            rtc = 1;
+        }
+    }
+    return rtc;
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------------------
  * disconnect from access point
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -831,8 +920,8 @@ esp8266_disconnect_from_access_point (void)
 }
 
 #define ESP8266_MAX_CHANNELS     5
-#define ESP8266_MAX_BUF_LEN     32
-#define ESP8266_MAX_DATA_LEN    32
+#define ESP8266_MAX_BUF_LEN     256                             // fm TODO
+#define ESP8266_MAX_DATA_LEN    768                            // Google Chrome POST header exceeds 512 Bytes
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * exp8266_listen ()
@@ -857,7 +946,7 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
 
     if (esp8266_uart_poll (&ch))
     {
-        log_hex (ch);
+        // log_hex (ch);
 
         if (indata_channel == 0xff)
         {
@@ -878,10 +967,12 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
 
                             if (buf[6] == ',' && channel < ESP8266_MAX_CHANNELS)
                             {
+#if 0
                                 if (channel == 1)                   // Firmware 001xxxxx
                                 {
                                     channel = 0;
                                 }
+#endif
                                 indata_channel = channel;
                                 indata_idx = 0;
                                 indata_len = atoi ((char *) buf + 7);
@@ -910,6 +1001,10 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
             {
                 data[indata_idx] = ch;
             }
+            else
+            {
+                log_msg ("ESP8266: data buffer full.");
+            }
 
             indata_idx++;
 
@@ -933,9 +1028,11 @@ esp8266_listen (ESP8266_LISTEN_DATA * lp)
  * Following ESP8266 firmware versions have been successfully checked - received by AT+GMR:
  *
  *    00150900
+ *    00170901
  *    0018000902-AI03
  *    0020000903
  *    AT version:0.21.0.0 SDK version:0.9.5
+ *    AT version:0.50.0.0 SDK version:1.4.0
  *    AT version:0.51.0.0 SDK version:1.5.0
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -955,7 +1052,7 @@ esp8266_get_firmware_version (void)
 
     if (esp8266_get_answer (buf, ESP8266_MAX_F_VERSION_LEN, 20) == ESP8266_UNSPECIFIED)
     {
-        if (! strnicmp (buf, "AT version:", 11))                                // AT version:0.21.0.0 SDK version:0.9.5
+        if (! strnicmp (buf, "AT version:", 11))                                // AT version:0.21.0.0 SDK version:0.9.5 and higher
         {
             offset = 11;
         }
@@ -988,23 +1085,31 @@ esp8266_get_firmware_version (void)
     return (char *) NULL;
 }
 
+static ESP8266_CONNECTION_INFO info;
+
+ESP8266_CONNECTION_INFO *
+esp8266_get_connection_info (void)
+{
+    return &info;
+}
+
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * check online status
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-esp8266_check_online_status (ESP8266_CONNECTION_INFO * infop)
+esp8266_check_online_status (uint_fast8_t dont_check_accesspoint)
 {
-    char *      accesspoint;
+    char *      accesspoint = "<none>";
     char *      ipaddress;
 
-    if ((accesspoint = esp8266_get_access_point_connected ()) != (char *) NULL &&
+    if ((dont_check_accesspoint || (accesspoint = esp8266_get_access_point_connected ()) != (char *) NULL) &&
         (ipaddress = esp8266_get_ip_address ()) != (char *) NULL &&
         esp8266_close_server_connection ()  &&
-        esp8266_server (LISTEN_PORT))
+        esp8266_server (LISTEN_PORT, HTTP_PORT))
     {
-        infop->accesspoint  = accesspoint;
-        infop->ipaddress    = ipaddress;
+        info.accesspoint  = accesspoint;
+        info.ipaddress    = ipaddress;
         esp8266_is_online   = 1;
     }
     else
@@ -1101,7 +1206,7 @@ esp8266_get_ntp_time (char * timeserver, time_t * curtime_p)
 
             if (esp8266_rtc == ESP8266_OK)
             {
-                esp8266_send_data (ntp_buf, NTP_PACKET_SIZE);
+                esp8266_send_data (2, ntp_buf, NTP_PACKET_SIZE);
 
                 do
                 {

@@ -43,26 +43,19 @@
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
 
-#include "esp8266-config.h"
+#define UART_PREFIX             log                     // see also esp8266.c
 
-#if ESP8266_DEBUG == 1
-
-#define UART_PREFIX         log                         // see also esp8266.c
-
-#if defined (STM32F401RE) || defined (STM32F411RE)      // STM32F401/STM32F411 Nucleo Board: we use USART1 ALT0: PA9 | PA10
-#  define UART_NUMBER         1                         // UART number on STM32F4xx (1-6 for UART)
-#  define UART_ALTERNATE      1                         // ALTERNATE number
-#elif defined (STM32F103)                               // STM32F103C8T6 Mini Development Board: we use USART3 ALT0: PB10 | PB11
-#  define UART_NUMBER         3                         // UART number on STM32F1xx (1-3 for UART)
-#  define UART_ALTERNATE      0                         // ALTERNATE number
+#if defined (STM32F401RE) || defined (STM32F411RE)      // STM32F401/STM32F411 Nucleo Board: we use USART2
+#  define UART_NUMBER           2                       // UART number on STM32F4xx (1-6 for UART)
+#  define UART_ALTERNATE        0                       // ALTERNATE number
+#elif defined (STM32F103)                               // STM32F103C8T6 Mini Development Board: we use USART1
+#  define UART_NUMBER           1                       // UART number on STM32F1xx (1-3 for UART)
+#  define UART_ALTERNATE        0                       // ALTERNATE number
 #else
 #  errror unknown STM32
 #endif
 
-
-#define UART_TXBUFLEN       128                         // ringbuffer size for UART TX
-#define UART_RXBUFLEN       16                          // ringbuffer size for UART RX
+#define UART_TXBUFLEN           128                     // ringbuffer size for UART TX
+#define UART_RXBUFLEN           16                      // ringbuffer size for UART RX
 
 #include "uart-driver.h"
-
-#endif

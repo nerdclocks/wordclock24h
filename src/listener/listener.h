@@ -17,6 +17,20 @@
 #include <time.h>
 #include "display.h"
 
+#define LISTENER_SET_COLOR_CODE                 'C'                             // set color
+#define LISTENER_POWER_CODE                     'P'                             // power on/off
+#define LISTENER_DISPLAY_MODE_CODE              'D'                             // set display mode
+#define LISTENER_ANIMATION_MODE_CODE            'A'                             // set animation mode
+#define LISTENER_DISPLAY_TEMPERATURE_CODE       'W'                             // display temperature
+#define LISTENER_SET_BRIGHTNESS_CODE            'B'                             // set brightness
+#define LISTENER_SET_AUTOMATIC_BRIHGHTNESS_CODE 'L'                             // automatic brightness control on/off
+#define LISTENER_TEST_DISPLAY_CODE              'X'                             // test display
+#define LISTENER_SET_DATE_TIME_CODE             'T'                             // set date/time
+#define LISTENER_GET_NET_TIME_CODE              'N'                             // Get net time
+#define LISTENER_IR_LEARN_CODE                  'I'                             // IR learn
+#define LISTENER_SAVE_DISPLAY_CONFIGURATION     'S'                             // save display configuration
+
+
 typedef union
 {
     uint_fast8_t    mode;

@@ -12,6 +12,6 @@
 #ifndef ESP8266_CONFIG_H
 #define ESP8266_CONFIG_H
 
-#define ESP8266_DEBUG       0                                   // 0: DEBUG off, 1: DEBUG on
+#define ESP8266_DEBUG       1                                   // 0: DEBUG off, 1: DEBUG on
 
 #endif // ESP8266_CONFIG_H

@@ -77,9 +77,9 @@
 #include "uart.h"
 
 static volatile uint_fast8_t        uart_txbuf[UART_TXBUFLEN];                  // tx ringbuffer
-static volatile uint_fast8_t        uart_txsize = 0;                            // tx size
+static volatile uint_fast16_t       uart_txsize = 0;                            // tx size
 static volatile uint_fast8_t        uart_rxbuf[UART_RXBUFLEN];                  // rx ringbuffer
-static volatile uint_fast8_t        uart_rxsize = 0;                            // rx size
+static volatile uint_fast16_t       uart_rxsize = 0;                            // rx size
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
  * Possible UARTs of STM32F4xx:

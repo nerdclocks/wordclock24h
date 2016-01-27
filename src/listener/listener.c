@@ -13,11 +13,11 @@
 #include <stdlib.h>
 #include "wclock24h-config.h"
 #include "listener.h"
+#include "http.h"
 #include "esp8266.h"
-#include "mcurses.h"
-#include "monitor.h"
 #include "eeprom.h"
 #include "eeprom-data.h"
+#include "log.h"
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * listener
@@ -41,112 +41,138 @@ uint_fast8_t
 listener (LISTENER_DATA * ld)
 {
     ESP8266_LISTEN_DATA l;
-    uint_fast8_t        i;
     uint_fast8_t        rtc;
 
     rtc = esp8266_listen (& l);
 
-    if (rtc && l.channel == 0 && l.length > 0)
+    if (rtc)
     {
         rtc = 0;
 
-        if (mcurses_is_up)
+        if (l.channel == 0)                                                 // UDP request
         {
-            mvprintw (ESP_LOG_LINE, ESP_LOG_COL, "channel=%d, length=%d, data=", l.channel, l.length);
-
-            for (i = 0; i < l.length; i++)
+            if (l.length > 0)
             {
-                if (l.data[i] >= 32 && l.data[i] < 127)
+#if 0 // TODO
+                if (mcurses_is_up)
                 {
-                    addch (l.data[i]);
+                    mvprintw (ESP_LOG_LINE, ESP_LOG_COL, "channel=%d, length=%d, data=", l.channel, l.length);
+
+                    for (i = 0; i < l.length; i++)
+                    {
+                        if (l.data[i] >= 32 && l.data[i] < 127)
+                        {
+                            addch (l.data[i]);
+                        }
+                        else
+                        {
+                            printw ("<%02x>", l.data[i]);
+                        }
+                    }
+                    clrtoeol ();
                 }
-                else
+#endif
+
+                switch (l.data[0])
                 {
-                    printw ("<%02x>", l.data[i]);
+                    case 'A':                                           // Set Animation Mode
+                    case 'D':                                           // Set Display Mode
+                    {
+                        if (l.length == 2)
+                        {
+                            rtc         = l.data[0];
+                            ld->mode    = l.data[1];
+                        }
+                        break;
+                    }
+
+                    case 'B':                                           // Set Brightness
+                    {
+                        if (l.length == 2)
+                        {
+                            rtc             = l.data[0];
+                            ld->brightness  = l.data[1];
+                        }
+                        break;
+                    }
+
+                    case 'C':                                           // Set RGB Colors
+                    {
+                        if (l.length == 4)
+                        {
+                            rtc             = l.data[0];
+                            ld->rgb.red     = l.data[1];
+                            ld->rgb.green   = l.data[2];
+                            ld->rgb.blue    = l.data[3];
+                        }
+                        break;
+                    }
+
+                    case 'T':                                           // Set Date/Time
+                    {
+                        if (l.length == 7)
+                        {
+                            rtc             = l.data[0];
+                            ld->tm.tm_year  = l.data[1] + 2000;
+                            ld->tm.tm_mon   = l.data[2] - 1;
+                            ld->tm.tm_mday  = l.data[3];
+                            ld->tm.tm_hour  = l.data[4];
+                            ld->tm.tm_min   = l.data[5];
+                            ld->tm.tm_sec   = l.data[6];
+                        }
+                        break;
+                    }
+
+                    case 'L':                                           // Automatic Brightness control per LDR
+                    {
+                        if (l.length == 2)
+                        {
+                            rtc                                 = l.data[0];
+                            ld->automatic_brightness_control    = l.data[1];
+                        }
+                        break;
+                    }
+
+                    case 'P':                                           // Power on/off
+                    {
+                        if (l.length == 2)
+                        {
+                            rtc             = l.data[0];
+                            ld->power       = l.data[1];
+                        }
+                        break;
+                    }
+
+                    case 'N':                                           // Get Net Time
+                    case 'S':                                           // Save Settings
+                    {
+                        if (l.length == 1)
+                        {
+                            rtc = l.data[0];
+                        }
+                        break;
+                    }
                 }
             }
-            clrtoeol ();
         }
-
-
-        switch (l.data[0])
+        else // if (l.channel == 1)                                     // channel = 1,2,3,4: browser via TCP
         {
-            case 'A':                                           // Set Animation Mode
-            case 'D':                                           // Set Display Mode
+            if (l.length > 0)
             {
-                if (l.length == 2)
-                {
-                    rtc         = l.data[0];
-                    ld->mode    = l.data[1];
-                }
-                break;
-            }
+#if 0                                                                   // don't log, too much traffic
+                unsigned int i;
 
-            case 'B':                                           // Set Brightness
-            {
-                if (l.length == 2)
+                for (i = 0; i < l.length; i++)
                 {
-                    rtc             = l.data[0];
-                    ld->brightness  = l.data[1];
+                    log_char (l.data[i]);
                 }
-                break;
+#endif
+                rtc = http_server (l.channel, l.data, l.length, ld);
             }
-
-            case 'C':                                           // Set RGB Colors
+            else
             {
-                if (l.length == 4)
-                {
-                    rtc             = l.data[0];
-                    ld->rgb.red     = l.data[1];
-                    ld->rgb.green   = l.data[2];
-                    ld->rgb.blue    = l.data[3];
-                }
-                break;
-            }
+                log_msg ("listen: length = 0");
 
-            case 'T':                                           // Set Date/Time
-            {
-                if (l.length == 7)
-                {
-                    rtc             = l.data[0];
-                    ld->tm.tm_year  = l.data[1] + 2000;
-                    ld->tm.tm_mon   = l.data[2] - 1;
-                    ld->tm.tm_mday  = l.data[3];
-                    ld->tm.tm_hour  = l.data[4];
-                    ld->tm.tm_min   = l.data[5];
-                    ld->tm.tm_sec   = l.data[6];
-                }
-                break;
-            }
-
-            case 'L':                                           // Automatic Brightness control per LDR
-            {
-                if (l.length == 2)
-                {
-                    rtc                                 = l.data[0];
-                    ld->automatic_brightness_control    = l.data[1];
-                }
-                break;
-            }
-
-            case 'P':                                           // Power on/off
-            {
-                if (l.length == 2)
-                {
-                    rtc             = l.data[0];
-                    ld->power       = l.data[1];
-                }
-                break;
-            }
-
-            case 'N':                                           // Get Net Time
-            case 'S':                                           // Save Settings
-            {
-                if (l.length == 1)
-                {
-                    rtc = l.data[0];
-                }
-                break;
             }
         }
     }

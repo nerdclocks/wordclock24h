@@ -21,11 +21,11 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
+#include "wclock24h-config.h"
 
-#ifndef DEBUG
+#if SAVE_RAM == 0
 
 #include "irmp.h"
-#include "mcurses.h"
 
 #if IRMP_SUPPORT_GRUNDIG_PROTOCOL == 1 || IRMP_SUPPORT_NOKIA_PROTOCOL == 1 || IRMP_SUPPORT_IR60_PROTOCOL == 1
 #  define IRMP_SUPPORT_GRUNDIG_NOKIA_IR60_PROTOCOL  1

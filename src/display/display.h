@@ -27,7 +27,7 @@ typedef struct
     uint8_t blue;
 } DSP_COLORS;
 
-extern char *       animation_modes[];
+extern const char * animation_modes[];
 
 void                display_set_status_led (uint_fast8_t, uint_fast8_t, uint_fast8_t);
 extern void         display_reset_led_states (void);

@@ -14,7 +14,6 @@
 #include "tempsensor.h"
 #include "eeprom.h"
 #include "eeprom-data.h"
-#include "mcurses.h"
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------
  * temp_read_temp_index () - read temperature
