@@ -205,7 +205,9 @@ timeserver_set_timezone (int_fast16_t newtimezone)
 {
     uint_fast8_t rtc = 0;
 
-    if (newtimezone >= -12 && newtimezone >= 12)
+    log_printf ("New timezone: %d\r\n", newtimezone);
+
+    if (newtimezone >= -12 && newtimezone <= 12)
     {
         if (timezone != newtimezone)
         {

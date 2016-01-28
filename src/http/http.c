@@ -22,6 +22,7 @@
 #include "tempsensor.h"
 #include "ds18xx.h"
 #include "eeprom.h"
+#include "eeprom-data.h"
 #include "rtc.h"
 #include "listener.h"
 #include "log.h"
@@ -229,6 +230,60 @@ static void
 end_table_row (int fd)
 {
     http_send (fd, "</tr>\r\n");
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------------------
+ * dump eeprom
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+http_eeprom_dump (int fd)
+{
+    uint8_t         buffer[16 + 1];
+    char            buf[8];
+    uint_fast16_t   start_addr = 0;
+    uint_fast8_t    c;
+
+    http_send (fd, "<PRE>");
+
+    while (start_addr < EEPROM_DATA_END)
+    {
+        sprintf (buf, "%04x", start_addr);
+        http_send (fd, buf);
+        http_send (fd, "  ");
+
+        if (eeprom_read (start_addr, buffer, 16))
+        {
+            for (c = 0; c < 16; c++)
+            {
+                sprintf (buf, "%02x", buffer[c]);
+                http_send (fd, buf);
+                http_send (fd, " ");
+            }
+
+            http_send (fd, " ");
+
+            for (c = 0; c < 16; c++)
+            {
+                if (buffer[c] < 32 || buffer[c] >= 127)
+                {
+                    buffer[c] = '.';
+                }
+            }
+
+            buffer[c] = '\0';
+            http_send (fd, (char *) buffer);
+            http_send (fd, "\r\n");
+
+            start_addr += 16;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    http_send (fd, "</PRE>");
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -646,6 +701,7 @@ http_main (int fd, LISTENER_DATA * ld)
     http_send (fd, "<form method=\"POST\" action=\"/\">\r\n");
     http_send (fd, "<button type=\"submit\" name=\"action\" value=\"poweron\">Power On</button>\r\n");
     http_send (fd, "<button type=\"submit\" name=\"action\" value=\"poweroff\">Power Off</button>\r\n");
+    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"eepromdump\">EEPROM dump</button>\r\n");
     http_send (fd, "</form>\r\n");
 
     http_send (fd, "<form method=\"POST\" action=\"/\">\r\n");
@@ -658,6 +714,11 @@ http_main (int fd, LISTENER_DATA * ld)
         http_send (fd, "<P>\r\n<font color=green>");
         http_send (fd, message);
         http_send (fd, "</font>\r\n");
+    }
+
+    if (! strcmp (action, "eepromdump"))
+    {
+        http_eeprom_dump (fd);
     }
 
     http_trailer (fd);
@@ -689,8 +750,6 @@ http_network (int fd)
 
     col2[0] = infop->accesspoint;
     col2[1] = "";
-
-    sprintf (timezone_str, "%d", timeserver_get_timezone());
 
     action = http_get_param ("action");
 
@@ -736,7 +795,7 @@ http_network (int fd)
         }
         else if (! strcmp (action, "savetimezone"))
         {
-            int tz = atoi (http_get_param ("timezone"));
+            int_fast16_t tz = atoi (http_get_param ("timezone"));
 
             if (timeserver_set_timezone (tz))
             {
@@ -753,6 +812,8 @@ http_network (int fd)
             rtc = LISTENER_GET_NET_TIME_CODE;
         }
     }
+
+    sprintf (timezone_str, "%d", timeserver_get_timezone());
 
     http_header (fd, "WordClock Network");
     http_menu (fd);

@@ -376,7 +376,7 @@
 
 1410773381 c:\emblocksprojects\wclock24h\src\irmp\irsndconfig.h
 
-1453920082 source:c:\emblocksprojects\wclock24h\src\main.c
+1453931651 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -978,11 +978,11 @@
 
 1453738914 c:\emblocksprojects\wclock24h\src\display\display.h
 
-1452782520 c:\emblocksprojects\wclock24h\src\eeprom\eeprom.h
+1453931184 c:\emblocksprojects\wclock24h\src\eeprom\eeprom.h
 	"stm32f10x.h"
 	"stm32f4xx.h"
 
-1452782520 c:\emblocksprojects\wclock24h\src\eeprom\eeprom-data.h
+1453932486 c:\emblocksprojects\wclock24h\src\eeprom\eeprom-data.h
 
 1453739560 c:\emblocksprojects\wclock24h\src\ldr\ldr.h
 	"stm32f10x.h"
@@ -1002,7 +1002,7 @@
 	"wclock24h-config.h"
 	"tables12h.h"
 
-1453733845 source:c:\emblocksprojects\wclock24h\src\eeprom\eeprom.c
+1453931651 source:c:\emblocksprojects\wclock24h\src\eeprom\eeprom.c
 	"eeprom.h"
 	"i2c.h"
 
@@ -1059,7 +1059,7 @@
 	"stm32f10x.h"
 	"stm32f4xx.h"
 
-1453759023 source:c:\emblocksprojects\wclock24h\src\timeserver\timeserver.c
+1453933636 source:c:\emblocksprojects\wclock24h\src\timeserver\timeserver.c
 	<stdio.h>
 	<stdlib.h>
 	"timeserver.h"
@@ -1091,7 +1091,7 @@
 	"tables.h"
 	"tables12h.h"
 
-1453916642 source:c:\emblocksprojects\wclock24h\src\http\http.c
+1453933687 source:c:\emblocksprojects\wclock24h\src\http\http.c
 	<stdio.h>
 	<stdint.h>
 	<stdlib.h>
@@ -1104,6 +1104,7 @@
 	"tempsensor.h"
 	"ds18xx.h"
 	"eeprom.h"
+	"eeprom-data.h"
 	"rtc.h"
 	"listener.h"
 	"log.h"

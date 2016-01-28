@@ -32,12 +32,12 @@
  *
  * Internal devices used:
  *
- *    +-------------------------+-------------------------------+------------------------------+
- *    | Device                  | STM32F4x1 Nucleo              | STM32F103C8T6                |
- *    +-------------------------+-------------------------------+------------------------------+
- *    | User button             | GPIO:   PC13                  | GPIO:   PA6                  |
- *    | Green LED               | GPIO:   PA5                   | GPIO:   PC13                 |
- *    +-------------------------+-------------------------------+------------------------------+
+ *    +-------------------------+-------------------------------+-------------------------------+
+ *    | Device                  | STM32F4x1 Nucleo              | STM32F103C8T6                 |
+ *    +-------------------------+-------------------------------+-------------------------------+
+ *    | User button             | GPIO:   PC13                  | GPIO:   PA6                   |
+ *    | Board LED               | GPIO:   PA5                   | GPIO:   PC13                  |
+ *    +-------------------------+-------------------------------+-------------------------------+
  *
  * External devices:
  *
@@ -45,12 +45,10 @@
  *    | Device                  | STM32F4x1 Nucleo              | STM32F103C8T6                 |
  *    +-------------------------+-------------------------------+-------------------------------+
  *    | TSOP31238 (IRMP)        | GPIO:      PC10               | GPIO:      PB3                |
- *    | DCF77                   | GPIO:      PC11               | GPIO:      PB4                |
  *    | DS18xx (OneWire)        | GPIO:      PD2                | GPIO:      PB5                |
- *    | MCURSES terminal (USB)  | USART2:    TX=PA2  RX=PA3     | USART1:    TX=PA9  RX=PA10    |
+ *    | Logger (Nucleo: USB)    | USART2:    TX=PA2  RX=PA3     | USART1:    TX=PA9  RX=PA10    |
  *    | ESP8266 USART           | USART6:    TX=PA11 RX=PA12    | USART2:    TX=PA2  RX=PA3     |
  *    | ESP8266 GPIO            | GPIO:      RST=PA7 CH_PD=PA6  | GPIO:      RST=PA0 CH_PD=PA1  |
- *    | ESP8266 DEBUG (opt)     | USART1:    TX=PA9  RX=PA10    | USART3:    TX=PB10 RX=PB11    |
  *    | I2C DS3231 & EEPROM     | I2C3:      SCL=PA8 SDA=PC9    | I2C1:      SCL=PB6 SDA=PB7    |
  *    | LDR                     | ADC:       ACD1_IN14=PC4      | ADC:       ADC12_IN5=PA5      |
  *    | WS2812                  | TIM3/DMA1: PC6                | TIM1/DMA1: PA8                |
@@ -108,14 +106,13 @@ static volatile uint_fast8_t    ldr_conversion_flag         = 0;        // flag:
 static volatile uint_fast8_t    show_time_flag              = 0;        // flag: update time on display, set every full minute
 static volatile uint_fast8_t    short_isr                   = 0;        // flag: run TIM2_IRQHandler() in short version
 static volatile uint32_t        uptime                      = 0;        // uptime in seconds
-
-static uint_fast8_t             brightness_control_per_ldr  = 0;        // flag: LDR controls brightness
-
-static uint_fast8_t             display_mode                = 0;        // display mode
-static uint_fast8_t             animation_mode              = 0;        // animation mode
 static volatile uint_fast8_t    hour                        = 0;        // current hour
 static volatile uint_fast8_t    minute                      = 0;        // current minute
 static volatile uint_fast8_t    second                      = 0;        // current second
+
+static uint_fast8_t             brightness_control_per_ldr  = 0;        // flag: LDR controls brightness
+static uint_fast8_t             display_mode                = 0;        // display mode
+static uint_fast8_t             animation_mode              = 0;        // animation mode
 
 static int_fast16_t             hour_night_off              = -1;       // time when clock should be powered off during night
 static int_fast16_t             minute_night_off            = -1;
@@ -508,8 +505,9 @@ main ()
 
         if (ldr_is_up && brightness_control_per_ldr && ldr_poll_brightness (&ldr_value))
         {
-            if (ldr_value < last_ldr_value - 1 || ldr_value > last_ldr_value + 1)           // difference greater than 2
+            if (ldr_value + 1 < last_ldr_value || ldr_value > last_ldr_value + 1)           // difference greater than 2
             {
+                log_printf ("ldr: old brightnes: %d new brightness: %d\r\n", last_ldr_value, ldr_value);
                 last_ldr_value = ldr_value;
                 display_set_brightness (ldr_value);
                 display_flag = DISPLAY_FLAG_UPDATE_NO_ANIMATION;

@@ -1087,7 +1087,7 @@
 	<time.h>
 	"dsp.h"
 
-1453846076 source:c:\emblocksprojects\wclock24h\src\main.c
+1453931651 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -1352,7 +1352,7 @@
 
 1453377641 c:\emblocksprojects\wclock24h\src\display\display-config.h
 
-1452782520 c:\emblocksprojects\wclock24h\src\eeprom\eeprom.h
+1453931184 c:\emblocksprojects\wclock24h\src\eeprom\eeprom.h
 	"stm32f10x.h"
 	"stm32f4xx.h"
 
@@ -1449,7 +1449,7 @@
 	"wclock24h-config.h"
 	"tables12h.h"
 
-1453733845 source:c:\emblocksprojects\wclock24h\src\eeprom\eeprom.c
+1453931651 source:c:\emblocksprojects\wclock24h\src\eeprom\eeprom.c
 	"eeprom.h"
 	"i2c.h"
 
@@ -1504,7 +1504,7 @@
 	"rtc.h"
 	"i2c.h"
 
-1453813104 source:c:\emblocksprojects\wclock24h\src\remote-ir\remote-ir.c
+1453921696 source:c:\emblocksprojects\wclock24h\src\remote-ir\remote-ir.c
 	"wclock24h-config.h"
 	"irmp.h"
 	"remote-ir.h"

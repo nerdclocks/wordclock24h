@@ -25,6 +25,5 @@ extern uint_fast8_t             eeprom_init (void);
 extern uint_fast8_t             eeprom_get_address (void);
 extern uint_fast8_t             eeprom_read (uint_fast16_t, uint8_t *, uint_fast16_t);
 extern uint_fast8_t             eeprom_write (uint_fast16_t, uint8_t *, uint_fast16_t);
-extern void                     eeprom_dump (void);
 
 #endif
