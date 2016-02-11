@@ -26,12 +26,13 @@
 #define _UART_CONCAT(a,b)                a##b
 #define UART_CONCAT(a,b)                 _UART_CONCAT(a,b)
 
-extern void             UART_CONCAT(UART_PREFIX, _uart_init)  (uint32_t);
-extern void             UART_CONCAT(UART_PREFIX, _uart_putc)  (uint_fast8_t);
-extern void             UART_CONCAT(UART_PREFIX, _uart_puts)  (char *);
-extern uint_fast8_t     UART_CONCAT(UART_PREFIX, _uart_getc)  (void);
-extern uint_fast8_t     UART_CONCAT(UART_PREFIX, _uart_poll)  (uint_fast8_t *);
-extern void             UART_CONCAT(UART_PREFIX, _uart_flush) (void);
-extern uint_fast16_t    UART_CONCAT(UART_PREFIX, _uart_read)  (char *, uint_fast16_t);
-extern uint_fast16_t    UART_CONCAT(UART_PREFIX, _uart_write) (char *, uint_fast16_t);
+extern void             UART_CONCAT(UART_PREFIX, _uart_init)            (uint32_t);
+extern void             UART_CONCAT(UART_PREFIX, _uart_putc)            (uint_fast8_t);
+extern void             UART_CONCAT(UART_PREFIX, _uart_puts)            (char *);
+extern uint_fast8_t     UART_CONCAT(UART_PREFIX, _uart_char_available)  (void);
+extern uint_fast8_t     UART_CONCAT(UART_PREFIX, _uart_getc)            (void);
+extern uint_fast8_t     UART_CONCAT(UART_PREFIX, _uart_poll)            (uint_fast8_t *);
+extern void             UART_CONCAT(UART_PREFIX, _uart_flush)           (void);
+extern uint_fast16_t    UART_CONCAT(UART_PREFIX, _uart_read)            (char *, uint_fast16_t);
+extern uint_fast16_t    UART_CONCAT(UART_PREFIX, _uart_write)           (char *, uint_fast16_t);
 

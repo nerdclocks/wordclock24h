@@ -791,7 +791,7 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src\timeserver\timeserver.h" />
-		<Unit filename="src\uart\uart-config.h" />
+		<Unit filename="src\uart\uart-driver.h" />
 		<Unit filename="src\uart\uart.h" />
 		<Unit filename="src\wclock24h-config.h" />
 		<Unit filename="src\ws2812\ws2812-config.h" />

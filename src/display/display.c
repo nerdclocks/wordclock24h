@@ -2192,12 +2192,12 @@ display_test (void)
         rgb.green   = (i & 0x02) ? pwmtable8[MAX_COLOR_STEPS / 2] : 0;
         rgb.blue    = (i & 0x04) ? pwmtable8[MAX_COLOR_STEPS / 2] : 0;
 
-        for (j = 0; j < DSP_STATUS_LEDS + DSP_DISPLAY_LEDS; j++)
+        for (j = 0; j < DSP_MAX_LEDS; j++)
         {
             led_set_led (j, &rgb);
         }
 
-        display_refresh_display_leds ();
+        display_refresh_ambilight_leds ();
         delay_sec (3);
     }
 

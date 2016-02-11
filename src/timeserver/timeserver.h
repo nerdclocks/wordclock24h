@@ -24,7 +24,7 @@ extern uint_fast8_t     timeserver_set_timezone (int_fast16_t);
 extern int_fast16_t     timeserver_get_timezone (void);
 extern uint_fast8_t     timeserver_set_timeserver (char *);
 extern unsigned char *  timeserver_get_timeserver (void);
-extern uint_fast8_t     timeserver_get_time (struct tm *);
-extern uint_fast8_t     timeserver_init (void);
+extern void             timeserver_start_timeserver_request (void);
+extern void             timeserver_convert_time (struct tm *, uint32_t);
 
 #endif

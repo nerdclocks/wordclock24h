@@ -56,6 +56,6 @@
 #endif
 
 #define UART_TXBUFLEN           128                     // ringbuffer size for UART TX
-#define UART_RXBUFLEN           16                      // ringbuffer size for UART RX
+#define UART_RXBUFLEN           128                     // ringbuffer size for UART RX (needed for ESP8266 flash mode)
 
 #include "uart-driver.h"

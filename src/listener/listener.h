@@ -30,7 +30,6 @@
 #define LISTENER_IR_LEARN_CODE                  'I'                             // IR learn
 #define LISTENER_SAVE_DISPLAY_CONFIGURATION     'S'                             // save display configuration
 
-
 typedef union
 {
     uint_fast8_t    mode;
@@ -42,6 +41,5 @@ typedef union
 } LISTENER_DATA;
 
 extern uint_fast8_t         listener (LISTENER_DATA *);
-extern uint_fast8_t         listener_init (void);
 
 #endif

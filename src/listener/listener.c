@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include "wclock24h-config.h"
 #include "listener.h"
+#include "timeserver.h"
 #include "http.h"
 #include "esp8266.h"
 #include "eeprom.h"
@@ -37,159 +38,150 @@
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 
+#define MAX_PARAMETERS      10
+
 uint_fast8_t
 listener (LISTENER_DATA * ld)
 {
-    ESP8266_LISTEN_DATA l;
-    uint_fast8_t        rtc;
+    ESP8266_INFO *      info;
+    uint_fast8_t        msg_rtc;
+    uint_fast8_t        param[MAX_PARAMETERS];
+    uint_fast8_t        rtc = 0;
 
-    rtc = esp8266_listen (& l);
+    msg_rtc = esp8266_get_message (10);
 
-    if (rtc)
+    switch (msg_rtc)
     {
-        rtc = 0;
+        case ESP8266_TIME:
+            info = esp8266_get_info ();
+            char * endptr;
+            uint32_t seconds_since_1900 = strtoul (info->time, &endptr, 10);
+            timeserver_convert_time (&(ld->tm), seconds_since_1900);
+            rtc = LISTENER_SET_DATE_TIME_CODE;
+            break;
 
-        if (l.channel == 0)                                                 // UDP request
-        {
-            if (l.length > 0)
+        case ESP8266_CMD:
+            info = esp8266_get_info ();
+            char *  parameters = info->cmd;
+            int     n = 0;
+
+            while (n < MAX_PARAMETERS)
             {
-#if 0 // TODO
-                if (mcurses_is_up)
+                if (*parameters && *(parameters + 1))
                 {
-                    mvprintw (ESP_LOG_LINE, ESP_LOG_COL, "channel=%d, length=%d, data=", l.channel, l.length);
+                    param[n++] = htoi (parameters, 2);
+                    parameters += 2;
 
-                    for (i = 0; i < l.length; i++)
+                    if (* parameters == ' ')
                     {
-                        if (l.data[i] >= 32 && l.data[i] < 127)
-                        {
-                            addch (l.data[i]);
-                        }
-                        else
-                        {
-                            printw ("<%02x>", l.data[i]);
-                        }
+                        parameters++;
                     }
-                    clrtoeol ();
                 }
-#endif
-
-                switch (l.data[0])
+                else
                 {
-                    case 'A':                                           // Set Animation Mode
-                    case 'D':                                           // Set Display Mode
+                    break;
+                }
+            }
+
+            if (n > 0)
+            {
+                switch (param[0])
+                {
+                    case LISTENER_ANIMATION_MODE_CODE:                  // Set Animation Mode
+                    case LISTENER_DISPLAY_MODE_CODE:                    // Set Display Mode
                     {
-                        if (l.length == 2)
+                        if (n == 2)
                         {
-                            rtc         = l.data[0];
-                            ld->mode    = l.data[1];
+                            rtc         = param[0];
+                            ld->mode    = param[1];
                         }
                         break;
                     }
 
-                    case 'B':                                           // Set Brightness
+                    case LISTENER_SET_BRIGHTNESS_CODE:                  // Set Brightness
                     {
-                        if (l.length == 2)
+                        if (n == 2)
                         {
-                            rtc             = l.data[0];
-                            ld->brightness  = l.data[1];
+                            rtc             = param[0];
+                            ld->brightness  = param[1];
                         }
                         break;
                     }
 
-                    case 'C':                                           // Set RGB Colors
+                    case LISTENER_SET_COLOR_CODE:                       // Set RGB Colors
                     {
-                        if (l.length == 4)
+                        if (n == 4)
                         {
-                            rtc             = l.data[0];
-                            ld->rgb.red     = l.data[1];
-                            ld->rgb.green   = l.data[2];
-                            ld->rgb.blue    = l.data[3];
+                            rtc             = param[0];
+                            ld->rgb.red     = param[1];
+                            ld->rgb.green   = param[2];
+                            ld->rgb.blue    = param[3];
                         }
                         break;
                     }
 
-                    case 'T':                                           // Set Date/Time
+                    case LISTENER_SET_DATE_TIME_CODE:                   // Set Date/Time
                     {
-                        if (l.length == 7)
+                        if (n == 7)
                         {
-                            rtc             = l.data[0];
-                            ld->tm.tm_year  = l.data[1] + 2000;
-                            ld->tm.tm_mon   = l.data[2] - 1;
-                            ld->tm.tm_mday  = l.data[3];
-                            ld->tm.tm_hour  = l.data[4];
-                            ld->tm.tm_min   = l.data[5];
-                            ld->tm.tm_sec   = l.data[6];
+                            rtc             = param[0];
+                            ld->tm.tm_year  = param[1] + 2000;
+                            ld->tm.tm_mon   = param[2] - 1;
+                            ld->tm.tm_mday  = param[3];
+                            ld->tm.tm_hour  = param[4];
+                            ld->tm.tm_min   = param[5];
+                            ld->tm.tm_sec   = param[6];
                         }
                         break;
                     }
 
-                    case 'L':                                           // Automatic Brightness control per LDR
+                    case LISTENER_SET_AUTOMATIC_BRIHGHTNESS_CODE:       // Automatic Brightness control per LDR
                     {
-                        if (l.length == 2)
+                        if (n == 2)
                         {
-                            rtc                                 = l.data[0];
-                            ld->automatic_brightness_control    = l.data[1];
+                            rtc                                 = param[0];
+                            ld->automatic_brightness_control    = param[1];
                         }
                         break;
                     }
 
-                    case 'P':                                           // Power on/off
+                    case LISTENER_POWER_CODE:                           // Power on/off
                     {
-                        if (l.length == 2)
+                        if (n == 2)
                         {
-                            rtc             = l.data[0];
-                            ld->power       = l.data[1];
+                            rtc             = param[0];
+                            ld->power       = param[1];
                         }
                         break;
                     }
 
-                    case 'N':                                           // Get Net Time
-                    case 'S':                                           // Save Settings
+                    case LISTENER_GET_NET_TIME_CODE:                    // Get net time
+                    case LISTENER_SAVE_DISPLAY_CONFIGURATION:           // Save display settings
                     {
-                        if (l.length == 1)
+                        if (n == 1)
                         {
-                            rtc = l.data[0];
+                            rtc = param[0];
                         }
                         break;
                     }
                 }
             }
-        }
-        else // if (l.channel == 1)                                     // channel = 1,2,3,4: browser via TCP
-        {
-            if (l.length > 0)
-            {
-#if 0                                                                   // don't log, too much traffic
-                unsigned int i;
+            break;
 
-                for (i = 0; i < l.length; i++)
-                {
-                    log_char (l.data[i]);
-                }
-#endif
-                rtc = http_server (l.channel, l.data, l.length, ld);
-            }
-            else
-            {
-                log_msg ("listen: length = 0");
+        case ESP8266_HTTP_GET:
+            info = esp8266_get_info ();
+            char * path = info->http_get_param;
+            char * params = strchr (path, ' ');
 
+            if (params)
+            {
+                *params = '\0';
+                params += 1;
             }
-        }
+
+            rtc = http_server (path, params, ld);
+            break;
     }
-    return rtc;
-}
-
-/*--------------------------------------------------------------------------------------------------------------------------------------
- * initialize listener routines
- *--------------------------------------------------------------------------------------------------------------------------------------
- */
-uint_fast8_t
-listener_init (void)
-{
-    uint_fast8_t    rtc;
-
-    rtc = esp8266_init ();
 
     return rtc;
 }
-

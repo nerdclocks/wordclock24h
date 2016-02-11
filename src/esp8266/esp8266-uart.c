@@ -55,7 +55,7 @@
 #  errror unknown STM32
 #endif
 
-#define UART_TXBUFLEN           256                     // ringbuffer size for UART TX
-#define UART_RXBUFLEN           768                     // ringbuffer size for UART RX
+#define UART_TXBUFLEN           128                     // ringbuffer size for UART TX
+#define UART_RXBUFLEN           128                     // ringbuffer size for UART RX
 
 #include "uart-driver.h"

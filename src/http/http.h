@@ -9,5 +9,12 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
+#ifndef HTTP_H
+#define HTTP_H
 
-extern uint_fast8_t http_server (int, unsigned char *, int, LISTENER_DATA * ld);
+#include "listener.h"
+
+extern uint16_t     htoi (char *, uint8_t);
+extern uint_fast8_t http_server (char *, char *, LISTENER_DATA * ld);
+
+#endif

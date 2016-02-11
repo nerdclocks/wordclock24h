@@ -29,12 +29,6 @@
 #include "delay.h"
 #include "http.h"
 
-#if defined (STM32F401RE) || defined (STM32F411RE)                  // STM32F401/STM32F411 Nucleo Board
-#  define SEND_BUF_LEN          1024                                // we have enough RAM for buffering
-#elif defined (STM32F103)                                           // STM32F103
-#  define SEND_BUF_LEN          512                                 // save RAM
-#endif
-
 #define MAX_LINE_LEN            256                                 // max. length of line_buffer
 #define MAX_PATH_LEN            20
 
@@ -43,9 +37,6 @@
 #define POST_METHOD             2
 
 #define MAX_PARAMS              5
-
-static char                     send_buf[SEND_BUF_LEN + 1];
-static int                      send_len;
 
 typedef struct
 {
@@ -56,18 +47,16 @@ typedef struct
 static HTTP_PARAMETERS          http_parameters[MAX_PARAMS];
 static int                      bgcolor_cnt;
 
+#define TIMEOUT_MSEC(x)         (x/10)
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * flush output buffer
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-http_flush (int fd)
+http_flush (void)
 {
-    if (send_len)
-    {
-        esp8266_send_data (fd, (unsigned char *) send_buf, send_len);
-        send_len = 0;
-    }
+    esp8266_send_data ((unsigned char *) ".\r\n", 3);
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -75,17 +64,11 @@ http_flush (int fd)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-http_send (int fd, char * s)
+http_send (char * s)
 {
     int l = strlen (s);
 
-    if (l + send_len > SEND_BUF_LEN)
-    {
-        http_flush (fd);
-    }
-
-    strcpy (send_buf + send_len, s);
-    send_len += l;
+    esp8266_send_data ((unsigned char *) s, l);
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -151,22 +134,22 @@ http_get_param (char * name)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-http_header (int fd, char * title)
+http_header (char * title)
 {
     char * p = "HTTP/1.0 200 OK";
 
-    http_send (fd, p);
-    http_send (fd, "\r\n\r\n");
-    http_send (fd, "<html>\r\n");
-    http_send (fd, "<head>\r\n");
-    http_send (fd, "<title>");
-    http_send (fd, title);
-    http_send (fd, "</title>\r\n");
-    http_send (fd, "</head>\r\n");
-    http_send (fd, "<body>\r\n");
-    http_send (fd, "<H1>\r\n");
-    http_send (fd, title);
-    http_send (fd, "</H1>\r\n");
+    http_send (p);
+    http_send ("\r\n\r\n");
+    http_send ("<html>\r\n");
+    http_send ("<head>\r\n");
+    http_send ("<title>");
+    http_send (title);
+    http_send ("</title>\r\n");
+    http_send ("</head>\r\n");
+    http_send ("<body>\r\n");
+    http_send ("<H1>\r\n");
+    http_send (title);
+    http_send ("</H1>\r\n");
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -174,10 +157,10 @@ http_header (int fd, char * title)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-http_trailer (int fd)
+http_trailer (void)
 {
-    http_send (fd, "</body>\r\n");
-    http_send (fd, "</html>\r\n");
+    http_send ("</body>\r\n");
+    http_send ("</html>\r\n");
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -185,20 +168,20 @@ http_trailer (int fd)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_header (int fd, char * col1, char * col2, char * col3)
+table_header (char * col1, char * col2, char * col3)
 {
-    http_send (fd, "<table border=0>\r\n");
-    http_send (fd, "<tr><th>");
-    http_send (fd, col1);
-    http_send (fd, "</th><th>");
-    http_send (fd, col2);
-    http_send (fd, "</th>");
+    http_send ("<table border=0>\r\n");
+    http_send ("<tr><th>");
+    http_send (col1);
+    http_send ("</th><th>");
+    http_send (col2);
+    http_send ("</th>");
 
     if (*col3)
     {
-        http_send (fd, "<th>");
-        http_send (fd, col3);
-        http_send (fd, "</th></tr>\r\n");
+        http_send ("<th>");
+        http_send (col3);
+        http_send ("</th></tr>\r\n");
     }
     bgcolor_cnt = 0;
 }
@@ -208,17 +191,17 @@ table_header (int fd, char * col1, char * col2, char * col3)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-begin_table_row (int fd)
+begin_table_row (void)
 {
     bgcolor_cnt++;
 
     if (bgcolor_cnt & 0x01)
     {
-        http_send (fd, "<tr bgcolor=#f0f0f0>\r\n");
+        http_send ("<tr bgcolor=#f0f0f0>\r\n");
     }
     else
     {
-        http_send (fd, "<tr>\r\n");
+        http_send ("<tr>\r\n");
     }
 }
 
@@ -227,9 +210,9 @@ begin_table_row (int fd)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-end_table_row (int fd)
+end_table_row (void)
 {
-    http_send (fd, "</tr>\r\n");
+    http_send ("</tr>\r\n");
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
@@ -237,31 +220,31 @@ end_table_row (int fd)
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-http_eeprom_dump (int fd)
+http_eeprom_dump (void)
 {
     uint8_t         buffer[16 + 1];
     char            buf[8];
     uint_fast16_t   start_addr = 0;
     uint_fast8_t    c;
 
-    http_send (fd, "<PRE>");
+    http_send ("<PRE>");
 
     while (start_addr < EEPROM_DATA_END)
     {
         sprintf (buf, "%04x", start_addr);
-        http_send (fd, buf);
-        http_send (fd, "  ");
+        http_send (buf);
+        http_send ("  ");
 
         if (eeprom_read (start_addr, buffer, 16))
         {
             for (c = 0; c < 16; c++)
             {
                 sprintf (buf, "%02x", buffer[c]);
-                http_send (fd, buf);
-                http_send (fd, " ");
+                http_send (buf);
+                http_send (" ");
             }
 
-            http_send (fd, " ");
+            http_send (" ");
 
             for (c = 0; c < 16; c++)
             {
@@ -272,8 +255,8 @@ http_eeprom_dump (int fd)
             }
 
             buffer[c] = '\0';
-            http_send (fd, (char *) buffer);
-            http_send (fd, "\r\n");
+            http_send ((char *) buffer);
+            http_send ("\r\n");
 
             start_addr += 16;
         }
@@ -283,7 +266,7 @@ http_eeprom_dump (int fd)
         }
     }
 
-    http_send (fd, "</PRE>");
+    http_send ("</PRE>");
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -291,15 +274,15 @@ http_eeprom_dump (int fd)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row (int fd, char * col1, char * col2)
+table_row (char * col1, char * col2)
 {
-    begin_table_row (fd);
-    http_send (fd, "<td>");
-    http_send (fd, col1);
-    http_send (fd, "</td><td>");
-    http_send (fd, col2);
-    http_send (fd, "</td><td></td>");
-    end_table_row (fd);
+    begin_table_row ();
+    http_send ("<td>");
+    http_send (col1);
+    http_send ("</td><td>");
+    http_send (col2);
+    http_send ("</td><td></td>");
+    end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -307,39 +290,39 @@ table_row (int fd, char * col1, char * col2)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_input (int fd, char * page, char * col1, char * id, char * col2, int maxlength)
+table_row_input (char * page, char * col1, char * id, char * col2, int maxlength)
 {
     char maxlength_buf[8];
 
     sprintf (maxlength_buf, "%d", maxlength);
 
-    begin_table_row (fd);
-    http_send (fd, "<form method=\"POST\" action=\"/");
-    http_send (fd, page);
-    http_send (fd, "\">\r\n");
+    begin_table_row ();
+    http_send ("<form method=\"GET\" action=\"/");
+    http_send (page);
+    http_send ("\">\r\n");
 
-    http_send (fd, "<td>");
-    http_send (fd, col1);
-    http_send (fd, "</td>\r\n");
+    http_send ("<td>");
+    http_send (col1);
+    http_send ("</td>\r\n");
 
-    http_send (fd, "<td>");
-    http_send (fd, "<input type=\"text\" id=\"");
-    http_send (fd, id);
-    http_send (fd, "\" name=\"");
-    http_send (fd, id);
-    http_send (fd, "\" value=\"");
-    http_send (fd, col2);
-    http_send (fd, "\" maxlength=\"");
-    http_send (fd, maxlength_buf);
-    http_send (fd, "\">");
+    http_send ("<td>");
+    http_send ("<input type=\"text\" id=\"");
+    http_send (id);
+    http_send ("\" name=\"");
+    http_send (id);
+    http_send ("\" value=\"");
+    http_send (col2);
+    http_send ("\" maxlength=\"");
+    http_send (maxlength_buf);
+    http_send ("\">");
 
-    http_send (fd, "</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (fd, id);
-    http_send (fd, "\">Save</button>\r\n");
+    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
+    http_send (id);
+    http_send ("\">Save</button>\r\n");
 
-    http_send (fd, "</td>\r\n");
-    http_send (fd, "</form>\r\n");
-    end_table_row (fd);
+    http_send ("</td>\r\n");
+    http_send ("</form>\r\n");
+    end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -347,50 +330,50 @@ table_row_input (int fd, char * page, char * col1, char * id, char * col2, int m
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_inputs (int fd, char * page, char * col1, char * id, int n, char ** ids, char ** desc2, char ** col2, int * maxlength, int * maxsize)
+table_row_inputs (char * page, char * col1, char * id, int n, char ** ids, char ** desc2, char ** col2, int * maxlength, int * maxsize)
 {
     int     i;
     char    maxlength_buf[8];
     char    maxsize_buf[8];
 
-    begin_table_row (fd);
-    http_send (fd, "<form method=\"POST\" action=\"/");
-    http_send (fd, page);
-    http_send (fd, "\">\r\n");
+    begin_table_row ();
+    http_send ("<form method=\"GET\" action=\"/");
+    http_send (page);
+    http_send ("\">\r\n");
 
-    http_send (fd, "<td>");
-    http_send (fd, col1);
-    http_send (fd, "</td>\r\n");
+    http_send ("<td>");
+    http_send (col1);
+    http_send ("</td>\r\n");
 
-    http_send (fd, "<td>");
+    http_send ("<td>");
 
     for (i = 0; i < n; i++)
     {
         sprintf (maxlength_buf, "%d", maxlength[i]);
         sprintf (maxsize_buf, "%d", maxsize[i]);
 
-        http_send (fd, desc2[i]);
-        http_send (fd, "&nbsp;<input type=\"text\" id=\"");
-        http_send (fd, ids[i]);
-        http_send (fd, "\" name=\"");
-        http_send (fd, ids[i]);
-        http_send (fd, "\" value=\"");
-        http_send (fd, col2[i]);
-        http_send (fd, "\" maxlength=\"");
-        http_send (fd, maxlength_buf);
-        http_send (fd, "\" size=\"");
-        http_send (fd, maxsize_buf);
-        http_send (fd, "\">");
-        http_send (fd, "&nbsp;&nbsp;&nbsp;");
+        http_send (desc2[i]);
+        http_send ("&nbsp;<input type=\"text\" id=\"");
+        http_send (ids[i]);
+        http_send ("\" name=\"");
+        http_send (ids[i]);
+        http_send ("\" value=\"");
+        http_send (col2[i]);
+        http_send ("\" maxlength=\"");
+        http_send (maxlength_buf);
+        http_send ("\" size=\"");
+        http_send (maxsize_buf);
+        http_send ("\">");
+        http_send ("&nbsp;&nbsp;&nbsp;");
     }
 
-    http_send (fd, "</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (fd, id);
-    http_send (fd, "\">Save</button>\r\n");
+    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
+    http_send (id);
+    http_send ("\">Save</button>\r\n");
 
-    http_send (fd, "</td>\r\n");
-    http_send (fd, "</form>\r\n");
-    end_table_row (fd);
+    http_send ("</td>\r\n");
+    http_send ("</form>\r\n");
+    end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -398,33 +381,33 @@ table_row_inputs (int fd, char * page, char * col1, char * id, int n, char ** id
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_checkbox (int fd, char * page, char * col1, char * id, char * desc, int checked)
+table_row_checkbox (char * page, char * col1, char * id, char * desc, int checked)
 {
-    begin_table_row (fd);
-    http_send (fd, "<form method=\"POST\" action=\"/");
-    http_send (fd, page);
-    http_send (fd, "\">\r\n");
-    http_send (fd, "<td>");
-    http_send (fd, col1);
-    http_send (fd, "</td><td>");
-    http_send (fd, desc);
-    http_send (fd, "&nbsp;<input type=\"checkbox\" name=\"");
-    http_send (fd, id);
-    http_send (fd, "\" value=\"active\" ");
+    begin_table_row ();
+    http_send ("<form method=\"GET\" action=\"/");
+    http_send (page);
+    http_send ("\">\r\n");
+    http_send ("<td>");
+    http_send (col1);
+    http_send ("</td><td>");
+    http_send (desc);
+    http_send ("&nbsp;<input type=\"checkbox\" name=\"");
+    http_send (id);
+    http_send ("\" value=\"active\" ");
 
     if (checked)
     {
-        http_send (fd, "checked");
+        http_send ("checked");
     }
 
-    http_send (fd, ">");
-    http_send (fd, "</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (fd, id);
-    http_send (fd, "\">Save</button>\r\n");
+    http_send (">");
+    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
+    http_send (id);
+    http_send ("\">Save</button>\r\n");
 
-    http_send (fd, "</td>\r\n");
-    http_send (fd, "</form>\r\n");
-    end_table_row (fd);
+    http_send ("</td>\r\n");
+    http_send ("</form>\r\n");
+    end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -432,53 +415,53 @@ table_row_checkbox (int fd, char * page, char * col1, char * id, char * desc, in
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_select (int fd, char * page, char * col1, char * id, const char ** col2, int selected_value, int max_values)
+table_row_select (char * page, char * col1, char * id, const char ** col2, int selected_value, int max_values)
 {
     char buf[3];
     int i;
 
-    begin_table_row (fd);
-    http_send (fd, "<form method=\"POST\" action=\"/");
-    http_send (fd, page);
-    http_send (fd, "\">\r\n");
+    begin_table_row ();
+    http_send ("<form method=\"GET\" action=\"/");
+    http_send (page);
+    http_send ("\">\r\n");
 
-    http_send (fd, "<td>");
-    http_send (fd, col1);
-    http_send (fd, "</td>\r\n");
+    http_send ("<td>");
+    http_send (col1);
+    http_send ("</td>\r\n");
 
-    http_send (fd, "<td>");
-    http_send (fd, "<select id=\"");
-    http_send (fd, id);
-    http_send (fd, "\" name=\"");
-    http_send (fd, id);
-    http_send (fd, "\">\r\n");
+    http_send ("<td>");
+    http_send ("<select id=\"");
+    http_send (id);
+    http_send ("\" name=\"");
+    http_send (id);
+    http_send ("\">\r\n");
 
     for (i = 0; i < max_values; i++)
     {
         sprintf (buf, "%d", i);
-        http_send (fd, "<option value=\"");
-        http_send (fd, buf);
-        http_send (fd, "\"");
+        http_send ("<option value=\"");
+        http_send (buf);
+        http_send ("\"");
 
         if (i == selected_value)
         {
-            http_send (fd, " selected");
+            http_send (" selected");
         }
 
-        http_send (fd, ">");
-        http_send (fd, (char *) col2[i]);
-        http_send (fd, "</option>\r\n");
+        http_send (">");
+        http_send ((char *) col2[i]);
+        http_send ("</option>\r\n");
     }
 
-    http_send (fd, "</select>\r\n");
+    http_send ("</select>\r\n");
 
-    http_send (fd, "</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (fd, id);
-    http_send (fd, "\">Save</button>\r\n");
+    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
+    http_send (id);
+    http_send ("\">Save</button>\r\n");
 
-    http_send (fd, "</td>\r\n");
-    http_send (fd, "</form>\r\n");
-    end_table_row (fd);
+    http_send ("</td>\r\n");
+    http_send ("</form>\r\n");
+    end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -486,37 +469,37 @@ table_row_select (int fd, char * page, char * col1, char * id, const char ** col
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_slider (int fd, char * page, char * col1, char * id, char * col2, char * min, char * max)
+table_row_slider (char * page, char * col1, char * id, char * col2, char * min, char * max)
 {
-    begin_table_row (fd);
-    http_send (fd, "<form method=\"POST\" action=\"/");
-    http_send (fd, page);
-    http_send (fd, "\">\r\n");
+    begin_table_row ();
+    http_send ("<form method=\"GET\" action=\"/");
+    http_send (page);
+    http_send ("\">\r\n");
 
-    http_send (fd, "<td>");
-    http_send (fd, col1);
-    http_send (fd, "</td>\r\n");
+    http_send ("<td>");
+    http_send (col1);
+    http_send ("</td>\r\n");
 
-    http_send (fd, "<td>");
-    http_send (fd, "<input type=\"range\" id=\"");
-    http_send (fd, id);
-    http_send (fd, "\" name=\"");
-    http_send (fd, id);
-    http_send (fd, "\" value=\"");
-    http_send (fd, col2);
-    http_send (fd, "\" min=\"");
-    http_send (fd, min);
-    http_send (fd, "\" max=\"");
-    http_send (fd, max);
-    http_send (fd, "\">");
+    http_send ("<td>");
+    http_send ("<input type=\"range\" id=\"");
+    http_send (id);
+    http_send ("\" name=\"");
+    http_send (id);
+    http_send ("\" value=\"");
+    http_send (col2);
+    http_send ("\" min=\"");
+    http_send (min);
+    http_send ("\" max=\"");
+    http_send (max);
+    http_send ("\">");
 
-    http_send (fd, "</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (fd, id);
-    http_send (fd, "\">Save</button>\r\n");
+    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
+    http_send (id);
+    http_send ("\">Save</button>\r\n");
 
-    http_send (fd, "</td>\r\n");
-    http_send (fd, "</form>\r\n");
-    end_table_row (fd);
+    http_send ("</td>\r\n");
+    http_send ("</form>\r\n");
+    end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -524,44 +507,44 @@ table_row_slider (int fd, char * page, char * col1, char * id, char * col2, char
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_sliders (int fd, char * page, char * col1, char * id, int n, char ** ids, char ** desc2, char ** col2, char ** min, char ** max)
+table_row_sliders (char * page, char * col1, char * id, int n, char ** ids, char ** desc2, char ** col2, char ** min, char ** max)
 {
     int i;
 
-    begin_table_row (fd);
-    http_send (fd, "<form method=\"POST\" action=\"/");
-    http_send (fd, page);
-    http_send (fd, "\">\r\n");
+    begin_table_row ();
+    http_send ("<form method=\"GET\" action=\"/");
+    http_send (page);
+    http_send ("\">\r\n");
 
-    http_send (fd, "<td>");
-    http_send (fd, col1);
-    http_send (fd, "</td>\r\n");
-    http_send (fd, "<td>");
+    http_send ("<td>");
+    http_send (col1);
+    http_send ("</td>\r\n");
+    http_send ("<td>\r\n");
 
     for (i = 0; i < n; i++)
     {
-        http_send (fd, desc2[i]);
-        http_send (fd, "&nbsp;<input type=\"range\" id=\"");
-        http_send (fd, ids[i]);
-        http_send (fd, "\" name=\"");
-        http_send (fd, ids[i]);
-        http_send (fd, "\" value=\"");
-        http_send (fd, col2[i]);
-        http_send (fd, "\" min=\"");
-        http_send (fd, min[i]);
-        http_send (fd, "\" max=\"");
-        http_send (fd, max[i]);
-        http_send (fd, "\" style=\"width:64px;\">");
-        http_send (fd, "&nbsp;&nbsp;&nbsp;");
+        http_send (desc2[i]);
+        http_send ("&nbsp;<input type=\"range\" id=\"");
+        http_send (ids[i]);
+        http_send ("\" name=\"");
+        http_send (ids[i]);
+        http_send ("\" value=\"");
+        http_send (col2[i]);
+        http_send ("\" min=\"");
+        http_send (min[i]);
+        http_send ("\" max=\"");
+        http_send (max[i]);
+        http_send ("\" style=\"width:64px;\">");
+        http_send ("&nbsp;&nbsp;&nbsp;\r\n");
     }
 
-    http_send (fd, "</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (fd, id);
-    http_send (fd, "\">Save</button>\r\n");
+    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
+    http_send (id);
+    http_send ("\">Save</button>\r\n");
 
-    http_send (fd, "</td>\r\n");
-    http_send (fd, "</form>\r\n");
-    end_table_row (fd);
+    http_send ("</td>\r\n");
+    http_send ("</form>\r\n");
+    end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -569,9 +552,9 @@ table_row_sliders (int fd, char * page, char * col1, char * id, int n, char ** i
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_trailer (int fd)
+table_trailer (void)
 {
-    http_send (fd, "</table>\r\n");
+    http_send ("</table>\r\n");
 }
 
 #define MAX_AP_LEN                  32
@@ -601,15 +584,15 @@ static int animation_mode = 1;
 
 static const char * tbl_mode_names[MODES_COUNT];
 
-static int display_mode = 10;
+static int display_mode;
 
 static void
-http_menu (int fd)
+http_menu (void)
 {
-    http_send (fd, "<a href=\"/\">Main</a>&nbsp;&nbsp;\r\n");
-    http_send (fd, "<a href=\"/network\">Network</a>&nbsp;&nbsp;\r\n");
-    http_send (fd, "<a href=\"/display\">Display</a>&nbsp;&nbsp;\r\n");
-    http_send (fd, "<P>\r\n");
+    http_send ("<a href=\"/\">Main</a>&nbsp;&nbsp;\r\n");
+    http_send ("<a href=\"/network\">Network</a>&nbsp;&nbsp;\r\n");
+    http_send ("<a href=\"/display\">Display</a>&nbsp;&nbsp;\r\n");
+    http_send ("<P>\r\n");
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -617,7 +600,7 @@ http_menu (int fd)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static uint_fast8_t
-http_main (int fd, LISTENER_DATA * ld)
+http_main (LISTENER_DATA * ld)
 {
     char *          action;
     char *          message         = (char *) 0;
@@ -688,40 +671,41 @@ http_main (int fd, LISTENER_DATA * ld)
         }
     }
 
-    http_header (fd, "WordClock");
+    http_header ("WordClock");
 
-    http_menu (fd);
+    http_menu ();
 
-    table_header (fd, "Device", "Value", "");
-    table_row (fd, "RTC temperature", rtc_temp);
-    table_row (fd, "DS18xx", ds18xx_temp);
-    table_row (fd, "EEPROM", eeprom_is_up ? "online" : "offline");
-    table_trailer (fd);
+    table_header ("Device", "Value", "");
+    table_row ("RTC temperature", rtc_temp);
+    table_row ("DS18xx", ds18xx_temp);
+    table_row ("EEPROM", eeprom_is_up ? "online" : "offline");
+    table_trailer ();
 
-    http_send (fd, "<form method=\"POST\" action=\"/\">\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"poweron\">Power On</button>\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"poweroff\">Power Off</button>\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"eepromdump\">EEPROM dump</button>\r\n");
-    http_send (fd, "</form>\r\n");
+    http_send ("<form method=\"GET\" action=\"/\">\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"poweron\">Power On</button>\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"poweroff\">Power Off</button>\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"eepromdump\">EEPROM dump</button>\r\n");
+    http_send ("</form>\r\n");
 
-    http_send (fd, "<form method=\"POST\" action=\"/\">\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"displaytemperature\">Display temperature</button>\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"learnir\">Learn IR remote control</button>\r\n");
-    http_send (fd, "</form>\r\n");
+    http_send ("<form method=\"GET\" action=\"/\">\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"displaytemperature\">Display temperature</button>\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"learnir\">Learn IR remote control</button>\r\n");
+    http_send ("</form>\r\n");
 
     if (message)
     {
-        http_send (fd, "<P>\r\n<font color=green>");
-        http_send (fd, message);
-        http_send (fd, "</font>\r\n");
+        http_send ("<P>\r\n<font color=green>");
+        http_send (message);
+        http_send ("</font>\r\n");
     }
 
     if (! strcmp (action, "eepromdump"))
     {
-        http_eeprom_dump (fd);
+        http_eeprom_dump ();
     }
 
-    http_trailer (fd);
+    http_trailer ();
+    http_flush ();
 
     return rtc;
 }
@@ -731,11 +715,11 @@ http_main (int fd, LISTENER_DATA * ld)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static uint_fast8_t
-http_network (int fd)
+http_network (void)
 {
     char *                      action;
     char *                      message         = (char *) 0;
-    ESP8266_CONNECTION_INFO *   infop;
+    ESP8266_INFO *   infop;
     char *                      esp_firmware_version;
     char *                      ids[2]          = { "ap", "pw" };
     char *                      desc[2]         = { "AP", "Key" };
@@ -745,8 +729,8 @@ http_network (int fd)
     char                        timezone_str[MAX_TIMEZONE_LEN+1];
     uint_fast8_t                rtc             = 0;
 
-    infop                   = esp8266_get_connection_info ();
-    esp_firmware_version    = esp8266_get_firmware_version ();
+    infop                   = esp8266_get_info ();
+    esp_firmware_version    = infop->firmware;
 
     col2[0] = infop->accesspoint;
     col2[1] = "";
@@ -757,27 +741,21 @@ http_network (int fd)
     {
         if (! strcmp (action, "saveaccesspoint"))
         {
+            extern uint_fast8_t esp8266_is_online;                          // see main.c
+
             char * ssid = http_get_param ("ap");
             char * key  = http_get_param ("pw");
-            http_header (fd, "WordClock Network");
-            http_send (fd, "<B>Connecting to Access Point, try again later.</B>");
-            http_trailer (fd);
+            http_header ("WordClock Network");
+            http_send ("<B>Connecting to Access Point, try again later.</B>");
+            http_trailer ();
+            http_flush ();
+            delay_msec (100);
 
-            esp8266_disconnect_from_access_point ();
+            esp8266_is_online = 0;
+            infop->is_online = 0;
+            infop->ipaddress[0] = '\0';
 
-            if (esp8266_connect_to_access_point (ssid, key))
-            {
-                char ipbuf[32];
-
-                if (esp8266_check_online_status (0))
-                {
-                    if (infop->ipaddress && *(infop->ipaddress))
-                    {
-                        sprintf (ipbuf, "  IP %s", infop->ipaddress);
-                        display_banner (ipbuf);
-                    }
-                }
-            }
+            esp8266_connect_to_access_point (ssid, key);
             return 0;
         }
         else if (! strcmp (action, "savetimeserver"))
@@ -815,29 +793,30 @@ http_network (int fd)
 
     sprintf (timezone_str, "%d", timeserver_get_timezone());
 
-    http_header (fd, "WordClock Network");
-    http_menu (fd);
+    http_header ("WordClock Network");
+    http_menu ();
 
-    table_header (fd, "Device", "Value", "Action");
-    table_row (fd, "IP address", infop->ipaddress);
-    table_row (fd, "ESP8266 firmware", esp_firmware_version);
-    table_row_inputs (fd, "network", "Access Point", "accesspoint", 2, ids, desc, col2, maxlen, maxsize);
-    table_row_input (fd, "network", "Time server", "timeserver", (char *) timeserver_get_timeserver (), MAX_IP_LEN);
-    table_row_input (fd, "network", "Time zone (GMT +)", "timezone", timezone_str, MAX_TIMEZONE_LEN);
-    table_trailer (fd);
+    table_header ("Device", "Value", "Action");
+    table_row ("IP address", infop->ipaddress);
+    table_row ("ESP8266 firmware", esp_firmware_version);
+    table_row_inputs ("network", "Access Point", "accesspoint", 2, ids, desc, col2, maxlen, maxsize);
+    table_row_input ("network", "Time server", "timeserver", (char *) timeserver_get_timeserver (), MAX_IP_LEN);
+    table_row_input ("network", "Time zone (GMT +)", "timezone", timezone_str, MAX_TIMEZONE_LEN);
+    table_trailer ();
 
-    http_send (fd, "<form method=\"POST\" action=\"/network\">\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"nettime\">Get net time</button>\r\n");
-    http_send (fd, "</form>\r\n");
+    http_send ("<form method=\"GET\" action=\"/network\">\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"nettime\">Get net time</button>\r\n");
+    http_send ("</form>\r\n");
 
     if (message)
     {
-        http_send (fd, "<P>\r\n<font color=green>");
-        http_send (fd, message);
-        http_send (fd, "</font>\r\n");
+        http_send ("<P>\r\n<font color=green>");
+        http_send (message);
+        http_send ("</font>\r\n");
     }
 
-    http_trailer (fd);
+    http_trailer ();
+    http_flush ();
 
     return rtc;
 }
@@ -847,7 +826,7 @@ http_network (int fd)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static uint_fast8_t
-http_display (int fd, LISTENER_DATA * ld)
+http_display (LISTENER_DATA * ld)
 {
     char *          action;
     char *          message         = (char *) 0;
@@ -869,31 +848,12 @@ http_display (int fd, LISTENER_DATA * ld)
     uint_fast8_t    i;
     uint_fast8_t    rtc             = 0;
 
-    use_ldr = ldr_get_ldr_status ();
-
-    *ldr_buf = '\0';
-
-    if (use_ldr)
-    {
-        ldr_start_conversion ();
-
-        while (! ldr_poll_brightness (&ldr_value))
-        {
-            delay_msec (10);
-        }
-        sprintf (ldr_buf, "%d", ldr_value);
-    }
-
-    animation_mode = display_get_animation_mode ();
-    brightness = display_get_brightness ();
-    sprintf (brbuf, "%d", brightness);
-
-    auto_brightness_active = display_get_automatic_brightness_control ();
-
+    use_ldr                 = ldr_get_ldr_status ();
+    display_mode            = display_get_display_mode ();
+    animation_mode          = display_get_animation_mode ();
+    brightness              = display_get_brightness ();
+    auto_brightness_active  = display_get_automatic_brightness_control ();
     display_get_colors (&rgb);
-    sprintf (red_buf, "%d", rgb.red);
-    sprintf (green_buf, "%d", rgb.green);
-    sprintf (blue_buf, "%d", rgb.blue);
 
     for (i = 0; i < MODES_COUNT; i++)
     {
@@ -941,20 +901,15 @@ http_display (int fd, LISTENER_DATA * ld)
         }
         else if (! strcmp (action, "savebrightness"))
         {
-            strncpy (brbuf, http_get_param ("brightness"), MAX_BRIGHTNESS_LEN);
-            ld->brightness = atoi (brbuf);
+            brightness = atoi (http_get_param ("brightness"));
+            ld->brightness = brightness;
             rtc = LISTENER_SET_BRIGHTNESS_CODE;
         }
         else if (! strcmp (action, "savecolors"))
         {
-            strncpy (red_buf, http_get_param ("red"), MAX_COLOR_VALUE_LEN);
-            strncpy (green_buf, http_get_param ("green"), MAX_COLOR_VALUE_LEN);
-            strncpy (blue_buf, http_get_param ("blue"), MAX_COLOR_VALUE_LEN);
-
-            rgb.red = atoi (red_buf);
-            rgb.green = atoi (green_buf);
-            rgb.blue = atoi (blue_buf);
-
+            rgb.red     = atoi (http_get_param ("red"));
+            rgb.green   = atoi (http_get_param ("green"));
+            rgb.blue    = atoi (http_get_param ("blue"));
             ld->rgb = rgb;
             rtc = LISTENER_SET_COLOR_CODE;
         }
@@ -966,7 +921,8 @@ http_display (int fd, LISTENER_DATA * ld)
         }
         else if (! strcmp (action, "savedisplaymode"))
         {
-            ld->mode = atoi (http_get_param ("displaymode"));
+            display_mode = atoi (http_get_param ("displaymode"));
+            ld->mode = display_mode;
             rtc = LISTENER_DISPLAY_MODE_CODE;
         }
         else if (! strcmp (action, "testdisplay"))
@@ -993,44 +949,68 @@ http_display (int fd, LISTENER_DATA * ld)
         }
     }
 
+    *ldr_buf = '\0';
+
+    if (use_ldr)
+    {
+        ldr_start_conversion ();
+
+        while (! ldr_poll_brightness (&ldr_value))
+        {
+            delay_msec (10);
+        }
+        sprintf (ldr_buf, "%d", ldr_value);
+    }
+
+    sprintf (brbuf,     "%d", brightness);
+
+    sprintf (red_buf,   "%d", rgb.red);
+    sprintf (green_buf, "%d", rgb.green);
+    sprintf (blue_buf,  "%d", rgb.blue);
+
     rgb_buf[0] = red_buf;
     rgb_buf[1] = green_buf;
     rgb_buf[2] = blue_buf;
 
-    http_header (fd, "WordClock Display");
-    http_menu (fd);
+    http_header ("WordClock Display");
+    http_menu ();
 
-    table_header (fd, "Device", "Value", "Action");
+    table_header ("Device", "Value", "Action");
 
-    table_row_checkbox (fd, "display", "LDR", "ldrconnected", "LDR connected", use_ldr);
+    table_row_select ("display", "Animation", "animation", animation_modes, animation_mode, ANIMATION_MODES);
+    table_row_select ("display", "Display Mode", "displaymode", tbl_mode_names, display_mode, MODES_COUNT);
+    table_row_checkbox ("display", "LDR", "ldrconnected", "LDR connected", use_ldr);
 
     if (use_ldr)
     {
-        table_row (fd, "LDR", ldr_buf);
-        table_row_checkbox (fd, "display", "LDR", "auto", "Automatic brightness", auto_brightness_active);
+        table_row ("LDR", ldr_buf);
+        table_row_checkbox ("display", "LDR", "auto", "Automatic brightness", auto_brightness_active);
     }
 
-    table_row_slider (fd, "display", "Brightness (1-15)", "brightness", brbuf, "0", "15");
-    table_row_sliders (fd, "display", "Colors", "colors", 3, ids, desc, rgb_buf, minval, maxval);
-    table_row_select (fd, "display", "Animation", "animation", animation_modes, animation_mode, ANIMATION_MODES);
-    table_row_select (fd, "display", "Display Mode", "displaymode", tbl_mode_names, display_mode, MODES_COUNT);
-    table_trailer (fd);
+    if (! use_ldr || ! auto_brightness_active)
+    {
+        table_row_slider ("display", "Brightness (1-15)", "brightness", brbuf, "0", "15");
+    }
 
-    http_send (fd, "<form method=\"POST\" action=\"/display\">\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"poweron\">Power On</button>\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"poweroff\">Power Off</button>\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"testdisplay\">Test display</button>\r\n");
-    http_send (fd, "<button type=\"submit\" name=\"action\" value=\"saveall\">Save all</button>\r\n");
-    http_send (fd, "</form>\r\n");
+    table_row_sliders ("display", "Colors", "colors", 3, ids, desc, rgb_buf, minval, maxval);
+    table_trailer ();
+
+    http_send ("<form method=\"GET\" action=\"/display\">\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"poweron\">Power On</button>\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"poweroff\">Power Off</button>\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"testdisplay\">Test display</button>\r\n");
+    http_send ("<button type=\"submit\" name=\"action\" value=\"saveall\">Save all</button>\r\n");
+    http_send ("</form>\r\n");
 
     if (message)
     {
-        http_send (fd, "<P>\r\n<font color=green>");
-        http_send (fd, message);
-        http_send (fd, "</font>\r\n");
+        http_send ("<P>\r\n<font color=green>");
+        http_send (message);
+        http_send ("</font>\r\n");
     }
 
-    http_trailer (fd);
+    http_trailer ();
+    http_flush ();
 
     return rtc;
 }
@@ -1039,7 +1019,7 @@ http_display (int fd, LISTENER_DATA * ld)
  * hex to integer
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-static uint16_t
+uint16_t
 htoi (char * buf, uint8_t max_digits)
 {
     uint8_t     i;
@@ -1078,136 +1058,16 @@ htoi (char * buf, uint8_t max_digits)
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
-http_server (int fd, unsigned char * buf, int buflen, LISTENER_DATA * ld)
+http_server (char * path, char * param, LISTENER_DATA * ld)
 {
-    char        line_buf[MAX_LINE_LEN];
-    char        path[MAX_PATH_LEN];
     char *      p;
     char *      s;
     char *      t;
-    int         idx = 0;
-    int         at_first_line = 1;
-    int         content_length = 0;
-    int         at_eol = 0;
-    int         method = NO_METHOD;
-    int         ch;
-    int         i;
     int         rtc = 0;
 
-    line_buf[0] = '\0';
-    path[0]     = '\0';
+    log_printf ("http path: '%s'\r\n", path);
 
-    while (buflen > 0 && *buf)
-    {
-        if (method != GET_METHOD && *buf != '\r' && *buf != '\n' && idx < MAX_LINE_LEN - 1)
-        {
-            line_buf[idx++] = buf[0];
-        }
-
-        ch = *buf++;
-        buflen--;
-
-        if (ch == '\r')
-        {
-            ;
-        }
-        else if (ch == '\n')
-        {
-            if (method != GET_METHOD)
-            {
-                line_buf[idx] = '\0';
-            }
-
-            idx = 0;
-
-            if (at_first_line)
-            {
-                if (! strncmp (line_buf, "POST /", 6))
-                {
-                    method = POST_METHOD;
-
-                    s = line_buf + 5;                                                   // 5: copy with slash
-                    t = path;
-
-                    for (i = 0; *s && *s != ' ' && i < MAX_PATH_LEN - 1; idx++)
-                    {
-                        *t++ = *s++;
-                    }
-                    *t = '\0';
-                }
-                else if (! strncmp (line_buf, "GET /", 5))
-                {
-                    method = GET_METHOD;
-
-                    s = line_buf + 4;                                                   // 4: copy with slash
-                    t = path;
-
-                    for (i = 0; *s && *s != ' ' && *s != '&' && i < MAX_PATH_LEN - 1; idx++)
-                    {
-                        *t++ = *s++;
-                    }
-                    *t = '\0';
-
-                    if (*s == '?')
-                    {
-                        char * t = line_buf;
-                        s++;
-
-                        while (*s && *s != ' ')
-                        {
-                            *t++ = *s++;
-                        }
-                        *t = '\0';
-
-                    }
-                    else if (*s == ' ')
-                    {
-                        line_buf[0] = '\0';
-                    }
-                }
-                else
-                {
-                    method = NO_METHOD;
-                }
-            }
-            else
-            {
-                if (! strnicmp (line_buf, "Content-Length: ", 16))
-                {
-                    content_length = atoi (line_buf + 16);
-                }
-            }
-
-            at_first_line = 0;
-
-            if (at_eol)
-            {
-                break;
-            }
-            at_eol = 1;
-        }
-        else
-        {
-            at_eol = 0;
-        }
-    }
-
-    log_printf ("http: Path: '%s'\r\n", path);
-
-    if (method == POST_METHOD)
-    {
-        log_printf ("http: content-length: '%d'\r\n", content_length);
-
-        for (i = 0; i < content_length && i < MAX_LINE_LEN - 1 && buflen > 0 && *buf; i++)
-        {
-            line_buf[i] = *buf++;
-            buflen--;
-        }
-
-        line_buf[i] = '\0';
-    }
-
-    for (p = line_buf; *p; p++)
+    for (p = param; *p; p++)
     {
         if (*p == '%')
         {
@@ -1224,46 +1084,37 @@ http_server (int fd, unsigned char * buf, int buflen, LISTENER_DATA * ld)
         }
     }
 
-    log_printf ("Data: '%s'\r\n", line_buf);
+    log_printf ("http parameters: '%s'\r\n", param);
 
-    if (method != NO_METHOD)
+    if (param)
     {
-        http_set_params (line_buf);
-
-        if (! strcmp (path, "/"))
-        {
-            rtc = http_main (fd, ld);
-        }
-        else if (! strcmp (path, "/network"))
-        {
-            rtc = http_network (fd);
-        }
-        else if (! strcmp (path, "/display"))
-        {
-            rtc = http_display (fd, ld);
-        }
-        else
-        {
-            char * p = "HTTP/1.0 404 Not Found";
-            log_msg (p);
-            http_send (fd, p);
-            http_send (fd, "\r\n\r\n");
-            http_send (fd, "404 Not Found\r\n");
-        }
+        http_set_params (param);
     }
     else
     {
-            char * p = "HTTP/1.0 404 Not Found";
-            log_msg (p);
-            http_send (fd, p);
-            http_send (fd, "\r\n\r\n");
-            http_send (fd, "404 Not Found\r\n");
+        http_set_params ("");
     }
 
-    http_flush (fd);
-
-    sprintf (line_buf, "AT+CIPCLOSE=%d", fd);
-    esp8266_send_cmd (line_buf);
+    if (! strcmp (path, "/"))
+    {
+        rtc = http_main (ld);
+    }
+    else if (! strcmp (path, "/network"))
+    {
+        rtc = http_network ();
+    }
+    else if (! strcmp (path, "/display"))
+    {
+        rtc = http_display (ld);
+    }
+    else
+    {
+        char * p = "HTTP/1.0 404 Not Found";
+        http_send (p);
+        http_send ("\r\n\r\n");
+        http_send ("404 Not Found\r\n");
+        http_flush ();
+    }
 
     return rtc;
 }

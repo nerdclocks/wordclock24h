@@ -49,6 +49,7 @@
  *    | Logger (Nucleo: USB)    | USART2:    TX=PA2  RX=PA3     | USART1:    TX=PA9  RX=PA10    |
  *    | ESP8266 USART           | USART6:    TX=PA11 RX=PA12    | USART2:    TX=PA2  RX=PA3     |
  *    | ESP8266 GPIO            | GPIO:      RST=PA7 CH_PD=PA6  | GPIO:      RST=PA0 CH_PD=PA1  |
+ *    | ESP8266 GPIO (FLASH)    | GPIO:      FLASH=PA4          | GPIO:      FLASH=PA4          |
  *    | I2C DS3231 & EEPROM     | I2C3:      SCL=PA8 SDA=PC9    | I2C1:      SCL=PB6 SDA=PB7    |
  *    | LDR                     | ADC:       ACD1_IN14=PC4      | ADC:       ADC12_IN5=PA5      |
  *    | WS2812                  | TIM3/DMA1: PC6                | TIM1/DMA1: PA8                |
@@ -203,11 +204,11 @@ TIM2_IRQHandler (void)
 
     TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
 
-    if (short_isr)                                              // run this handler in short version
+    if (short_isr)                                                          // run this handler in short version
     {
         clk_cnt++;
 
-        if (clk_cnt == F_INTERRUPTS)                            // increment internal clock every second
+        if (clk_cnt == F_INTERRUPTS)                                        // increment internal clock every second
         {
             clk_cnt = 0;
 
@@ -236,16 +237,16 @@ TIM2_IRQHandler (void)
         }
     }
     else
-    {                                                               // no short version, run all
+    {                                                                       // no short version, run all
 #if SAVE_RAM == 0
-        (void) irmp_ISR ();                                         // call irmp ISR
+        (void) irmp_ISR ();                                                 // call irmp ISR
 #endif
 
         if (uptime > 1)
         {
             ldr_cnt++;
 
-            if (ldr_cnt == F_INTERRUPTS / 4)                      // start LDR conversion every 1/4 seconds
+            if (ldr_cnt == F_INTERRUPTS / 4)                                // start LDR conversion every 1/4 seconds
             {
                 ldr_conversion_flag = 1;
                 ldr_cnt = 0;
@@ -254,7 +255,7 @@ TIM2_IRQHandler (void)
 
         animation_cnt++;
 
-        if (animation_cnt == F_INTERRUPTS / 40)                     // set animation_flag every 1/40 of a second
+        if (animation_cnt == F_INTERRUPTS / 40)                             // set animation_flag every 1/40 of a second
         {
             animation_flag = 1;
             animation_cnt = 0;
@@ -262,7 +263,7 @@ TIM2_IRQHandler (void)
 
         net_time_cnt++;
 
-        if (net_time_cnt == F_INTERRUPTS / 100)                     // set esp8266_ten_ms_tick every 1/100 of a second
+        if (net_time_cnt == F_INTERRUPTS / 100)                             // set esp8266_ten_ms_tick every 1/100 of a second
         {
             esp8266_ten_ms_tick = 1;
             net_time_cnt = 0;
@@ -270,7 +271,7 @@ TIM2_IRQHandler (void)
 
         eeprom_cnt++;
 
-        if (eeprom_cnt == F_INTERRUPTS / 1000)                      // set eeprom_ms_tick every 1/1000 of a second
+        if (eeprom_cnt == F_INTERRUPTS / 1000)                              // set eeprom_ms_tick every 1/1000 of a second
         {
             eeprom_ms_tick = 1;
             eeprom_cnt = 0;
@@ -278,7 +279,7 @@ TIM2_IRQHandler (void)
 
         clk_cnt++;
 
-        if (clk_cnt == F_INTERRUPTS)                                // increment internal clock every second
+        if (clk_cnt == F_INTERRUPTS)                                        // increment internal clock every second
         {
             clk_cnt = 0;
 
@@ -288,7 +289,7 @@ TIM2_IRQHandler (void)
 
             ds3231_cnt++;
 
-            if (ds3231_cnt >= 70)                                   // get rtc time every 70 seconds
+            if (ds3231_cnt >= 70)                                           // get rtc time every 70 seconds
             {
                 ds3231_flag = 1;
                 ds3231_cnt = 0;
@@ -317,7 +318,7 @@ TIM2_IRQHandler (void)
             {
                 net_time_countdown--;
 
-                if (net_time_countdown == 0)                         // net time update every 3800 minutes
+                if (net_time_countdown == 0)                                // net time update every 3800 minutes
                 {
                     net_time_flag = 1;
                 }
@@ -361,6 +362,8 @@ write_version_to_eeprom (void)
     return rtc;
 }
 
+uint_fast8_t            esp8266_is_online = 0;
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * main function
  *-------------------------------------------------------------------------------------------------------------------------------------------
@@ -371,6 +374,10 @@ main ()
     static uint_fast8_t     last_ldr_value = 0xFF;
     struct tm               tm;
     LISTENER_DATA           lis;
+    ESP8266_INFO *          esp8266_infop;
+    uint_fast8_t            esp8266_is_up = 0;
+    uint_fast8_t            code;
+
 #if SAVE_RAM == 0
     IRMP_DATA               irmp_data;
     uint32_t                stop_time;
@@ -386,19 +393,25 @@ main ()
     uint_fast8_t            ap_mode = 0;
 
     SystemInit ();
-    SystemCoreClockUpdate();                                    // needed for Nucleo board
+    SystemCoreClockUpdate();                                                // needed for Nucleo board
 
-    log_init ();                                                // initilize logger on uart
+    log_init ();                                                            // initilize logger on uart
 
 #if SAVE_RAM == 0
-    irmp_init ();                                               // initialize IRMP
+    irmp_init ();                                                           // initialize IRMP
 #endif
-    timer2_init ();                                             // initialize timer2 for IRMP, EEPROM
-    delay_init (DELAY_RESOLUTION_1_US);                         // initialize delay functions with granularity of 1 us
-    board_led_init ();                                          // initialize GPIO for green LED on disco or nucleo board
-    button_init ();                                             // initialize GPIO for user button on disco or nucleo board
-    rtc_init ();                                                // initialize I2C RTC
-    eeprom_init ();                                             // initialize I2C EEPROM
+    timer2_init ();                                                         // initialize timer2 for IRMP, EEPROM
+    delay_init (DELAY_RESOLUTION_1_US);                                     // initialize delay functions with granularity of 1 us
+    board_led_init ();                                                      // initialize GPIO for green LED on disco or nucleo board
+    button_init ();                                                         // initialize GPIO for user button on disco or nucleo board
+    rtc_init ();                                                            // initialize I2C RTC
+    eeprom_init ();                                                         // initialize I2C EEPROM
+
+    if (button_pressed ())                                                  // set ESP8266 into flash mode
+    {
+        board_led_on ();
+        esp8266_flash ();
+    }
 
     log_msg ("\r\nWelcome to WordClock Logger!");
     log_msg ("----------------------------");
@@ -410,12 +423,6 @@ main ()
     else
     {
         log_msg ("rtc is offline");
-    }
-
-    if (button_pressed ())                                      // if user pressed user button, set ESP8266 to AP mode
-    {
-        log_msg ("User button pressed. Setting ESP8266 to AP in a few seconds.");
-        ap_mode = 1;
     }
 
     if (eeprom_is_up)
@@ -437,11 +444,11 @@ main ()
         log_msg ("eeprom is offline");
     }
 
-    ldr_init ();                                                // initialize LDR (ADC)
-    display_init ();                                            // initialize display
+    ldr_init ();                                                            // initialize LDR (ADC)
+    display_init ();                                                        // initialize display
 
     short_isr = 1;
-    temp_init ();                                               // initialize DS18xx
+    temp_init ();                                                           // initialize DS18xx
     short_isr = 0;
 
     display_reset_led_states ();
@@ -468,31 +475,45 @@ main ()
     ds3231_flag = 1;
 
 #if SAVE_RAM == 0
-    stop_time = uptime + 3;                                     // wait 3 seconds for IR signal...
-    display_set_status_led (1, 1, 1);                           // show white status LED
+    stop_time = uptime + 3;                                                 // wait 3 seconds for IR signal...
+    display_set_status_led (1, 1, 1);                                       // show white status LED
 
     while (uptime < stop_time)
     {
-        if (irmp_get_data (&irmp_data))                         // got IR signal?
+        if (irmp_get_data (&irmp_data))                                     // got IR signal?
         {
-            display_set_status_led (1, 0, 0);                   // yes, show red status LED
-            delay_sec (1);                                      // and wait 1 second
-            (void) irmp_get_data (&irmp_data);                  // flush input of IRMP now
-            display_set_status_led (0, 0, 0);                   // and switch status LED off
+            display_set_status_led (1, 0, 0);                               // yes, show red status LED
+            delay_sec (1);                                                  // and wait 1 second
+            (void) irmp_get_data (&irmp_data);                              // flush input of IRMP now
+            display_set_status_led (0, 0, 0);                               // and switch status LED off
 
-            if (remote_ir_learn ())                             // learn IR commands
+            if (remote_ir_learn ())                                         // learn IR commands
             {
-                remote_ir_write_codes_to_eeprom ();             // if successful, save them in EEPROM
+                remote_ir_write_codes_to_eeprom ();                         // if successful, save them in EEPROM
             }
-            break;                                              // and break the loop
+            break;                                                          // and break the loop
         }
     }
 #endif
 
-    display_set_status_led (0, 0, 0);                           // switch off status LED
+    display_set_status_led (0, 0, 0);                                       // switch off status LED
+
+    esp8266_init ();
+    esp8266_infop = esp8266_get_info ();
 
     while (1)
     {
+        if (! ap_mode && esp8266_is_up && button_pressed ())                // if user pressed user button, set ESP8266 to AP mode
+        {
+            ap_mode = 1;
+            log_msg ("User button pressed: configuring ESP8266 as access point");
+            esp8266_is_online = 0;
+            esp8266_infop->is_online = 0;
+            esp8266_infop->ipaddress[0] = '\0';
+            esp8266_accesspoint ("wordclock", "1234567890");
+        }
+
+
         if (status_led_cnt)
         {
             status_led_cnt--;
@@ -500,6 +521,158 @@ main ()
             if (! status_led_cnt)
             {
                 display_set_status_led (0, 0, 0);
+            }
+        }
+
+        if ((code = listener (&lis)) != 0)
+        {
+            display_set_status_led (1, 0, 0);                               // got net command, light red status LED
+            status_led_cnt = STATUS_LED_FLASH_TIME;
+
+            switch (code)
+            {
+                case LISTENER_SET_COLOR_CODE:                               // set color
+                {
+                    display_set_colors (&(lis.rgb));
+                    log_printf ("command: set colors to %d %d %d\r\n", lis.rgb.red, lis.rgb.green, lis.rgb.blue);
+                    break;
+                }
+
+                case LISTENER_POWER_CODE:                                   // power on/off
+                {
+                    if (power_is_on != lis.power)
+                    {
+                        power_is_on = lis.power;
+                        display_flag = DISPLAY_FLAG_UPDATE_ALL;
+                        log_msg ("command: set power");
+                    }
+                    break;
+                }
+
+                case LISTENER_DISPLAY_MODE_CODE:                            // set display mode
+                {
+                    if (display_mode != lis.mode)
+                    {
+                        display_mode = display_set_display_mode (lis.mode);
+                        display_flag = DISPLAY_FLAG_UPDATE_ALL;
+                        log_printf ("command: set display mode to %d\r\n", display_mode);
+                    }
+                    break;
+                }
+
+                case LISTENER_ANIMATION_MODE_CODE:                          // set animation mode
+                {
+                    if (animation_mode != lis.mode)
+                    {
+                        animation_mode = display_set_animation_mode (lis.mode);
+                        animation_flag = 0;
+                        display_flag = DISPLAY_FLAG_UPDATE_ALL;
+                        log_printf ("command: set animation mode to %d\r\n", animation_flag);
+                    }
+                    break;
+                }
+
+                case LISTENER_DISPLAY_TEMPERATURE_CODE:                     // set animation mode
+                {
+                    show_temperature = 1;
+                    log_msg ("command: show temperature");
+                    break;
+                }
+
+                case LISTENER_SET_BRIGHTNESS_CODE:                          // set brightness
+                {
+                    if (brightness_control_per_ldr)
+                    {
+                        brightness_control_per_ldr = 0;
+                        last_ldr_value = 0xFF;
+                        display_set_automatic_brightness_control (brightness_control_per_ldr);
+                    }
+                    display_set_brightness (lis.brightness);
+                    display_flag = DISPLAY_FLAG_UPDATE_NO_ANIMATION;
+                    log_printf ("command: set brightness to %d, disable autmomatic brightness control per LDR\r\n", lis.brightness);
+                    break;
+                }
+
+                case LISTENER_SET_AUTOMATIC_BRIHGHTNESS_CODE:               // automatic brightness control on/off
+                {
+                    if (lis.automatic_brightness_control)
+                    {
+                        if (ldr_is_up)
+                        {
+                            brightness_control_per_ldr = 1;
+                            log_msg ("command: enable automatic brightness control");
+                        }
+                        else
+                        {
+                            log_msg ("command: enable automatic brightness control, but will fail: LDR is off");
+                        }
+                    }
+                    else
+                    {
+                        brightness_control_per_ldr = 0;
+                        log_msg ("command: disable automatic brightness control");
+                    }
+
+                    last_ldr_value = 0xFF;
+                    display_set_automatic_brightness_control (brightness_control_per_ldr);
+                    break;
+                }
+
+                case LISTENER_TEST_DISPLAY_CODE:                            // test display
+                {
+                    log_msg ("command: start display test");
+                    display_test ();
+                    break;
+                }
+
+                case LISTENER_SET_DATE_TIME_CODE:                           // set date/time
+                {
+                    if (rtc_is_up)
+                    {
+                        rtc_set_date_time (&(lis.tm));
+                    }
+
+                    if (hour != (uint_fast8_t) lis.tm.tm_hour || minute != (uint_fast8_t) lis.tm.tm_min)
+                    {
+                        display_flag = DISPLAY_FLAG_UPDATE_ALL;
+                    }
+
+                    hour   = lis.tm.tm_hour;
+                    minute = lis.tm.tm_min;
+                    second = lis.tm.tm_sec;
+
+                    log_printf ("command: set time to %4d-%02d-%02d %02d:%02d:%02d\r\n",
+                                lis.tm.tm_year + 1900, lis.tm.tm_mon + 1, lis.tm.tm_mday,
+                                lis.tm.tm_hour, lis.tm.tm_min, lis.tm.tm_sec);
+                    break;
+                }
+
+                case LISTENER_GET_NET_TIME_CODE:                            // get net time
+                {
+                    net_time_flag = 1;
+                    log_msg ("command: start net time request");
+                    break;
+                }
+
+                case LISTENER_IR_LEARN_CODE:                                // IR learn
+                {
+#if SAVE_RAM == 0
+                    log_msg ("command: learn IR codes");
+
+                    if (remote_ir_learn ())
+                    {
+                        remote_ir_write_codes_to_eeprom ();
+                    }
+#endif
+                    break;
+                }
+
+                case LISTENER_SAVE_DISPLAY_CONFIGURATION:                   // save display configuration
+                {
+                    display_write_config_to_eeprom ();
+                    log_msg ("command: save display settings");
+                    break;
+                }
             }
         }
 
@@ -514,190 +687,29 @@ main ()
             }
         }
 
-        if (! esp8266_is_up)                                            // esp8266 not up yet?
+        if (!esp8266_is_up)                                                 // esp8266 up yet?
         {
-            static int timeserver_init_already_called = 0;
-
-            if (! timeserver_init_already_called && uptime >= 2)        // 2 seconds gone after boot?
+            if (esp8266_infop->is_up)
             {
-                timeserver_init ();                                     // yes, initialize ESP8266
-                timeserver_init_already_called = 1;
-
-                if (esp8266_is_up)                                      // now up?
-                {
-                    log_msg ("ESP8266 now up");
-
-                    if (ap_mode)
-                    {
-                        log_msg ("Set ESP8266 as AP");
-                        esp8266_accesspoint ("wordclock", "1234567890", 5, ESP8266_WPA2_PSK);
-                    }
-                }
+                esp8266_is_up = 1;
+                log_msg ("ESP8266 now up");
             }
         }
         else
-        {                                                               // esp8266 is up...
-            if (! esp8266_is_online)                                    // but not online yet...
+        {                                                                   // esp8266 is up...
+            if (! esp8266_is_online)                                        // but not online yet...
             {
-                if ((uptime % 60) == 25)                                // check online status every minute at xx:25 after boot
+                if (esp8266_infop->is_online)                               // now online?
                 {
-                    esp8266_check_online_status (ap_mode);
+                    char buf[32];
+                    esp8266_is_online = 1;
 
-                    if (esp8266_is_online)                              // now online?
-                    {
-                        char buf[32];
-                        ESP8266_CONNECTION_INFO * infop;
+                    log_msg ("ESP8266 now online");
+                    sprintf (buf, "  IP %s", esp8266_infop->ipaddress);
+                    display_banner (buf);
+                    display_flag = DISPLAY_FLAG_UPDATE_ALL;
 
-                        infop = esp8266_get_connection_info ();
-
-                        log_msg ("ESP8266 now online");
-
-                        sprintf (buf, "  IP %s", infop->ipaddress);
-                        display_banner (buf);
-                        display_flag = DISPLAY_FLAG_UPDATE_ALL;
-
-                        net_time_flag = 1;
-                    }
-                }
-            }
-            else
-            {
-                uint_fast8_t    code;
-
-                if ((code = listener (&lis)) != 0)
-                {
-                    display_set_status_led (1, 0, 0);                               // got net command, light red status LED
-                    status_led_cnt = STATUS_LED_FLASH_TIME;
-
-                    switch (code)
-                    {
-                        case LISTENER_SET_COLOR_CODE:                               // set color
-                        {
-                            display_set_colors (&(lis.rgb));
-                            log_msg ("colors set");
-                            break;
-                        }
-
-                        case LISTENER_POWER_CODE:                                   // power on/off
-                        {
-                            if (power_is_on != lis.power)
-                            {
-                                power_is_on = lis.power;
-
-                                display_flag = DISPLAY_FLAG_UPDATE_ALL;
-                            }
-                            break;
-                        }
-
-                        case LISTENER_DISPLAY_MODE_CODE:                            // set display mode
-                        {
-                            if (display_mode != lis.mode)
-                            {
-                                display_mode = display_set_display_mode (lis.mode);
-                                log_msg ("display mode set");
-                                display_flag = DISPLAY_FLAG_UPDATE_ALL;
-                            }
-                            break;
-                        }
-
-                        case LISTENER_ANIMATION_MODE_CODE:                          // set animation mode
-                        {
-                            if (animation_mode != lis.mode)
-                            {
-                                animation_mode = display_set_animation_mode (lis.mode);
-                                log_msg ("animation mode set");
-                                animation_flag = 0;
-                                display_flag = DISPLAY_FLAG_UPDATE_ALL;
-                            }
-                            break;
-                        }
-
-                        case LISTENER_DISPLAY_TEMPERATURE_CODE:                     // set animation mode
-                        {
-                            show_temperature = 1;
-                            break;
-                        }
-
-                        case LISTENER_SET_BRIGHTNESS_CODE:                          // set brightness
-                        {
-                            if (brightness_control_per_ldr)
-                            {
-                                brightness_control_per_ldr = 0;
-                                last_ldr_value = 0xFF;
-                                display_set_automatic_brightness_control (brightness_control_per_ldr);
-                                log_msg ("brightness set");
-                            }
-                            display_set_brightness (lis.brightness);
-                            display_flag = DISPLAY_FLAG_UPDATE_NO_ANIMATION;
-                            break;
-                        }
-
-                        case LISTENER_SET_AUTOMATIC_BRIHGHTNESS_CODE:               // automatic brightness control on/off
-                        {
-                            if (lis.automatic_brightness_control)
-                            {
-                                if (ldr_is_up)
-                                {
-                                    brightness_control_per_ldr = 1;
-                                }
-                            }
-                            else
-                            {
-                                brightness_control_per_ldr = 0;
-                            }
-
-                            last_ldr_value = 0xFF;
-                            display_set_automatic_brightness_control (brightness_control_per_ldr);
-                            log_msg ("automatic brightness set");
-                            break;
-                        }
-
-                        case LISTENER_TEST_DISPLAY_CODE:                            // test display
-                        {
-                            display_test ();
-                            break;
-                        }
-
-                        case LISTENER_SET_DATE_TIME_CODE:                           // set date/time
-                        {
-                            if (rtc_is_up)
-                            {
-                                rtc_set_date_time (&(lis.tm));
-                            }
-
-                            if (hour != (uint_fast8_t) lis.tm.tm_hour || minute != (uint_fast8_t) lis.tm.tm_min)
-                            {
-                                display_flag = DISPLAY_FLAG_UPDATE_ALL;
-                            }
-
-                            hour   = lis.tm.tm_hour;
-                            minute = lis.tm.tm_min;
-                            second = lis.tm.tm_sec;
-                        }
-
-                        case LISTENER_GET_NET_TIME_CODE:                            // Get net time
-                        {
-                            net_time_flag = 1;
-                            break;
-                        }
-
-                        case LISTENER_IR_LEARN_CODE:                                // IR learn
-                        {
-#if SAVE_RAM == 0
-                            if (remote_ir_learn ())
-                            {
-                                remote_ir_write_codes_to_eeprom ();
-                            }
-#endif
-                            break;
-                        }
-
-                        case LISTENER_SAVE_DISPLAY_CONFIGURATION:                   // save display configuration
-                        {
-                            display_write_config_to_eeprom ();
-                            break;
-                        }
-                    }
+                    net_time_flag = 1;
                 }
             }
         }
@@ -733,34 +745,11 @@ main ()
 
         if (net_time_flag)
         {
-            if (esp8266_is_online)
+            if (esp8266_infop->is_online)
             {
-                display_set_status_led (0, 0, 1);                   // got NET time, light blue status LED
+                display_set_status_led (0, 0, 1);                       // light blue status LED
                 status_led_cnt = STATUS_LED_FLASH_TIME;
-
-                if (timeserver_get_time (&tm))
-                {
-                    if (rtc_is_up)
-                    {
-                        rtc_set_date_time (&tm);
-                    }
-
-                    if (hour != (uint_fast8_t) tm.tm_hour || minute != (uint_fast8_t) tm.tm_min)
-                    {
-                        display_flag = DISPLAY_FLAG_UPDATE_ALL;
-                    }
-
-                    hour   = tm.tm_hour;
-                    minute = tm.tm_min;
-                    second = tm.tm_sec;
-
-                    log_printf ("read net time: %4d-%02d-%02d %02d:%02d:%02d\r\n",
-                                  tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-               }
-                else
-                {
-                    log_msg ("read net time failed");
-                }
+                timeserver_start_timeserver_request ();                 // start a timeserver request, answer follows...
             }
 
             net_time_flag = 0;

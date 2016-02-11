@@ -438,6 +438,7 @@ static volatile uint_fast16_t       uart_rxsize = 0;                            
 #define UART_PREFIX_INIT            UART_CONCAT(UART_PREFIX, _uart_init)
 #define UART_PREFIX_PUTC            UART_CONCAT(UART_PREFIX, _uart_putc)
 #define UART_PREFIX_PUTS            UART_CONCAT(UART_PREFIX, _uart_puts)
+#define UART_PREFIX_CHAR_AVAILABLE  UART_CONCAT(UART_PREFIX, _uart_char_available)
 #define UART_PREFIX_GETC            UART_CONCAT(UART_PREFIX, _uart_getc)
 #define UART_PREFIX_POLL            UART_CONCAT(UART_PREFIX, _uart_poll)
 #define UART_PREFIX_FLUSH           UART_CONCAT(UART_PREFIX, _uart_flush)
@@ -579,6 +580,26 @@ UART_PREFIX_PUTS (char * s)
         UART_PREFIX_PUTC (ch);
         s++;
     }
+}
+
+/*---------------------------------------------------------------------------------------------------------------------------------------------------
+ * uart_char_available ()
+ *---------------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t
+UART_PREFIX_CHAR_AVAILABLE (void)
+{
+    uint_fast8_t    rtc;
+
+    if (uart_rxsize == 0)                                                       // rx buffer empty?
+    {
+        rtc = 0;
+    }
+    else
+    {
+        rtc = 1;
+    }
+    return rtc;
 }
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
