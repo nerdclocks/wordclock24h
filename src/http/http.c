@@ -1082,6 +1082,10 @@ http_server (char * path, char * param, LISTENER_DATA * ld)
             }
             *t = '\0';
         }
+        else if (*p == '+')                                     // plus must be mapped to space if GET method
+        {
+            *p = ' ';
+        }
     }
 
     log_printf ("http parameters: '%s'\r\n", param);
