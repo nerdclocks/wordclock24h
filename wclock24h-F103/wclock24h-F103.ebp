@@ -234,6 +234,10 @@
 		<Unit filename="..\src\main.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="..\src\night\night.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="..\src\night\night.h" />
 		<Unit filename="..\src\onewire\onewire-config.h" />
 		<Unit filename="..\src\onewire\onewire.c">
 			<Option compilerVar="CC" />

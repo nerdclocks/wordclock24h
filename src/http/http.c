@@ -25,18 +25,14 @@
 #include "eeprom-data.h"
 #include "rtc.h"
 #include "listener.h"
+#include "night.h"
 #include "log.h"
 #include "delay.h"
 #include "http.h"
 
-#define MAX_LINE_LEN            256                                 // max. length of line_buffer
-#define MAX_PATH_LEN            20
-
-#define NO_METHOD               0
-#define GET_METHOD              1
-#define POST_METHOD             2
-
-#define MAX_PARAMS              5
+#define MAX_LINE_LEN                256                                     // max. length of line_buffer
+#define MAX_PATH_LEN                20                                      // max. length of path
+#define MAX_HTTP_PARAMS             5                                       // max. number of http parameters
 
 typedef struct
 {
@@ -44,10 +40,25 @@ typedef struct
     char *  value;
 } HTTP_PARAMETERS;
 
-static HTTP_PARAMETERS          http_parameters[MAX_PARAMS];
-static int                      bgcolor_cnt;
+static HTTP_PARAMETERS              http_parameters[MAX_HTTP_PARAMS];
+static int                          bgcolor_cnt;
 
-#define TIMEOUT_MSEC(x)         (x/10)
+#define MAX_AP_LEN                  32
+#define MAX_PW_LEN                  64
+#define MAX_IP_LEN                  15
+#define MAX_TIMEZONE_LEN            3
+#define MAX_DATE_LEN                10
+#define MAX_TIME_LEN                5
+#define MAX_BRIGHTNESS_LEN          2
+#define MAX_COLOR_VALUE_LEN         2
+
+#if WCLOCK24H == 1
+#include "tables.h"
+#else
+#include "tables12h.h"
+#endif
+
+#define TIMEOUT_MSEC(x)             (x/10)
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * flush output buffer
@@ -85,7 +96,7 @@ http_set_params (char * paramlist)
     {
         http_parameters[idx].name = paramlist;
 
-        for (p = paramlist; idx < MAX_PARAMS - 1 && *p; p++)
+        for (p = paramlist; idx < MAX_HTTP_PARAMS - 1 && *p; p++)
         {
             if (*p == '=')
             {
@@ -102,7 +113,7 @@ http_set_params (char * paramlist)
         idx++;
     }
 
-    while (idx < MAX_PARAMS)
+    while (idx < MAX_HTTP_PARAMS)
     {
         http_parameters[idx].name = (char *) 0;
         idx++;
@@ -118,7 +129,7 @@ http_get_param (char * name)
 {
     int     idx;
 
-    for (idx = 0; idx < MAX_PARAMS && http_parameters[idx].name != (char *) 0; idx++)
+    for (idx = 0; idx < MAX_HTTP_PARAMS && http_parameters[idx].name != (char *) 0; idx++)
     {
         if (! strcmp (http_parameters[idx].name, name))
         {
@@ -127,6 +138,60 @@ http_get_param (char * name)
     }
 
     return "";
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------------------
+ * dump eeprom
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+http_eeprom_dump (void)
+{
+    uint8_t         buffer[16 + 1];
+    char            buf[8];
+    uint_fast16_t   start_addr = 0;
+    uint_fast8_t    c;
+
+    http_send ("<PRE>");
+
+    while (start_addr < EEPROM_DATA_END)
+    {
+        sprintf (buf, "%04x", start_addr);
+        http_send (buf);
+        http_send ("  ");
+
+        if (eeprom_read (start_addr, buffer, 16))
+        {
+            for (c = 0; c < 16; c++)
+            {
+                sprintf (buf, "%02x", buffer[c]);
+                http_send (buf);
+                http_send (" ");
+            }
+
+            http_send (" ");
+
+            for (c = 0; c < 16; c++)
+            {
+                if (buffer[c] < 32 || buffer[c] >= 127)
+                {
+                    buffer[c] = '.';
+                }
+            }
+
+            buffer[c] = '\0';
+            http_send ((char *) buffer);
+            http_send ("\r\n");
+
+            start_addr += 16;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    http_send ("</PRE>");
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -206,6 +271,19 @@ begin_table_row (void)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
+ * begin table row as form
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+begin_table_row_form (char * page)
+{
+    begin_table_row ();
+    http_send ("<form method=\"GET\" action=\"/");
+    http_send (page);
+    http_send ("\">\r\n");
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
  * end table row
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -215,181 +293,24 @@ end_table_row (void)
     http_send ("</tr>\r\n");
 }
 
-/*--------------------------------------------------------------------------------------------------------------------------------------
- * dump eeprom
- *--------------------------------------------------------------------------------------------------------------------------------------
- */
-static void
-http_eeprom_dump (void)
-{
-    uint8_t         buffer[16 + 1];
-    char            buf[8];
-    uint_fast16_t   start_addr = 0;
-    uint_fast8_t    c;
-
-    http_send ("<PRE>");
-
-    while (start_addr < EEPROM_DATA_END)
-    {
-        sprintf (buf, "%04x", start_addr);
-        http_send (buf);
-        http_send ("  ");
-
-        if (eeprom_read (start_addr, buffer, 16))
-        {
-            for (c = 0; c < 16; c++)
-            {
-                sprintf (buf, "%02x", buffer[c]);
-                http_send (buf);
-                http_send (" ");
-            }
-
-            http_send (" ");
-
-            for (c = 0; c < 16; c++)
-            {
-                if (buffer[c] < 32 || buffer[c] >= 127)
-                {
-                    buffer[c] = '.';
-                }
-            }
-
-            buffer[c] = '\0';
-            http_send ((char *) buffer);
-            http_send ("\r\n");
-
-            start_addr += 16;
-        }
-        else
-        {
-            break;
-        }
-    }
-
-    http_send ("</PRE>");
-}
-
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * table row
+ * end table row as form
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row (char * col1, char * col2)
+end_table_row_form (void)
 {
-    begin_table_row ();
-    http_send ("<td>");
-    http_send (col1);
-    http_send ("</td><td>");
-    http_send (col2);
-    http_send ("</td><td></td>");
-    end_table_row ();
-}
-
-/*-------------------------------------------------------------------------------------------------------------------------------------------
- * table row with input
- *-------------------------------------------------------------------------------------------------------------------------------------------
- */
-static void
-table_row_input (char * page, char * col1, char * id, char * col2, int maxlength)
-{
-    char maxlength_buf[8];
-
-    sprintf (maxlength_buf, "%d", maxlength);
-
-    begin_table_row ();
-    http_send ("<form method=\"GET\" action=\"/");
-    http_send (page);
-    http_send ("\">\r\n");
-
-    http_send ("<td>");
-    http_send (col1);
-    http_send ("</td>\r\n");
-
-    http_send ("<td>");
-    http_send ("<input type=\"text\" id=\"");
-    http_send (id);
-    http_send ("\" name=\"");
-    http_send (id);
-    http_send ("\" value=\"");
-    http_send (col2);
-    http_send ("\" maxlength=\"");
-    http_send (maxlength_buf);
-    http_send ("\">");
-
-    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (id);
-    http_send ("\">Save</button>\r\n");
-
-    http_send ("</td>\r\n");
     http_send ("</form>\r\n");
     end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * table row with multiple inputs
+ * checkbox field
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_inputs (char * page, char * col1, char * id, int n, char ** ids, char ** desc2, char ** col2, int * maxlength, int * maxsize)
+checkbox_field (char * id, char * desc, int checked)
 {
-    int     i;
-    char    maxlength_buf[8];
-    char    maxsize_buf[8];
-
-    begin_table_row ();
-    http_send ("<form method=\"GET\" action=\"/");
-    http_send (page);
-    http_send ("\">\r\n");
-
-    http_send ("<td>");
-    http_send (col1);
-    http_send ("</td>\r\n");
-
-    http_send ("<td>");
-
-    for (i = 0; i < n; i++)
-    {
-        sprintf (maxlength_buf, "%d", maxlength[i]);
-        sprintf (maxsize_buf, "%d", maxsize[i]);
-
-        http_send (desc2[i]);
-        http_send ("&nbsp;<input type=\"text\" id=\"");
-        http_send (ids[i]);
-        http_send ("\" name=\"");
-        http_send (ids[i]);
-        http_send ("\" value=\"");
-        http_send (col2[i]);
-        http_send ("\" maxlength=\"");
-        http_send (maxlength_buf);
-        http_send ("\" size=\"");
-        http_send (maxsize_buf);
-        http_send ("\">");
-        http_send ("&nbsp;&nbsp;&nbsp;");
-    }
-
-    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (id);
-    http_send ("\">Save</button>\r\n");
-
-    http_send ("</td>\r\n");
-    http_send ("</form>\r\n");
-    end_table_row ();
-}
-
-/*-------------------------------------------------------------------------------------------------------------------------------------------
- * table row with checkbox
- *-------------------------------------------------------------------------------------------------------------------------------------------
- */
-static void
-table_row_checkbox (char * page, char * col1, char * id, char * desc, int checked)
-{
-    begin_table_row ();
-    http_send ("<form method=\"GET\" action=\"/");
-    http_send (page);
-    http_send ("\">\r\n");
-    http_send ("<td>");
-    http_send (col1);
-    http_send ("</td><td>");
     http_send (desc);
     http_send ("&nbsp;<input type=\"checkbox\" name=\"");
     http_send (id);
@@ -401,35 +322,88 @@ table_row_checkbox (char * page, char * col1, char * id, char * desc, int checke
     }
 
     http_send (">");
-    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (id);
-    http_send ("\">Save</button>\r\n");
-
-    http_send ("</td>\r\n");
-    http_send ("</form>\r\n");
-    end_table_row ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * table row with selection
+ * checkbox column
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_select (char * page, char * col1, char * id, const char ** col2, int selected_value, int max_values)
+checkbox_column (char * id, char * desc, int checked)
 {
-    char buf[3];
-    int i;
+    http_send ("<td>");
+    checkbox_field (id, desc, checked);
+    http_send ("</td>");
+}
 
-    begin_table_row ();
-    http_send ("<form method=\"GET\" action=\"/");
-    http_send (page);
-    http_send ("\">\r\n");
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * text column
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+text_column (char * text)
+{
+    http_send ("<td>");
+    http_send (text);
+    http_send ("</td>");
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * input field
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+input_field (char * id, char * desc, char * value, int maxlength, int maxsize)
+{
+    char maxlength_buf[8];
+    char maxsize_buf[8];
+
+    sprintf (maxlength_buf, "%d", maxlength);
+    sprintf (maxsize_buf, "%d", maxsize);
+
+    if (desc && *desc)
+    {
+        http_send (desc);
+        http_send ("&nbsp;");
+    }
+
+    http_send ("<input type=\"text\" id=\"");
+    http_send (id);
+    http_send ("\" name=\"");
+    http_send (id);
+    http_send ("\" value=\"");
+    http_send (value);
+    http_send ("\" maxlength=\"");
+    http_send (maxlength_buf);
+    http_send ("\" size=\"");
+    http_send (maxsize_buf);
+    http_send ("\">");
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * input column
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+input_column (char * id, char * desc, char * value, int maxlength, int maxsize)
+{
+    http_send ("<td>");
+    input_field (id, desc, value, maxlength, maxsize);
+    http_send ("</td>");
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * select column
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+select_column (char * id, const char ** text, int selected_value, int max_values)
+{
+    char    buf[3];
+    int     i;
 
     http_send ("<td>");
-    http_send (col1);
-    http_send ("</td>\r\n");
 
-    http_send ("<td>");
     http_send ("<select id=\"");
     http_send (id);
     http_send ("\" name=\"");
@@ -449,57 +423,200 @@ table_row_select (char * page, char * col1, char * id, const char ** col2, int s
         }
 
         http_send (">");
-        http_send ((char *) col2[i]);
+        http_send ((char *) text[i]);
         http_send ("</option>\r\n");
     }
 
     http_send ("</select>\r\n");
-
-    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (id);
-    http_send ("\">Save</button>\r\n");
-
-    http_send ("</td>\r\n");
-    http_send ("</form>\r\n");
-    end_table_row ();
+    http_send ("</td>");
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * table row with slider
+ * slider field
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_slider (char * page, char * col1, char * id, char * col2, char * min, char * max)
+slider_field (char * id, char * text, char * value, char * min, char * max, char * pixelwidth)
 {
-    begin_table_row ();
-    http_send ("<form method=\"GET\" action=\"/");
-    http_send (page);
-    http_send ("\">\r\n");
+    if (text && *text)
+    {
+        http_send (text);
+        http_send ("&nbsp;");
+    }
 
-    http_send ("<td>");
-    http_send (col1);
-    http_send ("</td>\r\n");
-
-    http_send ("<td>");
     http_send ("<input type=\"range\" id=\"");
     http_send (id);
     http_send ("\" name=\"");
     http_send (id);
     http_send ("\" value=\"");
-    http_send (col2);
+    http_send (value);
     http_send ("\" min=\"");
     http_send (min);
     http_send ("\" max=\"");
     http_send (max);
+
+    if (pixelwidth && *pixelwidth)
+    {
+        http_send ("\" style=\"width:");
+        http_send (pixelwidth);
+        http_send ("px;");
+    }
+
     http_send ("\">");
+}
 
-    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (id);
-    http_send ("\">Save</button>\r\n");
-
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * slider column
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+slider_column (char * id, char * value, char * min, char * max)
+{
+    http_send ("<td>");
+    slider_field (id, "", value, min, max, "");
     http_send ("</td>\r\n");
-    http_send ("</form>\r\n");
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * save field
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+save_column (char * id)
+{
+    http_send ("<td><button type=\"submit\" name=\"action\" value=\"save");
+    http_send (id);
+    http_send ("\">Set</button>\r\n");
+    http_send ("</td>\r\n");
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * table row
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+table_row (char * col1, char * col2, char * col3)
+{
+    begin_table_row ();
+    text_column (col1);
+    text_column (col2);
+    text_column (col3);
     end_table_row ();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * table row with input
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+table_row_input (char * page, char * text, char * id, char * value, int maxlength)
+{
+    begin_table_row_form (page);
+    text_column (text);
+    input_column (id, "", value, maxlength, maxlength);
+    save_column (id);
+    end_table_row_form ();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * table row with multiple inputs
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+table_row_inputs (char * page, char * text, char * id, int n, char ** ids, char ** desc, char ** value, int * maxlength, int * maxsize)
+{
+    int     i;
+
+    begin_table_row_form (page);
+    text_column (text);
+
+    http_send ("<td>");
+
+    for (i = 0; i < n; i++)
+    {
+        input_field (ids[i], desc[i], value[i], maxlength[i], maxsize[i]);
+        http_send ("&nbsp;&nbsp;&nbsp;");
+    }
+
+    http_send ("</td>");
+
+    save_column (id);
+    end_table_row_form ();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * table row with checkbox
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+table_row_checkbox (char * page, char * text, char * id, char * desc, int checked)
+{
+    begin_table_row_form (page);
+    text_column (text);
+    checkbox_column (id, desc, checked);
+    save_column (id);
+    end_table_row_form ();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * table row for night time
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+table_row_night_time (char * page, int on, NIGHT_TIME * night_time_p)
+{
+    char *  id;
+    char    hour_buf[3];
+    char    minute_buf[3];
+    char *  chk_id;
+    char *  hour_id;
+    char *  min_id;
+
+    sprintf (hour_buf, "%02d", night_time_p->night_time / 60);
+    sprintf (minute_buf, "%02d", night_time_p->night_time % 60);
+
+    begin_table_row_form (page);
+
+    if (on)
+    {
+        text_column ("Poweron time");
+        id = "poweron";
+        chk_id = "chkon";
+        hour_id = "houron";
+        min_id = "minon";
+    }
+    else
+    {
+        text_column ("Poweroff time");
+        id = "poweroff";
+        chk_id = "chkoff";
+        hour_id = "houroff";
+        min_id = "minoff";
+    }
+
+    http_send ("<td>");
+    checkbox_field (chk_id, "Active", night_time_p->night_time_active);
+    input_field (hour_id, "Hour",  hour_buf, 2, 2);
+    http_send ("&nbsp;&nbsp;&nbsp;");
+    input_field (min_id, "Min",  minute_buf, 2, 2);
+    http_send ("</td>");
+
+    save_column (id);
+    end_table_row_form ();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * table row with selection
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+table_row_select (char * page, char * text1, char * id, const char ** text2, int selected_value, int max_values)
+{
+    begin_table_row_form (page);
+    text_column (text1);
+    select_column (id, text2, selected_value, max_values);
+    save_column (id);
+    end_table_row_form ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -507,44 +624,37 @@ table_row_slider (char * page, char * col1, char * id, char * col2, char * min, 
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_row_sliders (char * page, char * col1, char * id, int n, char ** ids, char ** desc2, char ** col2, char ** min, char ** max)
+table_row_slider (char * page, char * text1, char * id, char * text2, char * min, char * max)
+{
+    begin_table_row_form (page);
+    text_column (text1);
+    slider_column (id, text2, min, max);
+    save_column (id);
+    end_table_row_form ();
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * table row with n sliders
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
+table_row_sliders (char * page, char * text1, char * id, int n, char ** ids, char ** desc, char ** text2, char ** min, char ** max)
 {
     int i;
 
-    begin_table_row ();
-    http_send ("<form method=\"GET\" action=\"/");
-    http_send (page);
-    http_send ("\">\r\n");
+    begin_table_row_form (page);
+    text_column (text1);
 
-    http_send ("<td>");
-    http_send (col1);
-    http_send ("</td>\r\n");
     http_send ("<td>\r\n");
 
     for (i = 0; i < n; i++)
     {
-        http_send (desc2[i]);
-        http_send ("&nbsp;<input type=\"range\" id=\"");
-        http_send (ids[i]);
-        http_send ("\" name=\"");
-        http_send (ids[i]);
-        http_send ("\" value=\"");
-        http_send (col2[i]);
-        http_send ("\" min=\"");
-        http_send (min[i]);
-        http_send ("\" max=\"");
-        http_send (max[i]);
-        http_send ("\" style=\"width:64px;\">");
+        slider_field (ids[i], desc[i], text2[i], min[i], max[i], "64");
         http_send ("&nbsp;&nbsp;&nbsp;\r\n");
     }
 
-    http_send ("</td><td><button type=\"submit\" name=\"action\" value=\"save");
-    http_send (id);
-    http_send ("\">Save</button>\r\n");
-
-    http_send ("</td>\r\n");
-    http_send ("</form>\r\n");
-    end_table_row ();
+    save_column (id);
+    end_table_row_form ();
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -556,35 +666,6 @@ table_trailer (void)
 {
     http_send ("</table>\r\n");
 }
-
-#define MAX_AP_LEN                  32
-#define MAX_PW_LEN                  64
-#define MAX_IP_LEN                  15
-#define MAX_TIMEZONE_LEN            3
-#define MAX_DATE_LEN                10
-#define MAX_TIME_LEN                5
-#define MAX_BRIGHTNESS_LEN          2
-#define MAX_COLOR_VALUE_LEN         2
-
-#define ANIMATION_MODE_NONE         0
-#define ANIMATION_MODE_FADE         1
-#define ANIMATION_MODE_ROLL         2
-#define ANIMATION_MODE_EXPLODE      3
-#define ANIMATION_MODE_RANDOM       4
-#define ANIMATION_MODES             5
-
-static int animation_mode = 1;
-
-// TODO: Use definitions from tables.c & tables12h.c
-#if WCLOCK24H == 1
-#include "tables.h"
-#else
-#include "tables12h.h"
-#endif
-
-static const char * tbl_mode_names[MODES_COUNT];
-
-static int display_mode;
 
 static void
 http_menu (void)
@@ -676,9 +757,9 @@ http_main (LISTENER_DATA * ld)
     http_menu ();
 
     table_header ("Device", "Value", "");
-    table_row ("RTC temperature", rtc_temp);
-    table_row ("DS18xx", ds18xx_temp);
-    table_row ("EEPROM", eeprom_is_up ? "online" : "offline");
+    table_row ("RTC temperature", rtc_temp, "");
+    table_row ("DS18xx", ds18xx_temp, "");
+    table_row ("EEPROM", eeprom_is_up ? "online" : "offline", "");
     table_trailer ();
 
     http_send ("<form method=\"GET\" action=\"/\">\r\n");
@@ -797,8 +878,8 @@ http_network (void)
     http_menu ();
 
     table_header ("Device", "Value", "Action");
-    table_row ("IP address", infop->ipaddress);
-    table_row ("ESP8266 firmware", esp_firmware_version);
+    table_row ("IP address", infop->ipaddress, "");
+    table_row ("ESP8266 firmware", esp_firmware_version, "");
     table_row_inputs ("network", "Access Point", "accesspoint", 2, ids, desc, col2, maxlen, maxsize);
     table_row_input ("network", "Time server", "timeserver", (char *) timeserver_get_timeserver (), MAX_IP_LEN);
     table_row_input ("network", "Time zone (GMT +)", "timezone", timezone_str, MAX_TIMEZONE_LEN);
@@ -828,25 +909,31 @@ http_network (void)
 static uint_fast8_t
 http_display (LISTENER_DATA * ld)
 {
-    char *          action;
-    char *          message         = (char *) 0;
-    DSP_COLORS      rgb;
-    char *          ids[3]          = { "red", "green", "blue" };
-    char *          desc[3]         = { "R", "G", "B" };
-    char *          rgb_buf[3];
-    char *          minval[3]       = { "0",   "0",  "0" };
-    char *          maxval[3]       = { "63", "63", "63" };
-    uint_fast8_t    brightness;
-    uint_fast8_t    auto_brightness_active;
-    char            brbuf[MAX_BRIGHTNESS_LEN + 1];
-    char            red_buf[MAX_COLOR_VALUE_LEN + 1];
-    char            green_buf[MAX_COLOR_VALUE_LEN + 1];
-    char            blue_buf[MAX_COLOR_VALUE_LEN + 1];
-    uint_fast8_t    use_ldr;
-    uint_fast8_t    ldr_value;
-    char            ldr_buf[MAX_BRIGHTNESS_LEN + 1];
-    uint_fast8_t    i;
-    uint_fast8_t    rtc             = 0;
+    static const char * tbl_mode_names[MODES_COUNT];
+    static int          already_called  = 0;
+    char *              action;
+    char *              message         = (char *) 0;
+    DSP_COLORS          rgb;
+    char *              ids[3]          = { "red", "green", "blue" };
+    char *              desc[3]         = { "R", "G", "B" };
+    char *              rgb_buf[3];
+    char *              minval[3]       = { "0",   "0",  "0" };
+    char *              maxval[3]       = { "63", "63", "63" };
+    uint_fast8_t        brightness;
+    uint_fast8_t        auto_brightness_active;
+    char                brbuf[MAX_BRIGHTNESS_LEN + 1];
+    char                red_buf[MAX_COLOR_VALUE_LEN + 1];
+    char                green_buf[MAX_COLOR_VALUE_LEN + 1];
+    char                blue_buf[MAX_COLOR_VALUE_LEN + 1];
+    int                 animation_mode;
+    int                 display_mode;
+    uint_fast8_t        use_ldr;
+    uint_fast8_t        ldr_value;
+    char                ldr_buf[MAX_BRIGHTNESS_LEN + 1];
+    NIGHT_TIME *        night_time_off_p;
+    NIGHT_TIME *        night_time_on_p;
+    uint_fast8_t        i;
+    uint_fast8_t        rtc             = 0;
 
     use_ldr                 = ldr_get_ldr_status ();
     display_mode            = display_get_display_mode ();
@@ -855,20 +942,58 @@ http_display (LISTENER_DATA * ld)
     auto_brightness_active  = display_get_automatic_brightness_control ();
     display_get_colors (&rgb);
 
-    for (i = 0; i < MODES_COUNT; i++)
+    if (! already_called)
     {
+        for (i = 0; i < MODES_COUNT; i++)
+        {
 #if WCLOCK24H == 1
-        tbl_mode_names[i] = tbl_modes[i].description;
+            tbl_mode_names[i] = tbl_modes[i].description;
 #else
-        tbl_mode_names[i] = tbl_modes[i];
+            tbl_mode_names[i] = tbl_modes[i];
 #endif
+        }
+        already_called = 1;
     }
 
     action = http_get_param ("action");
 
     if (action)
     {
-        if (! strcmp (action, "saveldrconnected"))
+        if (! strcmp (action, "savepoweroff"))
+        {
+            NIGHT_TIME  tmp_night_time;
+
+            if (! strcmp (http_get_param ("chkoff"), "active"))
+            {
+                tmp_night_time.night_time_active = 1;
+            }
+            else
+            {
+                tmp_night_time.night_time_active = 0;
+            }
+
+            tmp_night_time.night_time = atoi (http_get_param ("houroff")) * 60 + atoi (http_get_param ("minoff"));
+
+            night_set_night_time_off (&tmp_night_time);
+        }
+        else if (! strcmp (action, "savepoweron"))
+        {
+            NIGHT_TIME  tmp_night_time;
+
+            if (! strcmp (http_get_param ("chkon"), "active"))
+            {
+                tmp_night_time.night_time_active = 1;
+            }
+            else
+            {
+                tmp_night_time.night_time_active = 0;
+            }
+
+            tmp_night_time.night_time = atoi (http_get_param ("houron")) * 60 + atoi (http_get_param ("minon"));
+
+            night_set_night_time_on (&tmp_night_time);
+        }
+        else if (! strcmp (action, "saveldrconnected"))
         {
             if (! strcmp (http_get_param ("ldrconnected"), "active"))
             {
@@ -953,13 +1078,29 @@ http_display (LISTENER_DATA * ld)
 
     if (use_ldr)
     {
+        uint_fast8_t cnt = 0;
+
         ldr_start_conversion ();
 
         while (! ldr_poll_brightness (&ldr_value))
         {
             delay_msec (10);
+            cnt++;
+
+            if (cnt >= 10)
+            {
+                break;
+            }
         }
-        sprintf (ldr_buf, "%d", ldr_value);
+
+        if (cnt >= 10)
+        {
+            strcpy (ldr_buf, "?");
+        }
+        else
+        {
+            sprintf (ldr_buf, "%d", ldr_value);
+        }
     }
 
     sprintf (brbuf,     "%d", brightness);
@@ -972,6 +1113,9 @@ http_display (LISTENER_DATA * ld)
     rgb_buf[1] = green_buf;
     rgb_buf[2] = blue_buf;
 
+    night_time_off_p    = night_get_night_time_off ();
+    night_time_on_p     = night_get_night_time_on ();
+
     http_header ("WordClock Display");
     http_menu ();
 
@@ -979,11 +1123,13 @@ http_display (LISTENER_DATA * ld)
 
     table_row_select ("display", "Animation", "animation", animation_modes, animation_mode, ANIMATION_MODES);
     table_row_select ("display", "Display Mode", "displaymode", tbl_mode_names, display_mode, MODES_COUNT);
+    table_row_night_time ("display", 0, night_time_off_p);
+    table_row_night_time ("display", 1, night_time_on_p);
     table_row_checkbox ("display", "LDR", "ldrconnected", "LDR connected", use_ldr);
 
     if (use_ldr)
     {
-        table_row ("LDR", ldr_buf);
+        table_row ("LDR", ldr_buf, "");
         table_row_checkbox ("display", "LDR", "auto", "Automatic brightness", auto_brightness_active);
     }
 

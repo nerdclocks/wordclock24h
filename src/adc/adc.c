@@ -25,14 +25,14 @@ void
 adc_init (void)
 {
     static uint_fast8_t     already_called;
-    GPIO_InitTypeDef        gpio;
-    ADC_InitTypeDef         adc_init;
-
-    GPIO_StructInit (&gpio);
-    ADC_StructInit (&adc_init);
 
     if (!already_called)
     {
+        GPIO_InitTypeDef        gpio;
+        ADC_InitTypeDef         adc;
+        GPIO_StructInit (&gpio);
+        ADC_StructInit (&adc);
+
 #if defined (STM32F10X)
         RCC_ADCCLKConfig(RCC_PCLK2_Div6);
 #endif
@@ -68,25 +68,25 @@ adc_init (void)
         adc_common.ADC_TwoSamplingDelay     = ADC_TwoSamplingDelay_5Cycles;
         ADC_CommonInit(&adc_common);
 
-        adc_init.ADC_Resolution             = ADC_Resolution_12b;
-        adc_init.ADC_ScanConvMode           = DISABLE;
-        adc_init.ADC_ContinuousConvMode     = DISABLE;
-        adc_init.ADC_ExternalTrigConvEdge   = ADC_ExternalTrigConvEdge_None;
-        adc_init.ADC_DataAlign              = ADC_DataAlign_Right;
-        adc_init.ADC_NbrOfConversion        = 1;
+        adc.ADC_Resolution             = ADC_Resolution_12b;
+        adc.ADC_ScanConvMode           = DISABLE;
+        adc.ADC_ContinuousConvMode     = DISABLE;
+        adc.ADC_ExternalTrigConvEdge   = ADC_ExternalTrigConvEdge_None;
+        adc.ADC_DataAlign              = ADC_DataAlign_Right;
+        adc.ADC_NbrOfConversion        = 1;
 
 #elif defined (STM32F10X)
-        adc_init.ADC_Mode                   = ADC_Mode_Independent;
+        adc.ADC_Mode                   = ADC_Mode_Independent;
 
-        adc_init.ADC_ScanConvMode           = DISABLE;
-        adc_init.ADC_ContinuousConvMode     = DISABLE;
-        adc_init.ADC_ExternalTrigConv       = ADC_ExternalTrigConv_None;
-        adc_init.ADC_DataAlign              = ADC_DataAlign_Right;
-        adc_init.ADC_NbrOfChannel = 1;
+        adc.ADC_ScanConvMode           = DISABLE;
+        adc.ADC_ContinuousConvMode     = DISABLE;
+        adc.ADC_ExternalTrigConv       = ADC_ExternalTrigConv_None;
+        adc.ADC_DataAlign              = ADC_DataAlign_Right;
+        adc.ADC_NbrOfChannel = 1;
 
 #endif
 
-        ADC_Init(ADC_NUMBER, &adc_init);
+        ADC_Init(ADC_NUMBER, &adc);
 
 #if defined (STM32F4XX)
 

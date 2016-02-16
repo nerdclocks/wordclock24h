@@ -12,7 +12,9 @@
 #ifndef EEPROM_DATA_H
 #define EEPROM_DATA_H
 
-#define EEPROM_VERSION                      0x00010500          // version 1.5.0
+#define EEPROM_VERSION_1_5_0        0x00010500                  // version 1.5.0
+#define EEPROM_VERSION_1_6_0        0x00010600                  // version 1.6.0
+#define EEPROM_VERSION              EEPROM_VERSION_1_6_0        // current version
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * Some packed structures to minimize used EEPROM space
@@ -47,8 +49,9 @@ typedef struct __attribute__ ((__packed__))
  *      LDR                   1 Byte    ( 1 *  1)
  *      Global brightness     1 Byte    ( 1 *  1)
  *      Automatic brightness  1 Byte    ( 1 *  1)
+ *      Night time            5 Byte    ( 5 *  1)
  *      =========================================
- *      Sum                 191 Bytes
+ *      Sum                 196 Bytes
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 
@@ -58,6 +61,7 @@ typedef struct __attribute__ ((__packed__))
 #endif
 #define EEPROM_MAX_IPADDR_LEN               16                  // max length of IP address xxx.xxx.xxx.xxx + '\0'
 #define EEPROM_MAX_TIMEZONE_LEN              2                  // max length of timezone: one byte for +/-, one byte for hour offset
+#define EEPROM_MAX_NIGHT_TIME_LEN            6                  // length of night times (1 x off, 1 x on)
 
 #define EEPROM_DATA_SIZE_VERSION            sizeof (uint32_t)
 #define EEPROM_DATA_SIZE_IRMP_DATA          (EEPROM_MAX_IR_CODES * sizeof (PACKED_IRMP_DATA))
@@ -70,19 +74,21 @@ typedef struct __attribute__ ((__packed__))
 #define EEPROM_DATA_SIZE_USE_LDR            sizeof (uint8_t)
 #define EEPROM_DATA_SIZE_BRIGHTNESS         sizeof (uint8_t)
 #define EEPROM_DATA_SIZE_AUTO_BRIGHTNESS    sizeof (uint8_t)
+#define EEPROM_DATA_NIGHT_TIME              (EEPROM_MAX_NIGHT_TIME_LEN)
 
 #define EEPROM_DATA_OFFSET_VERSION          0
-#define EEPROM_DATA_OFFSET_IRMP_DATA        (EEPROM_DATA_OFFSET_VERSION         + EEPROM_DATA_SIZE_VERSION)
-#define EEPROM_DATA_OFFSET_DSP_COLORS       (EEPROM_DATA_OFFSET_IRMP_DATA       + EEPROM_DATA_SIZE_IRMP_DATA)
-#define EEPROM_DATA_OFFSET_DISPLAY_MODE     (EEPROM_DATA_OFFSET_DSP_COLORS      + EEPROM_DATA_SIZE_DSP_COLORS)
-#define EEPROM_DATA_OFFSET_ANIMATION_MODE   (EEPROM_DATA_OFFSET_DISPLAY_MODE    + EEPROM_DATA_SIZE_DISPLAY_MODE)
-#define EEPROM_DATA_OFFSET_NTP_PROTOCOL     (EEPROM_DATA_OFFSET_ANIMATION_MODE  + EEPROM_DATA_SIZE_ANIMATION_MODE)
-#define EEPROM_DATA_OFFSET_TIMESERVER       (EEPROM_DATA_OFFSET_NTP_PROTOCOL    + EEPROM_DATA_SIZE_NTP_PROTOCOL)
-#define EEPROM_DATA_OFFSET_TIMEZONE         (EEPROM_DATA_OFFSET_TIMESERVER      + EEPROM_DATA_SIZE_TIMESERVER)
-#define EEPROM_DATA_OFFSET_USE_LDR          (EEPROM_DATA_OFFSET_TIMEZONE        + EEPROM_DATA_SIZE_TIMEZONE)
-#define EEPROM_DATA_OFFSET_BRIGHTNESS       (EEPROM_DATA_OFFSET_USE_LDR         + EEPROM_DATA_SIZE_USE_LDR)
-#define EEPROM_DATA_OFFSET_AUTO_BRIGHTNESS  (EEPROM_DATA_OFFSET_BRIGHTNESS      + EEPROM_DATA_SIZE_BRIGHTNESS)
+#define EEPROM_DATA_OFFSET_IRMP_DATA        (EEPROM_DATA_OFFSET_VERSION             + EEPROM_DATA_SIZE_VERSION)
+#define EEPROM_DATA_OFFSET_DSP_COLORS       (EEPROM_DATA_OFFSET_IRMP_DATA           + EEPROM_DATA_SIZE_IRMP_DATA)
+#define EEPROM_DATA_OFFSET_DISPLAY_MODE     (EEPROM_DATA_OFFSET_DSP_COLORS          + EEPROM_DATA_SIZE_DSP_COLORS)
+#define EEPROM_DATA_OFFSET_ANIMATION_MODE   (EEPROM_DATA_OFFSET_DISPLAY_MODE        + EEPROM_DATA_SIZE_DISPLAY_MODE)
+#define EEPROM_DATA_OFFSET_NTP_PROTOCOL     (EEPROM_DATA_OFFSET_ANIMATION_MODE      + EEPROM_DATA_SIZE_ANIMATION_MODE)
+#define EEPROM_DATA_OFFSET_TIMESERVER       (EEPROM_DATA_OFFSET_NTP_PROTOCOL        + EEPROM_DATA_SIZE_NTP_PROTOCOL)
+#define EEPROM_DATA_OFFSET_TIMEZONE         (EEPROM_DATA_OFFSET_TIMESERVER          + EEPROM_DATA_SIZE_TIMESERVER)
+#define EEPROM_DATA_OFFSET_USE_LDR          (EEPROM_DATA_OFFSET_TIMEZONE            + EEPROM_DATA_SIZE_TIMEZONE)
+#define EEPROM_DATA_OFFSET_BRIGHTNESS       (EEPROM_DATA_OFFSET_USE_LDR             + EEPROM_DATA_SIZE_USE_LDR)
+#define EEPROM_DATA_OFFSET_AUTO_BRIGHTNESS  (EEPROM_DATA_OFFSET_BRIGHTNESS          + EEPROM_DATA_SIZE_BRIGHTNESS)
+#define EEPROM_DATA_OFFSET_NIGHT_TIME       (EEPROM_DATA_OFFSET_AUTO_BRIGHTNESS     + EEPROM_DATA_SIZE_AUTO_BRIGHTNESS)
 
-#define EEPROM_DATA_END                     (EEPROM_DATA_OFFSET_AUTO_BRIGHTNESS + EEPROM_DATA_SIZE_AUTO_BRIGHTNESS)
+#define EEPROM_DATA_END                     (EEPROM_DATA_OFFSET_NIGHT_TIME          + EEPROM_MAX_NIGHT_TIME_LEN)
 
 #endif

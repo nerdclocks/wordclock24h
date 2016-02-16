@@ -28,16 +28,24 @@
 #define LISTENER_SET_DATE_TIME_CODE             'T'                             // set date/time
 #define LISTENER_GET_NET_TIME_CODE              'N'                             // Get net time
 #define LISTENER_IR_LEARN_CODE                  'I'                             // IR learn
+#define LISTENER_SET_NIGHT_TIME                 'J'                             // set night off time
 #define LISTENER_SAVE_DISPLAY_CONFIGURATION     'S'                             // save display configuration
 
 typedef union
 {
-    uint_fast8_t    mode;
-    uint_fast8_t    brightness;
-    uint_fast8_t    automatic_brightness_control;
-    DSP_COLORS      rgb;
-    struct tm       tm;
-    uint_fast8_t    power;
+    uint_fast8_t        mode;
+    uint_fast8_t        brightness;
+    uint_fast8_t        automatic_brightness_control;
+    DSP_COLORS          rgb;
+    struct tm           tm;
+    uint_fast8_t        power;
+    struct
+    {
+        uint_fast8_t    night_hour_off;
+        uint_fast8_t    night_minute_off;
+        uint_fast8_t    night_hour_on;
+        uint_fast8_t    night_minute_on;
+    };
 } LISTENER_DATA;
 
 extern uint_fast8_t         listener (LISTENER_DATA *);

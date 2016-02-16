@@ -92,6 +92,7 @@
 #include "rtc.h"
 #include "ldr.h"
 #include "delay.h"
+#include "night.h"
 
 #include "log.h"
 
@@ -114,11 +115,6 @@ static volatile uint_fast8_t    second                      = 0;        // curre
 static uint_fast8_t             brightness_control_per_ldr  = 0;        // flag: LDR controls brightness
 static uint_fast8_t             display_mode                = 0;        // display mode
 static uint_fast8_t             animation_mode              = 0;        // animation mode
-
-static int_fast16_t             hour_night_off              = -1;       // time when clock should be powered off during night
-static int_fast16_t             minute_night_off            = -1;
-static int_fast16_t             hour_night_on               = -1;       // time when clock should be powered on after night
-static int_fast16_t             minute_night_on             = -1;
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * timer definitions:
@@ -375,6 +371,8 @@ main ()
     struct tm               tm;
     LISTENER_DATA           lis;
     ESP8266_INFO *          esp8266_infop;
+    NIGHT_TIME *            night_time_off_p;
+    NIGHT_TIME *            night_time_on_p;
     uint_fast8_t            esp8266_is_up = 0;
     uint_fast8_t            code;
 
@@ -430,13 +428,18 @@ main ()
         log_msg ("eeprom is online");
         read_version_from_eeprom ();
 
-        if (eeprom_version == EEPROM_VERSION)
+        if (eeprom_version >= EEPROM_VERSION_1_5_0)
         {
 #if SAVE_RAM == 0
             remote_ir_read_codes_from_eeprom ();
 #endif
             display_read_config_from_eeprom ();
             timeserver_read_data_from_eeprom ();
+        }
+
+        if (eeprom_version >= EEPROM_VERSION_1_6_0)
+        {
+            night_read_data_from_eeprom ();
         }
     }
     else
@@ -446,6 +449,7 @@ main ()
 
     ldr_init ();                                                            // initialize LDR (ADC)
     display_init ();                                                        // initialize display
+    night_init ();                                                          // initialize night time routines
 
     short_isr = 1;
     temp_init ();                                                           // initialize DS18xx
@@ -456,11 +460,14 @@ main ()
     animation_mode              = display_get_animation_mode ();
     brightness_control_per_ldr  = display_get_automatic_brightness_control ();
 
+    night_time_off_p            = night_get_night_time_off ();
+    night_time_on_p             = night_get_night_time_on ();
+
     if (eeprom_is_up)
     {
         if (eeprom_version != EEPROM_VERSION)
         {
-            log_msg ("Initializing EEPROM...");
+            log_msg ("Updating EEPROM...");
 
             eeprom_version = EEPROM_VERSION;
             write_version_to_eeprom ();
@@ -469,6 +476,7 @@ main ()
 #endif
             display_write_config_to_eeprom ();
             timeserver_write_data_to_eeprom ();
+            night_write_data_to_eeprom ();
         }
     }
 
@@ -775,18 +783,33 @@ main ()
 
         if (power_is_on)
         {
-            if (night_power_is_on)
+            if (night_power_is_on && night_time_off_p->night_time_active)
             {
-                if (hour_night_off >= (int_fast16_t) hour && minute_night_off >= (int_fast16_t) minute)
+                uint_fast16_t  m = hour * 60 + minute;
+                uint_fast16_t  moff = night_time_off_p->night_time;
+                uint_fast16_t  mon = night_time_on_p->night_time;
+
+                if ((moff < mon && m >= moff && m < mon) ||                 // e.g. moff=16:00 < 17:00 < mon=18:00
+                    (mon < moff && !(m >= mon && m < moff)))                // e.g. moff=23:00 < 03:00 < mon=07:00
                 {
+                    power_is_on = 0;
                     night_power_is_on = 0;
                     display_flag = DISPLAY_FLAG_UPDATE_ALL;
                 }
             }
-            else
+        }
+        else
+        {
+            if (!night_power_is_on && night_time_on_p->night_time_active)
             {
-                if (hour_night_on >= (int_fast16_t) hour && minute_night_on >= (int_fast16_t) minute)
+                uint_fast16_t  m = hour * 60 + minute;
+                uint_fast16_t  moff = night_time_off_p->night_time;
+                uint_fast16_t  mon = night_time_on_p->night_time;
+
+                if ((mon < moff && m >= mon && m < moff) ||                 // e.g. mon=16:00  < 17:00 < moff=18:00
+                    (moff < mon && !(m >= moff && m < mon)))                // e.g. moff=07:00 < 08:00 < mon=23:00
                 {
+                    power_is_on = 1;
                     night_power_is_on = 1;
                     display_flag = DISPLAY_FLAG_UPDATE_ALL;
                 }
@@ -840,7 +863,7 @@ main ()
                     log_msg ("got temperature from RTC");
                 }
 
-                display_temperature (power_is_on ? night_power_is_on : power_is_on, temperature_index);
+                display_temperature (power_is_on, temperature_index);
 
 #if WCLOCK24H == 1                                                          // WC24H shows temperature with animation, WC12H rolls itself
                 uint32_t        stop_time;
@@ -864,10 +887,8 @@ main ()
         {
             log_msg ("update display");
 
-            uint_fast8_t on = power_is_on ? night_power_is_on : power_is_on;
-
-            display_clock (on, hour, minute, display_flag);                 // show new time
-            display_flag        = DISPLAY_FLAG_NONE;
+            display_clock (power_is_on, hour, minute, display_flag);        // show new time
+            display_flag = DISPLAY_FLAG_NONE;
         }
 
         if (animation_flag)
@@ -877,15 +898,15 @@ main ()
         }
 
 #if SAVE_RAM == 0
-        cmd = remote_ir_get_cmd ();                             // get IR command
+        cmd = remote_ir_get_cmd ();                                         // get IR command
 
-        if (cmd != REMOTE_IR_CMD_INVALID)                       // got IR command, light green LED
+        if (cmd != REMOTE_IR_CMD_INVALID)                                   // got IR command, light green LED
         {
             display_set_status_led (1, 0, 0);
             status_led_cnt = STATUS_LED_FLASH_TIME;
         }
 
-        if (cmd != REMOTE_IR_CMD_INVALID)                       // if command valid, print command code (mcurses)
+        if (cmd != REMOTE_IR_CMD_INVALID)                                   // if command valid, log command code
         {
             switch (cmd)
             {

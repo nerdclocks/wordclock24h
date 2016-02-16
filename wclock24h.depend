@@ -376,7 +376,7 @@
 
 1410773381 c:\emblocksprojects\wclock24h\src\irmp\irsndconfig.h
 
-1455136155 source:c:\emblocksprojects\wclock24h\src\main.c
+1455659276 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
@@ -397,6 +397,7 @@
 	"rtc.h"
 	"ldr.h"
 	"delay.h"
+	"night.h"
 	"log.h"
 
 1452782521 c:\emblocksprojects\wclock24h\src\remote-ir.h
@@ -815,7 +816,7 @@
 
 1452782520 c:\emblocksprojects\wclock24h\src\ds18xx\ds18xx-config.h
 
-1452782520 source:c:\emblocksprojects\wclock24h\src\adc\adc.c
+1455470706 source:c:\emblocksprojects\wclock24h\src\adc\adc.c
 	"adc.h"
 	"adc-config.h"
 
@@ -976,13 +977,13 @@
 	"wclock24h-config.h"
 	<stdint.h>
 
-1453738914 c:\emblocksprojects\wclock24h\src\display\display.h
+1455635400 c:\emblocksprojects\wclock24h\src\display\display.h
 
 1453931184 c:\emblocksprojects\wclock24h\src\eeprom\eeprom.h
 	"stm32f10x.h"
 	"stm32f4xx.h"
 
-1453932486 c:\emblocksprojects\wclock24h\src\eeprom\eeprom-data.h
+1455610412 c:\emblocksprojects\wclock24h\src\eeprom\eeprom-data.h
 
 1453739560 c:\emblocksprojects\wclock24h\src\ldr\ldr.h
 	"stm32f10x.h"
@@ -1024,7 +1025,7 @@
 	"eeprom-data.h"
 	"log.h"
 
-1455134683 c:\emblocksprojects\wclock24h\src\listener\listener.h
+1455549969 c:\emblocksprojects\wclock24h\src\listener\listener.h
 	<string.h>
 	<stdint.h>
 	<time.h>
@@ -1093,7 +1094,7 @@
 	"tables.h"
 	"tables12h.h"
 
-1455136155 source:c:\emblocksprojects\wclock24h\src\http\http.c
+1455657358 source:c:\emblocksprojects\wclock24h\src\http\http.c
 	<stdio.h>
 	<stdint.h>
 	<stdlib.h>
@@ -1109,6 +1110,7 @@
 	"eeprom-data.h"
 	"rtc.h"
 	"listener.h"
+	"night.h"
 	"log.h"
 	"delay.h"
 	"http.h"
@@ -1129,4 +1131,16 @@
 1454004509 c:\emblocksprojects\wclock24h\src\log\log.h
 	<stdarg.h>
 	"uart.h"
+
+1455657358 source:c:\emblocksprojects\wclock24h\src\night\night.c
+	<stdio.h>
+	<stdlib.h>
+	"eeprom.h"
+	"eeprom-data.h"
+	"night.h"
+	"log.h"
+
+1455657358 c:\emblocksprojects\wclock24h\src\night\night.h
+	<string.h>
+	<stdint.h>
 

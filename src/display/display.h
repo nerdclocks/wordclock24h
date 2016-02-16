@@ -27,6 +27,13 @@ typedef struct
     uint8_t blue;
 } DSP_COLORS;
 
+#define ANIMATION_MODE_NONE         0
+#define ANIMATION_MODE_FADE         1
+#define ANIMATION_MODE_ROLL         2
+#define ANIMATION_MODE_EXPLODE      3
+#define ANIMATION_MODE_RANDOM       4
+#define ANIMATION_MODES             5
+
 extern const char * animation_modes[];
 
 void                display_set_status_led (uint_fast8_t, uint_fast8_t, uint_fast8_t);
