@@ -20,10 +20,10 @@
 extern uint_fast8_t     timeserver_read_data_from_eeprom (void);
 extern uint_fast8_t     timeserver_write_data_to_eeprom (void);
 extern void             timeserver_cmd (void);
-extern uint_fast8_t     timeserver_set_timezone (int_fast16_t);
 extern int_fast16_t     timeserver_get_timezone (void);
-extern uint_fast8_t     timeserver_set_timeserver (char *);
+extern uint_fast8_t     timeserver_set_timezone (int_fast16_t);
 extern unsigned char *  timeserver_get_timeserver (void);
+extern uint_fast8_t     timeserver_set_timeserver (char *);
 extern void             timeserver_start_timeserver_request (void);
 extern void             timeserver_convert_time (struct tm *, uint32_t);
 

@@ -376,13 +376,15 @@
 
 1410773381 c:\emblocksprojects\wclock24h\src\irmp\irsndconfig.h
 
-1455659276 source:c:\emblocksprojects\wclock24h\src\main.c
+1455911783 source:c:\emblocksprojects\wclock24h\src\main.c
 	<string.h>
 	<stdio.h>
 	<stdint.h>
 	<time.h>
 	"wclock24h-config.h"
+	"base.h"
 	"display.h"
+	"dcf77.h"
 	"timeserver.h"
 	"listener.h"
 	"esp8266.h"
@@ -398,6 +400,7 @@
 	"ldr.h"
 	"delay.h"
 	"night.h"
+	"tables.h"
 	"log.h"
 
 1452782521 c:\emblocksprojects\wclock24h\src\remote-ir.h
@@ -608,7 +611,7 @@
 	"stm32f4xx_rcc.h"
 	"misc.h"
 
-1455140753 source:c:\emblocksprojects\wclock24h\src\esp8266\esp8266.c
+1455791702 source:c:\emblocksprojects\wclock24h\src\esp8266\esp8266.c
 	<stdio.h>
 	<stdlib.h>
 	"log.h"
@@ -619,7 +622,7 @@
 
 1453746005 c:\emblocksprojects\wclock24h\src\esp8266\esp8266-config.h
 
-1455101893 c:\emblocksprojects\wclock24h\src\esp8266\esp8266.h
+1455793981 c:\emblocksprojects\wclock24h\src\esp8266\esp8266.h
 	<string.h>
 	<stdint.h>
 	<time.h>
@@ -931,12 +934,16 @@
 	"stm32f4xx_gpio.h"
 	"stm32f4xx_rcc.h"
 
-1453733944 source:c:\emblocksprojects\wclock24h\src\dcf77\dcf77.c
+1455784764 source:c:\emblocksprojects\wclock24h\src\dcf77\dcf77.c
+	<string.h>
 	"wclock24h-config.h"
 	"dcf77.h"
+	"eeprom.h"
+	"eeprom-data.h"
+	"log.h"
 	"board-led.h"
 
-1452782520 c:\emblocksprojects\wclock24h\src\dcf77\dcf77.h
+1455784764 c:\emblocksprojects\wclock24h\src\dcf77\dcf77.h
 	<stdint.h>
 	"stm32f10x.h"
 	"stm32f10x_gpio.h"
@@ -949,7 +956,7 @@
 1453367727 c:\emblocksprojects\wclock24h\src\monitor\monitor.h
 	"esp8266.h"
 
-1455103821 source:c:\emblocksprojects\wclock24h\src\display\display.c
+1455869164 source:c:\emblocksprojects\wclock24h\src\display\display.c
 	<string.h>
 	<stdio.h>
 	<stdlib.h>
@@ -983,9 +990,9 @@
 	"stm32f10x.h"
 	"stm32f4xx.h"
 
-1455610412 c:\emblocksprojects\wclock24h\src\eeprom\eeprom-data.h
+1455874226 c:\emblocksprojects\wclock24h\src\eeprom\eeprom-data.h
 
-1453739560 c:\emblocksprojects\wclock24h\src\ldr\ldr.h
+1455785300 c:\emblocksprojects\wclock24h\src\ldr\ldr.h
 	"stm32f10x.h"
 	"stm32f10x_gpio.h"
 	"stm32f10x_rcc.h"
@@ -995,7 +1002,7 @@
 	"stm32f4xx_rcc.h"
 	"stm32f4xx_adc.h"
 
-1453906535 source:c:\emblocksprojects\wclock24h\src\display\tables.c
+1455870465 source:c:\emblocksprojects\wclock24h\src\display\tables.c
 	"wclock24h-config.h"
 	"tables.h"
 
@@ -1007,16 +1014,17 @@
 	"eeprom.h"
 	"i2c.h"
 
-1453739647 source:c:\emblocksprojects\wclock24h\src\ldr\ldr.c
+1455785624 source:c:\emblocksprojects\wclock24h\src\ldr\ldr.c
 	"adc.h"
 	"ldr.h"
 	"eeprom.h"
 	"eeprom-data.h"
 
-1455129722 source:c:\emblocksprojects\wclock24h\src\listener\listener.c
+1455804157 source:c:\emblocksprojects\wclock24h\src\listener\listener.c
 	<stdio.h>
 	<stdlib.h>
 	"wclock24h-config.h"
+	"base.h"
 	"listener.h"
 	"timeserver.h"
 	"http.h"
@@ -1025,7 +1033,7 @@
 	"eeprom-data.h"
 	"log.h"
 
-1455549969 c:\emblocksprojects\wclock24h\src\listener\listener.h
+1455793992 c:\emblocksprojects\wclock24h\src\listener\listener.h
 	<string.h>
 	<stdint.h>
 	<time.h>
@@ -1061,7 +1069,7 @@
 	"stm32f10x.h"
 	"stm32f4xx.h"
 
-1455129722 source:c:\emblocksprojects\wclock24h\src\timeserver\timeserver.c
+1455810652 source:c:\emblocksprojects\wclock24h\src\timeserver\timeserver.c
 	<stdio.h>
 	<stdlib.h>
 	"timeserver.h"
@@ -1071,7 +1079,7 @@
 	"eeprom-data.h"
 	"log.h"
 
-1455129737 c:\emblocksprojects\wclock24h\src\timeserver\timeserver.h
+1455810652 c:\emblocksprojects\wclock24h\src\timeserver\timeserver.h
 	<string.h>
 	<stdint.h>
 	<time.h>
@@ -1094,11 +1102,12 @@
 	"tables.h"
 	"tables12h.h"
 
-1455657358 source:c:\emblocksprojects\wclock24h\src\http\http.c
+1455802383 source:c:\emblocksprojects\wclock24h\src\http\http.c
 	<stdio.h>
 	<stdint.h>
 	<stdlib.h>
 	<string.h>
+	"base.h"
 	"esp8266.h"
 	"timeserver.h"
 	"ldr.h"
@@ -1117,7 +1126,7 @@
 	"tables.h"
 	"tables12h.h"
 
-1455034460 c:\emblocksprojects\wclock24h\src\http\http.h
+1455804157 c:\emblocksprojects\wclock24h\src\http\http.h
 	"listener.h"
 
 1453812058 source:c:\emblocksprojects\wclock24h\src\log\log.c
@@ -1132,7 +1141,7 @@
 	<stdarg.h>
 	"uart.h"
 
-1455657358 source:c:\emblocksprojects\wclock24h\src\night\night.c
+1455783033 source:c:\emblocksprojects\wclock24h\src\night\night.c
 	<stdio.h>
 	<stdlib.h>
 	"eeprom.h"
@@ -1140,7 +1149,17 @@
 	"night.h"
 	"log.h"
 
-1455657358 c:\emblocksprojects\wclock24h\src\night\night.h
+1455782107 c:\emblocksprojects\wclock24h\src\night\night.h
 	<string.h>
 	<stdint.h>
+
+1455868776 source:c:\emblocksprojects\wclock24h\src\base\base.c
+	"base.h"
+	"log.h"
+
+1455806464 c:\emblocksprojects\wclock24h\src\base\base.h
+	<string.h>
+	<stdint.h>
+	<time.h>
+	"esp8266.h"
 

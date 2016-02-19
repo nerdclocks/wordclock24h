@@ -20,8 +20,7 @@
  * globals:
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
-static NIGHT_TIME       night_time_off;
-static NIGHT_TIME       night_time_on;
+NIGHT_TIME              night_time[MAX_NIGHT_TIMES];
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * read configuration data from EEPROM
@@ -31,24 +30,21 @@ uint_fast8_t
 night_read_data_from_eeprom (void)
 {
     unsigned char   night_time_buf[EEPROM_MAX_NIGHT_TIME_LEN];
+    uint_fast8_t    i;
+    uint_fast8_t    offset = 0;
     uint_fast8_t    rtc = 0;
 
     if (eeprom_is_up &&
         eeprom_read (EEPROM_DATA_OFFSET_NIGHT_TIME, night_time_buf, EEPROM_MAX_NIGHT_TIME_LEN))
     {
-        night_time_off.night_time_active    = night_time_buf[0];
-        night_time_off.night_time           = night_time_buf[1] * 60 + night_time_buf[2];
-        night_time_on.night_time_active     = night_time_buf[3];
-        night_time_on.night_time            = night_time_buf[4] * 60 + night_time_buf[5];
+        for (i = 0; i < MAX_NIGHT_TIMES; i++)
+        {
+            night_time[i].flags      = night_time_buf[offset++];
+            night_time[i].minutes    = night_time_buf[offset++] * 60;
+            night_time[i].minutes   += night_time_buf[offset++];
+        }
 
         rtc = 1;
-    }
-    else
-    {
-        night_time_off.night_time_active    = 0;
-        night_time_off.night_time           = 0;
-        night_time_on.night_time_active     = 0;
-        night_time_on.night_time            = 0;
     }
 
     return rtc;
@@ -62,14 +58,16 @@ uint_fast8_t
 night_write_data_to_eeprom (void)
 {
     unsigned char   night_time_buf[EEPROM_MAX_NIGHT_TIME_LEN];
+    uint_fast8_t    i;
+    uint_fast8_t    offset = 0;
     uint_fast8_t    rtc = 0;
 
-    night_time_buf[0] = night_time_off.night_time_active;
-    night_time_buf[1] = night_time_off.night_time / 60;                     // hh
-    night_time_buf[2] = night_time_off.night_time % 60;                     // mm
-    night_time_buf[3] = night_time_on.night_time_active;
-    night_time_buf[4] = night_time_on.night_time / 60;                      // hh
-    night_time_buf[5] = night_time_on.night_time % 60;                      // mm
+    for (i = 0; i < MAX_NIGHT_TIMES; i++)
+    {
+        night_time_buf[offset++] = night_time[i].flags;
+        night_time_buf[offset++] = night_time[i].minutes / 60;                      // hh
+        night_time_buf[offset++] = night_time[i].minutes % 60;                      // mm
+    }
 
     if (eeprom_is_up &&
         eeprom_write (EEPROM_DATA_OFFSET_NIGHT_TIME, night_time_buf, EEPROM_MAX_NIGHT_TIME_LEN))
@@ -81,45 +79,50 @@ night_write_data_to_eeprom (void)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * get night time off
+ * check night_times
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-NIGHT_TIME *
-night_get_night_time_off (void)
+uint_fast8_t
+night_check_night_times (uint_fast8_t power_is_on, uint_fast8_t wday, uint_fast16_t m)
 {
-    return &night_time_off;
-}
+    uint_fast8_t    i;
+    uint_fast8_t    condition;
+    uint_fast8_t    rtc = 0;
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------
- * get night time on
- *-------------------------------------------------------------------------------------------------------------------------------------------
- */
-NIGHT_TIME *
-night_get_night_time_on (void)
-{
-    return &night_time_on;
-}
+    for (i = 0; i < MAX_NIGHT_TIMES; i++)
+    {
+        if ((night_time[i].flags & NIGHT_TIME_FLAG_ACTIVE) && night_time[i].minutes == m)
+        {
+            condition = night_time[i].flags & NIGHT_TIME_FLAG_SWITCH_ON;
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------
- * set night time off
- *-------------------------------------------------------------------------------------------------------------------------------------------
- */
-void
-night_set_night_time_off (NIGHT_TIME * new_night_time_p)
-{
-    memcpy (&night_time_off, new_night_time_p, sizeof (NIGHT_TIME));
-    night_write_data_to_eeprom ();
-}
+            if (power_is_on)
+            {
+                condition = !condition;
+            }
 
-/*-------------------------------------------------------------------------------------------------------------------------------------------
- * set night time on
- *-------------------------------------------------------------------------------------------------------------------------------------------
- */
-void
-night_set_night_time_on (NIGHT_TIME * new_night_time_p)
-{
-    memcpy (&night_time_on, new_night_time_p, sizeof (NIGHT_TIME));
-    night_write_data_to_eeprom ();
+            if (condition)
+            {
+                uint_fast8_t   from_wday    = (night_time[i].flags & NIGHT_TIME_FROM_DAY_MASK) >> 3;
+                uint_fast8_t   to_wday      = (night_time[i].flags & NIGHT_TIME_TO_DAY_MASK);
+
+                if (from_wday <= to_wday)                                       // e.g. Mo-Fr 1-5
+                {
+                    rtc = (wday >= from_wday && wday <= to_wday);
+                }
+                else                                                            // e.g. Sa-We 6-3
+                {
+                    rtc = ! (wday >= to_wday && wday <= from_wday);
+                }
+
+                if (rtc)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    return rtc;
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------

@@ -15,18 +15,24 @@
 #include <string.h>
 #include <stdint.h>
 
+#define MAX_NIGHT_TIMES             8
+
+#define NIGHT_TIME_FLAG_ACTIVE      0x80                                    // flag if entry is active (1) or not (0)
+#define NIGHT_TIME_FLAG_SWITCH_ON   0x40                                    // flag if entry switches on (1) or off (0)
+#define NIGHT_TIME_FROM_DAY_MASK    0x38                                    // 3 bits for from day
+#define NIGHT_TIME_TO_DAY_MASK      0x07                                    // 3 bits for to day
+
 typedef struct
 {
-    uint_fast8_t        night_time_active;
-    uint_fast16_t       night_time;                                         // time in minutes 0 - 1439
+    uint_fast8_t        flags;                                              // flags
+    uint_fast16_t       minutes;                                            // time in minutes 0 - 1439
 } NIGHT_TIME;
+
+extern NIGHT_TIME       night_time[MAX_NIGHT_TIMES];
 
 extern uint_fast8_t     night_read_data_from_eeprom (void);
 extern uint_fast8_t     night_write_data_to_eeprom (void);
-extern NIGHT_TIME *     night_get_night_time_off (void);
-extern NIGHT_TIME *     night_get_night_time_on (void);
-extern void             night_set_night_time_off (NIGHT_TIME *);
-extern void             night_set_night_time_on (NIGHT_TIME *);
+extern uint_fast8_t     night_check_night_times (uint_fast8_t, uint_fast8_t, uint_fast16_t);
 extern void             night_init (void);
 
 #endif

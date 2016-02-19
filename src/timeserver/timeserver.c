@@ -11,6 +11,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include "base.h"
 #include "timeserver.h"
 #include "http.h"
 #include "esp8266.h"
@@ -42,7 +43,6 @@
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 static uint8_t          timeserver[MAX_IPADDR_LEN + 1] = NET_TIME_HOST;
-static uint8_t          is_ntp_server;                          // flag if time server is ntp server
 static int_fast16_t     timezone = NET_TIME_GMT_OFFSET;         // from -12 to +12
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -57,7 +57,6 @@ timeserver_read_data_from_eeprom (void)
 
     if (eeprom_is_up &&
         eeprom_read (EEPROM_DATA_OFFSET_TIMESERVER, timeserver, MAX_IPADDR_LEN) &&
-        eeprom_read (EEPROM_DATA_OFFSET_NTP_PROTOCOL, &is_ntp_server, EEPROM_DATA_SIZE_NTP_PROTOCOL) &&
         eeprom_read (EEPROM_DATA_OFFSET_TIMEZONE, tz, EEPROM_DATA_SIZE_TIMEZONE))
     {
         timezone = tz[1];
@@ -101,7 +100,6 @@ timeserver_write_data_to_eeprom (void)
 
     if (eeprom_is_up &&
         eeprom_write (EEPROM_DATA_OFFSET_TIMESERVER, timeserver, EEPROM_DATA_SIZE_TIMESERVER) &&
-        eeprom_write (EEPROM_DATA_OFFSET_NTP_PROTOCOL, &is_ntp_server, EEPROM_DATA_SIZE_NTP_PROTOCOL) &&
         eeprom_write (EEPROM_DATA_OFFSET_TIMEZONE, tz, EEPROM_DATA_SIZE_TIMEZONE))
     {
         rtc = 1;
@@ -110,6 +108,20 @@ timeserver_write_data_to_eeprom (void)
     return rtc;
 }
 
+/*--------------------------------------------------------------------------------------------------------------------------------------
+ * get timezone
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
+int_fast16_t
+timeserver_get_timezone (void)
+{
+    return timezone;
+}
+
+/*--------------------------------------------------------------------------------------------------------------------------------------
+ * set new timezone
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
 uint_fast8_t
 timeserver_set_timezone (int_fast16_t newtimezone)
 {
@@ -130,12 +142,10 @@ timeserver_set_timezone (int_fast16_t newtimezone)
     return rtc;
 }
 
-int_fast16_t
-timeserver_get_timezone (void)
-{
-    return timezone;
-}
-
+/*--------------------------------------------------------------------------------------------------------------------------------------
+ * get timeserver
+ *--------------------------------------------------------------------------------------------------------------------------------------
+ */
 unsigned char *
 timeserver_get_timeserver (void)
 {
@@ -143,7 +153,7 @@ timeserver_get_timeserver (void)
 }
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
- * Set new timeserver
+ * set new timeserver
  *--------------------------------------------------------------------------------------------------------------------------------------
  */
 uint_fast8_t
@@ -151,7 +161,6 @@ timeserver_set_timeserver (char * new_timeserver)
 {
     uint_fast8_t    rtc;
 
-    is_ntp_server = 0;                                                      // not used anymore
     strcpy ((char *) timeserver, new_timeserver);
     rtc = timeserver_write_data_to_eeprom ();
     return rtc;
@@ -232,11 +241,12 @@ timeserver_convert_time (struct tm * tmp, uint32_t seconds_since_1900)
         mytm = localtime (&curtime);
     }
 
-    tmp->tm_year     = mytm->tm_year;
-    tmp->tm_mon      = mytm->tm_mon;
-    tmp->tm_mday     = mytm->tm_mday;
-    tmp->tm_isdst    = mytm->tm_isdst;
-    tmp->tm_hour     = mytm->tm_hour;
-    tmp->tm_min      = mytm->tm_min;
-    tmp->tm_sec      = mytm->tm_sec;
+    tmp->tm_year    = mytm->tm_year;
+    tmp->tm_mon     = mytm->tm_mon;
+    tmp->tm_mday    = mytm->tm_mday;
+    tmp->tm_wday    = dayofweek (mytm->tm_mday, mytm->tm_mday + 1, mytm->tm_year + 1900);
+    tmp->tm_isdst   = mytm->tm_isdst;
+    tmp->tm_hour    = mytm->tm_hour;
+    tmp->tm_min     = mytm->tm_min;
+    tmp->tm_sec     = mytm->tm_sec;
 }

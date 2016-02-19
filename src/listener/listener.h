@@ -39,13 +39,6 @@ typedef union
     DSP_COLORS          rgb;
     struct tm           tm;
     uint_fast8_t        power;
-    struct
-    {
-        uint_fast8_t    night_hour_off;
-        uint_fast8_t    night_minute_off;
-        uint_fast8_t    night_hour_on;
-        uint_fast8_t    night_minute_on;
-    };
 } LISTENER_DATA;
 
 extern uint_fast8_t         listener (LISTENER_DATA *);

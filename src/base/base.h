@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------------------------------------------------------------
- * http.h - simple HTTP server via ESP8266
+ * base.h - declarations of base routines
  *
  * Copyright (c) 2016 Frank Meyer - frank(at)fli4l.de
  *
@@ -9,11 +9,19 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------------------------------------------------------------------------------
  */
-#ifndef HTTP_H
-#define HTTP_H
+#ifndef BASE_H
+#define BASE_H
 
-#include "listener.h"
+#include <string.h>
+#include <stdint.h>
+#include <time.h>
+#include "esp8266.h"
 
-extern uint_fast8_t http_server (char *, char *, LISTENER_DATA * ld);
+extern const char * wdays_en[7];
+extern const char * wdays_de[7];
+
+extern int          dayofweek (int, int, int);
+extern int          is_holiday (int, int, int);
+extern uint16_t     htoi (char *, uint8_t);
 
 #endif

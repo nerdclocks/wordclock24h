@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "wclock24h-config.h"
+#include "base.h"
 #include "listener.h"
 #include "timeserver.h"
 #include "http.h"

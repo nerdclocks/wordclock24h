@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "base.h"
 #include "esp8266.h"
 #include "timeserver.h"
 #include "ldr.h"
@@ -32,7 +33,7 @@
 
 #define MAX_LINE_LEN                256                                     // max. length of line_buffer
 #define MAX_PATH_LEN                20                                      // max. length of path
-#define MAX_HTTP_PARAMS             5                                       // max. number of http parameters
+#define MAX_HTTP_PARAMS             16                                      // max. number of http parameters
 
 typedef struct
 {
@@ -60,6 +61,11 @@ static int                          bgcolor_cnt;
 
 #define TIMEOUT_MSEC(x)             (x/10)
 
+#define MAIN_HEADER_COLS            2
+#define NETWORK_HEADER_COLS         3
+#define DISPLAY_HEADER_COLS         3
+#define TIMERS_HEADER_COLS          8
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * flush output buffer
  *-------------------------------------------------------------------------------------------------------------------------------------------
@@ -79,7 +85,10 @@ http_send (char * s)
 {
     int l = strlen (s);
 
-    esp8266_send_data ((unsigned char *) s, l);
+    if (l)
+    {
+        esp8266_send_data ((unsigned char *) s, l);
+    }
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -140,6 +149,66 @@ http_get_param (char * name)
     return "";
 }
 
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * get a parameter by index
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static char *
+http_get_param_by_idx (char * name, int idx)
+{
+    char    name_buf[16];
+    char *  rtc;
+
+    sprintf (name_buf, "%s%d", name, idx);
+    rtc = http_get_param (name_buf);
+
+    return rtc;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * get a checkbox parameter
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static int
+http_get_checkbox_param (char * name)
+{
+    char *  value = http_get_param (name);
+    int     rtc;
+
+    if (! strcmp (value, "active"))
+    {
+        rtc = 1;
+    }
+    else
+    {
+        rtc = 0;
+    }
+
+    return rtc;
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * get a checkbox parameter by index
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static int
+http_get_checkbox_param_by_idx (char * name, int idx)
+{
+    char *  value = http_get_param_by_idx (name, idx);
+    int     rtc;
+
+    if (! strcmp (value, "active"))
+    {
+        rtc = 1;
+    }
+    else
+    {
+        rtc = 0;
+    }
+
+    return rtc;
+}
+
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * dump eeprom
  *--------------------------------------------------------------------------------------------------------------------------------------
@@ -164,18 +233,32 @@ http_eeprom_dump (void)
         {
             for (c = 0; c < 16; c++)
             {
-                sprintf (buf, "%02x", buffer[c]);
-                http_send (buf);
-                http_send (" ");
+                if (start_addr + c < EEPROM_DATA_END)
+                {
+                    sprintf (buf, "%02x", buffer[c]);
+                    http_send (buf);
+                    http_send (" ");
+                }
+                else
+                {
+                    http_send ("   ");
+                }
             }
 
             http_send (" ");
 
             for (c = 0; c < 16; c++)
             {
-                if (buffer[c] < 32 || buffer[c] >= 127)
+                if (start_addr + c < EEPROM_DATA_END)
                 {
-                    buffer[c] = '.';
+                    if (buffer[c] < 32 || buffer[c] >= 127)
+                    {
+                        buffer[c] = '.';
+                    }
+                }
+                else
+                {
+                    buffer[c] = ' ';
                 }
             }
 
@@ -229,25 +312,25 @@ http_trailer (void)
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * send table header
+ * send table header columns
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static void
-table_header (char * col1, char * col2, char * col3)
+table_header (char ** columns, int cols)
 {
-    http_send ("<table border=0>\r\n");
-    http_send ("<tr><th>");
-    http_send (col1);
-    http_send ("</th><th>");
-    http_send (col2);
-    http_send ("</th>");
+    int i;
 
-    if (*col3)
+    http_send ("<table border=0>\r\n");
+    http_send ("<tr>\r\n");
+
+    for (i = 0; i < cols; i++)
     {
         http_send ("<th>");
-        http_send (col3);
-        http_send ("</th></tr>\r\n");
+        http_send (columns[i]);
+        http_send ("</th>\r\n");
     }
+
+    http_send ("</tr>\r\n");
     bgcolor_cnt = 0;
 }
 
@@ -559,53 +642,6 @@ table_row_checkbox (char * page, char * text, char * id, char * desc, int checke
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * table row for night time
- *-------------------------------------------------------------------------------------------------------------------------------------------
- */
-static void
-table_row_night_time (char * page, int on, NIGHT_TIME * night_time_p)
-{
-    char *  id;
-    char    hour_buf[3];
-    char    minute_buf[3];
-    char *  chk_id;
-    char *  hour_id;
-    char *  min_id;
-
-    sprintf (hour_buf, "%02d", night_time_p->night_time / 60);
-    sprintf (minute_buf, "%02d", night_time_p->night_time % 60);
-
-    begin_table_row_form (page);
-
-    if (on)
-    {
-        text_column ("Poweron time");
-        id = "poweron";
-        chk_id = "chkon";
-        hour_id = "houron";
-        min_id = "minon";
-    }
-    else
-    {
-        text_column ("Poweroff time");
-        id = "poweroff";
-        chk_id = "chkoff";
-        hour_id = "houroff";
-        min_id = "minoff";
-    }
-
-    http_send ("<td>");
-    checkbox_field (chk_id, "Active", night_time_p->night_time_active);
-    input_field (hour_id, "Hour",  hour_buf, 2, 2);
-    http_send ("&nbsp;&nbsp;&nbsp;");
-    input_field (min_id, "Min",  minute_buf, 2, 2);
-    http_send ("</td>");
-
-    save_column (id);
-    end_table_row_form ();
-}
-
-/*-------------------------------------------------------------------------------------------------------------------------------------------
  * table row with selection
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
@@ -668,12 +704,26 @@ table_trailer (void)
 }
 
 static void
+menu_entry (char * page, char * entry)
+{
+    http_send ("<a href=\"/");
+    http_send (page);
+    http_send ("\">");
+    http_send (entry);
+    http_send ("</a>&nbsp;&nbsp;\r\n");
+}
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * menu
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+static void
 http_menu (void)
 {
-    http_send ("<a href=\"/\">Main</a>&nbsp;&nbsp;\r\n");
-    http_send ("<a href=\"/network\">Network</a>&nbsp;&nbsp;\r\n");
-    http_send ("<a href=\"/display\">Display</a>&nbsp;&nbsp;\r\n");
-    http_send ("<P>\r\n");
+    menu_entry ("", "Main");
+    menu_entry ("network", "Network");
+    menu_entry ("display", "Display");
+    menu_entry ("timers", "Timers");
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -683,6 +733,7 @@ http_menu (void)
 static uint_fast8_t
 http_main (LISTENER_DATA * ld)
 {
+    char *          header_cols[MAIN_HEADER_COLS] = { "Device", "Value" };
     char *          action;
     char *          message         = (char *) 0;
     uint_fast8_t    rtc             = 0;
@@ -753,10 +804,9 @@ http_main (LISTENER_DATA * ld)
     }
 
     http_header ("WordClock");
-
     http_menu ();
+    table_header (header_cols, MAIN_HEADER_COLS);
 
-    table_header ("Device", "Value", "");
     table_row ("RTC temperature", rtc_temp, "");
     table_row ("DS18xx", ds18xx_temp, "");
     table_row ("EEPROM", eeprom_is_up ? "online" : "offline", "");
@@ -798,9 +848,10 @@ http_main (LISTENER_DATA * ld)
 static uint_fast8_t
 http_network (void)
 {
+    char *                      header_cols[NETWORK_HEADER_COLS] = { "Device", "Value", "Action" };
     char *                      action;
     char *                      message         = (char *) 0;
-    ESP8266_INFO *   infop;
+    ESP8266_INFO *              infop;
     char *                      esp_firmware_version;
     char *                      ids[2]          = { "ap", "pw" };
     char *                      desc[2]         = { "AP", "Key" };
@@ -876,8 +927,8 @@ http_network (void)
 
     http_header ("WordClock Network");
     http_menu ();
+    table_header (header_cols, NETWORK_HEADER_COLS);
 
-    table_header ("Device", "Value", "Action");
     table_row ("IP address", infop->ipaddress, "");
     table_row ("ESP8266 firmware", esp_firmware_version, "");
     table_row_inputs ("network", "Access Point", "accesspoint", 2, ids, desc, col2, maxlen, maxsize);
@@ -909,6 +960,7 @@ http_network (void)
 static uint_fast8_t
 http_display (LISTENER_DATA * ld)
 {
+    char *              header_cols[DISPLAY_HEADER_COLS] = { "Device", "Value", "Action" };
     static const char * tbl_mode_names[MODES_COUNT];
     static int          already_called  = 0;
     char *              action;
@@ -927,15 +979,11 @@ http_display (LISTENER_DATA * ld)
     char                blue_buf[MAX_COLOR_VALUE_LEN + 1];
     int                 animation_mode;
     int                 display_mode;
-    uint_fast8_t        use_ldr;
     uint_fast8_t        ldr_value;
     char                ldr_buf[MAX_BRIGHTNESS_LEN + 1];
-    NIGHT_TIME *        night_time_off_p;
-    NIGHT_TIME *        night_time_on_p;
     uint_fast8_t        i;
     uint_fast8_t        rtc             = 0;
 
-    use_ldr                 = ldr_get_ldr_status ();
     display_mode            = display_get_display_mode ();
     animation_mode          = display_get_animation_mode ();
     brightness              = display_get_brightness ();
@@ -959,60 +1007,9 @@ http_display (LISTENER_DATA * ld)
 
     if (action)
     {
-        if (! strcmp (action, "savepoweroff"))
+        if (! strcmp (action, "saveauto"))
         {
-            NIGHT_TIME  tmp_night_time;
-
-            if (! strcmp (http_get_param ("chkoff"), "active"))
-            {
-                tmp_night_time.night_time_active = 1;
-            }
-            else
-            {
-                tmp_night_time.night_time_active = 0;
-            }
-
-            tmp_night_time.night_time = atoi (http_get_param ("houroff")) * 60 + atoi (http_get_param ("minoff"));
-
-            night_set_night_time_off (&tmp_night_time);
-        }
-        else if (! strcmp (action, "savepoweron"))
-        {
-            NIGHT_TIME  tmp_night_time;
-
-            if (! strcmp (http_get_param ("chkon"), "active"))
-            {
-                tmp_night_time.night_time_active = 1;
-            }
-            else
-            {
-                tmp_night_time.night_time_active = 0;
-            }
-
-            tmp_night_time.night_time = atoi (http_get_param ("houron")) * 60 + atoi (http_get_param ("minon"));
-
-            night_set_night_time_on (&tmp_night_time);
-        }
-        else if (! strcmp (action, "saveldrconnected"))
-        {
-            if (! strcmp (http_get_param ("ldrconnected"), "active"))
-            {
-                use_ldr = 1;
-                ld->automatic_brightness_control = 0;
-            }
-            else
-            {
-                use_ldr = 0;
-                ld->automatic_brightness_control = 0;
-            }
-
-            ldr_set_ldr_status (use_ldr);
-
-            rtc = LISTENER_SET_AUTOMATIC_BRIHGHTNESS_CODE;
-        }
-        else if (! strcmp (action, "saveauto"))
-        {
-            if (! strcmp (http_get_param ("auto"), "active"))
+            if (http_get_checkbox_param ("auto"))
             {
                 auto_brightness_active = 1;
             }
@@ -1076,31 +1073,28 @@ http_display (LISTENER_DATA * ld)
 
     *ldr_buf = '\0';
 
-    if (use_ldr)
+    uint_fast8_t cnt = 0;
+
+    ldr_start_conversion ();
+
+    while (! ldr_poll_brightness (&ldr_value))
     {
-        uint_fast8_t cnt = 0;
-
-        ldr_start_conversion ();
-
-        while (! ldr_poll_brightness (&ldr_value))
-        {
-            delay_msec (10);
-            cnt++;
-
-            if (cnt >= 10)
-            {
-                break;
-            }
-        }
+        delay_msec (10);
+        cnt++;
 
         if (cnt >= 10)
         {
-            strcpy (ldr_buf, "?");
+            break;
         }
-        else
-        {
-            sprintf (ldr_buf, "%d", ldr_value);
-        }
+    }
+
+    if (cnt >= 10)
+    {
+        strcpy (ldr_buf, "?");
+    }
+    else
+    {
+        sprintf (ldr_buf, "%d", ldr_value);
     }
 
     sprintf (brbuf,     "%d", brightness);
@@ -1113,27 +1107,17 @@ http_display (LISTENER_DATA * ld)
     rgb_buf[1] = green_buf;
     rgb_buf[2] = blue_buf;
 
-    night_time_off_p    = night_get_night_time_off ();
-    night_time_on_p     = night_get_night_time_on ();
-
     http_header ("WordClock Display");
     http_menu ();
-
-    table_header ("Device", "Value", "Action");
+    table_header (header_cols, DISPLAY_HEADER_COLS);
 
     table_row_select ("display", "Animation", "animation", animation_modes, animation_mode, ANIMATION_MODES);
     table_row_select ("display", "Display Mode", "displaymode", tbl_mode_names, display_mode, MODES_COUNT);
-    table_row_night_time ("display", 0, night_time_off_p);
-    table_row_night_time ("display", 1, night_time_on_p);
-    table_row_checkbox ("display", "LDR", "ldrconnected", "LDR connected", use_ldr);
 
-    if (use_ldr)
-    {
-        table_row ("LDR", ldr_buf, "");
-        table_row_checkbox ("display", "LDR", "auto", "Automatic brightness", auto_brightness_active);
-    }
+    table_row ("LDR", ldr_buf, "");
+    table_row_checkbox ("display", "LDR", "auto", "Automatic brightness", auto_brightness_active);
 
-    if (! use_ldr || ! auto_brightness_active)
+    if (! auto_brightness_active)
     {
         table_row_slider ("display", "Brightness (1-15)", "brightness", brbuf, "0", "15");
     }
@@ -1161,42 +1145,123 @@ http_display (LISTENER_DATA * ld)
     return rtc;
 }
 
+static void
+table_row_timers (char * page, int idx)
+{
+    char            id[8];
+    char            idx_buf[3];
+    char            hour_buf[3];
+    char            minute_buf[3];
+    char            act_id[8];
+    char            on_id[8];
+    char            hour_id[8];
+    char            min_id[8];
+    char            day_id[8];
+
+    sprintf (hour_buf,   "%02d", night_time[idx].minutes / 60);
+    sprintf (minute_buf, "%02d", night_time[idx].minutes % 60);
+
+    begin_table_row_form (page);
+
+    sprintf (idx_buf, "%d",   idx);
+    sprintf (id,      "id%d", idx);
+    sprintf (act_id,  "a%d",  idx);
+    sprintf (on_id,   "o%d",  idx);
+    sprintf (hour_id, "h%d",  idx);
+    sprintf (min_id,  "m%d",  idx);
+
+    text_column (idx_buf);
+
+    checkbox_column (act_id, "", (night_time[idx].flags & NIGHT_TIME_FLAG_ACTIVE) ? 1 : 0);
+    checkbox_column (on_id, "", (night_time[idx].flags & NIGHT_TIME_FLAG_SWITCH_ON) ? 1 : 0);
+
+    sprintf (day_id, "f%d", idx);
+    select_column (day_id, wdays_en, (night_time[idx].flags & NIGHT_TIME_FROM_DAY_MASK) >> 3, 7);
+
+    sprintf (day_id, "t%d", idx);
+    select_column (day_id, wdays_en, (night_time[idx].flags & NIGHT_TIME_TO_DAY_MASK), 7);
+
+    input_column (hour_id, "",  hour_buf, 2, 2);
+    input_column (min_id, "",  minute_buf, 2, 2);
+
+    save_column (id);
+    end_table_row_form ();
+}
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * hex to integer
+ * timers page
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-uint16_t
-htoi (char * buf, uint8_t max_digits)
+static uint_fast8_t
+http_timers (void)
 {
-    uint8_t     i;
-    uint8_t     x;
-    uint16_t    sum = 0;
+    char *              header_cols[TIMERS_HEADER_COLS] = { "Slot", "Active", "On", "From", "To", "Hour", "Min", "Action" };
+    char *              action;
+    uint_fast8_t        idx;
+    int                 rtc = 0;
 
-    for (i = 0; i < max_digits && *buf; i++)
+    action = http_get_param ("action");
+
+    if (action)
     {
-        x = buf[i];
+        if (! strncmp (action, "saveid", 6))
+        {
+            char id[16];
+            uint_fast8_t idx = atoi (action + 6);
 
-        if (x >= '0' && x <= '9')
-        {
-            x -= '0';
+            if (idx < MAX_NIGHT_TIMES)
+            {
+                uint_fast8_t from_day;
+                uint_fast8_t to_day;
+
+                if (http_get_checkbox_param_by_idx ("a", idx))
+                {
+                    night_time[idx].flags |= NIGHT_TIME_FLAG_ACTIVE;
+                }
+                else
+                {
+                    night_time[idx].flags &= ~NIGHT_TIME_FLAG_ACTIVE;
+                }
+
+                if (http_get_checkbox_param_by_idx ("o", idx))
+                {
+                    night_time[idx].flags |= NIGHT_TIME_FLAG_SWITCH_ON;
+                }
+                else
+                {
+                    night_time[idx].flags &= ~NIGHT_TIME_FLAG_SWITCH_ON;
+                }
+
+                sprintf (id, "f%d", idx);
+                from_day = atoi (http_get_param (id));
+                sprintf (id, "t%d", idx);
+                to_day = atoi (http_get_param (id));
+
+                night_time[idx].flags &= ~(NIGHT_TIME_FROM_DAY_MASK | NIGHT_TIME_TO_DAY_MASK);
+                night_time[idx].flags |= NIGHT_TIME_FROM_DAY_MASK & (from_day << 3);
+                night_time[idx].flags |= NIGHT_TIME_TO_DAY_MASK & (to_day);
+
+                night_time[idx].minutes = atoi (http_get_param_by_idx ("h", idx)) * 60 + atoi (http_get_param_by_idx ("m", idx));
+                night_write_data_to_eeprom ();
+            }
         }
-        else if (x >= 'A' && x <= 'F')
-        {
-            x -= 'A' - 10;
-        }
-        else if (x >= 'a' && x <= 'f')
-        {
-            x -= 'a' - 10;
-        }
-        else
-        {
-            x = 0;
-        }
-        sum <<= 4;
-        sum += x;
     }
 
-    return (sum);
+    http_header ("WordClock Timers");
+    http_menu ();
+    table_header (header_cols, TIMERS_HEADER_COLS);
+
+    for (idx = 0; idx < MAX_NIGHT_TIMES; idx++)
+    {
+        table_row_timers ("timers", idx);
+    }
+
+    table_trailer ();
+
+    http_trailer ();
+    http_flush ();
+
+    return rtc;
 }
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
@@ -1256,6 +1321,10 @@ http_server (char * path, char * param, LISTENER_DATA * ld)
     else if (! strcmp (path, "/display"))
     {
         rtc = http_display (ld);
+    }
+    else if (! strcmp (path, "/timers"))
+    {
+        rtc = http_timers ();
     }
     else
     {

@@ -50,6 +50,7 @@
  *    | ESP8266 USART           | USART6:    TX=PA11 RX=PA12    | USART2:    TX=PA2  RX=PA3     |
  *    | ESP8266 GPIO            | GPIO:      RST=PA7 CH_PD=PA6  | GPIO:      RST=PA0 CH_PD=PA1  |
  *    | ESP8266 GPIO (FLASH)    | GPIO:      FLASH=PA4          | GPIO:      FLASH=PA4          |
+ *    | DCF77                   | GPIO:      DATA=PC11 PON=PC12 | GPIO:      DATA=PB8  PON=PB9  |
  *    | I2C DS3231 & EEPROM     | I2C3:      SCL=PA8 SDA=PC9    | I2C1:      SCL=PB6 SDA=PB7    |
  *    | LDR                     | ADC:       ACD1_IN14=PC4      | ADC:       ADC12_IN5=PA5      |
  *    | WS2812                  | TIM3/DMA1: PC6                | TIM1/DMA1: PA8                |
@@ -76,8 +77,11 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <time.h>
+
 #include "wclock24h-config.h"
+#include "base.h"
 #include "display.h"
+#include "dcf77.h"
 #include "timeserver.h"
 #include "listener.h"
 #include "esp8266.h"
@@ -93,14 +97,26 @@
 #include "ldr.h"
 #include "delay.h"
 #include "night.h"
+#if WCLOCK24H == 1
+#include "tables.h"
+#endif
 
 #include "log.h"
 
+#define VERSION     "1.8.3"
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * global variables
+ * global public variables
+ *-------------------------------------------------------------------------------------------------------------------------------------------
+ */
+uint_fast8_t                    esp8266_is_online           = 0;        // flag, set when esp8266 is online. See also http.c
+
+/*-------------------------------------------------------------------------------------------------------------------------------------------
+ * global private variables
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 static volatile uint_fast8_t    animation_flag              = 0;        // flag: animate LEDs
+static volatile uint_fast8_t    dcf77_flag                  = 0;        // flag: check DCF77 signal
 static volatile uint_fast8_t    ds3231_flag                 = 0;        // flag: read date/time from RTC DS3231
 static volatile uint_fast8_t    net_time_flag               = 0;        // flag: read date/time from time server
 static volatile uint_fast16_t   net_time_countdown          = 3800;     // counter: if it counts to 0, then net_time_flag will be triggered
@@ -108,11 +124,12 @@ static volatile uint_fast8_t    ldr_conversion_flag         = 0;        // flag:
 static volatile uint_fast8_t    show_time_flag              = 0;        // flag: update time on display, set every full minute
 static volatile uint_fast8_t    short_isr                   = 0;        // flag: run TIM2_IRQHandler() in short version
 static volatile uint32_t        uptime                      = 0;        // uptime in seconds
+static volatile uint_fast8_t    wday                        = 0;        // current weekday, 0=Sunday
 static volatile uint_fast8_t    hour                        = 0;        // current hour
 static volatile uint_fast8_t    minute                      = 0;        // current minute
 static volatile uint_fast8_t    second                      = 0;        // current second
 
-static uint_fast8_t             brightness_control_per_ldr  = 0;        // flag: LDR controls brightness
+static uint_fast8_t             auto_brightness             = 0;        // flag: LDR controls brightness
 static uint_fast8_t             display_mode                = 0;        // display mode
 static uint_fast8_t             animation_mode              = 0;        // animation mode
 
@@ -194,6 +211,7 @@ TIM2_IRQHandler (void)
     static uint_fast16_t ldr_cnt;
     static uint_fast16_t animation_cnt;
     static uint_fast16_t clk_cnt;
+    static uint_fast16_t dcf77_cnt;
     static uint_fast16_t net_time_cnt;
     static uint_fast16_t eeprom_cnt;
     static uint_fast16_t ds3231_cnt;
@@ -227,6 +245,13 @@ TIM2_IRQHandler (void)
                     if (hour == 24)
                     {
                         hour = 0;
+
+                        wday++;
+
+                        if (wday == 7)
+                        {
+                            wday = 0;
+                        }
                     }
                 }
             }
@@ -255,6 +280,14 @@ TIM2_IRQHandler (void)
         {
             animation_flag = 1;
             animation_cnt = 0;
+        }
+
+        dcf77_cnt++;
+
+        if (dcf77_cnt == F_INTERRUPTS / 100)                                // set dcf77_flag every 1/100 of a second
+        {
+            dcf77_flag = 1;
+            dcf77_cnt = 0;
         }
 
         net_time_cnt++;
@@ -306,6 +339,12 @@ TIM2_IRQHandler (void)
                     if (hour == 24)
                     {
                         hour = 0;
+                        wday++;
+
+                        if (wday == 7)
+                        {
+                            wday = 0;
+                        }
                     }
                 }
             }
@@ -358,8 +397,6 @@ write_version_to_eeprom (void)
     return rtc;
 }
 
-uint_fast8_t            esp8266_is_online = 0;
-
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * main function
  *-------------------------------------------------------------------------------------------------------------------------------------------
@@ -371,8 +408,6 @@ main ()
     struct tm               tm;
     LISTENER_DATA           lis;
     ESP8266_INFO *          esp8266_infop;
-    NIGHT_TIME *            night_time_off_p;
-    NIGHT_TIME *            night_time_on_p;
     uint_fast8_t            esp8266_is_up = 0;
     uint_fast8_t            code;
 
@@ -398,7 +433,7 @@ main ()
 #if SAVE_RAM == 0
     irmp_init ();                                                           // initialize IRMP
 #endif
-    timer2_init ();                                                         // initialize timer2 for IRMP, EEPROM
+    timer2_init ();                                                         // initialize timer2 for IRMP, DCF77, EEPROM etc.
     delay_init (DELAY_RESOLUTION_1_US);                                     // initialize delay functions with granularity of 1 us
     board_led_init ();                                                      // initialize GPIO for green LED on disco or nucleo board
     button_init ();                                                         // initialize GPIO for user button on disco or nucleo board
@@ -413,6 +448,8 @@ main ()
 
     log_msg ("\r\nWelcome to WordClock Logger!");
     log_msg ("----------------------------");
+    log_str ("Version: ");
+    log_msg (VERSION);
 
     if (rtc_is_up)
     {
@@ -427,19 +464,28 @@ main ()
     {
         log_msg ("eeprom is online");
         read_version_from_eeprom ();
+        log_printf ("current eeprom version: 0x%08x\r\n", eeprom_version);
 
-        if (eeprom_version >= EEPROM_VERSION_1_5_0)
-        {
+        if ((eeprom_version & 0xFF0000FF) == 0x00000000)
+        {                                                               // Upper and Lower Byte must be 0x00
+            if (eeprom_version >= EEPROM_VERSION_1_5_0)
+            {
 #if SAVE_RAM == 0
-            remote_ir_read_codes_from_eeprom ();
+                log_msg ("reading ir codes from eeprom");
+                remote_ir_read_codes_from_eeprom ();
 #endif
-            display_read_config_from_eeprom ();
-            timeserver_read_data_from_eeprom ();
-        }
+                log_msg ("reading display configuration from eeprom");
+                display_read_config_from_eeprom ();
 
-        if (eeprom_version >= EEPROM_VERSION_1_6_0)
-        {
-            night_read_data_from_eeprom ();
+                log_msg ("reading timeserver data from eeprom");
+                timeserver_read_data_from_eeprom ();
+            }
+
+            if (eeprom_version >= EEPROM_VERSION_1_7_0)
+            {
+                log_msg ("reading night timers from eeprom");
+                night_read_data_from_eeprom ();
+            }
         }
     }
     else
@@ -449,6 +495,9 @@ main ()
 
     ldr_init ();                                                            // initialize LDR (ADC)
     display_init ();                                                        // initialize display
+
+    dcf77_init ();                                                          // initialize DCF77
+
     night_init ();                                                          // initialize night time routines
 
     short_isr = 1;
@@ -458,16 +507,13 @@ main ()
     display_reset_led_states ();
     display_mode                = display_get_display_mode ();
     animation_mode              = display_get_animation_mode ();
-    brightness_control_per_ldr  = display_get_automatic_brightness_control ();
-
-    night_time_off_p            = night_get_night_time_off ();
-    night_time_on_p             = night_get_night_time_on ();
+    auto_brightness             = display_get_automatic_brightness_control ();
 
     if (eeprom_is_up)
     {
         if (eeprom_version != EEPROM_VERSION)
         {
-            log_msg ("Updating EEPROM...");
+            log_printf ("updating EEPROM to version 0x%08x\r\n", EEPROM_VERSION);
 
             eeprom_version = EEPROM_VERSION;
             write_version_to_eeprom ();
@@ -477,6 +523,7 @@ main ()
             display_write_config_to_eeprom ();
             timeserver_write_data_to_eeprom ();
             night_write_data_to_eeprom ();
+            eeprom_version = EEPROM_VERSION;
         }
     }
 
@@ -495,6 +542,7 @@ main ()
             (void) irmp_get_data (&irmp_data);                              // flush input of IRMP now
             display_set_status_led (0, 0, 0);                               // and switch status LED off
 
+            log_msg ("calling IR learn function");
             if (remote_ir_learn ())                                         // learn IR commands
             {
                 remote_ir_write_codes_to_eeprom ();                         // if successful, save them in EEPROM
@@ -514,7 +562,7 @@ main ()
         if (! ap_mode && esp8266_is_up && button_pressed ())                // if user pressed user button, set ESP8266 to AP mode
         {
             ap_mode = 1;
-            log_msg ("User button pressed: configuring ESP8266 as access point");
+            log_msg ("user button pressed: configuring esp8266 as access point");
             esp8266_is_online = 0;
             esp8266_infop->is_online = 0;
             esp8266_infop->ipaddress[0] = '\0';
@@ -589,11 +637,11 @@ main ()
 
                 case LISTENER_SET_BRIGHTNESS_CODE:                          // set brightness
                 {
-                    if (brightness_control_per_ldr)
+                    if (auto_brightness)
                     {
-                        brightness_control_per_ldr = 0;
+                        auto_brightness = 0;
                         last_ldr_value = 0xFF;
-                        display_set_automatic_brightness_control (brightness_control_per_ldr);
+                        display_set_automatic_brightness_control (auto_brightness);
                     }
                     display_set_brightness (lis.brightness);
                     display_flag = DISPLAY_FLAG_UPDATE_NO_ANIMATION;
@@ -605,24 +653,17 @@ main ()
                 {
                     if (lis.automatic_brightness_control)
                     {
-                        if (ldr_is_up)
-                        {
-                            brightness_control_per_ldr = 1;
-                            log_msg ("command: enable automatic brightness control");
-                        }
-                        else
-                        {
-                            log_msg ("command: enable automatic brightness control, but will fail: LDR is off");
-                        }
+                        auto_brightness = 1;
+                        log_msg ("command: enable automatic brightness control");
                     }
                     else
                     {
-                        brightness_control_per_ldr = 0;
+                        auto_brightness = 0;
                         log_msg ("command: disable automatic brightness control");
                     }
 
                     last_ldr_value = 0xFF;
-                    display_set_automatic_brightness_control (brightness_control_per_ldr);
+                    display_set_automatic_brightness_control (auto_brightness);
                     break;
                 }
 
@@ -645,12 +686,13 @@ main ()
                         display_flag = DISPLAY_FLAG_UPDATE_ALL;
                     }
 
+                    wday   = lis.tm.tm_wday;
                     hour   = lis.tm.tm_hour;
                     minute = lis.tm.tm_min;
                     second = lis.tm.tm_sec;
 
-                    log_printf ("command: set time to %4d-%02d-%02d %02d:%02d:%02d\r\n",
-                                lis.tm.tm_year + 1900, lis.tm.tm_mon + 1, lis.tm.tm_mday,
+                    log_printf ("command: set time to %s %4d-%02d-%02d %02d:%02d:%02d\r\n",
+                                wdays_en[lis.tm.tm_wday], lis.tm.tm_year + 1900, lis.tm.tm_mon + 1, lis.tm.tm_mday,
                                 lis.tm.tm_hour, lis.tm.tm_min, lis.tm.tm_sec);
                     break;
                 }
@@ -684,7 +726,7 @@ main ()
             }
         }
 
-        if (ldr_is_up && brightness_control_per_ldr && ldr_poll_brightness (&ldr_value))
+        if (auto_brightness && ldr_poll_brightness (&ldr_value))
         {
             if (ldr_value + 1 < last_ldr_value || ldr_value > last_ldr_value + 1)           // difference greater than 2
             {
@@ -700,7 +742,7 @@ main ()
             if (esp8266_infop->is_up)
             {
                 esp8266_is_up = 1;
-                log_msg ("ESP8266 now up");
+                log_msg ("esp8266 now up");
             }
         }
         else
@@ -712,7 +754,7 @@ main ()
                     char buf[32];
                     esp8266_is_online = 1;
 
-                    log_msg ("ESP8266 now online");
+                    log_msg ("esp8266 now online");
                     sprintf (buf, "  IP %s", esp8266_infop->ipaddress);
                     display_banner (buf);
                     display_flag = DISPLAY_FLAG_UPDATE_ALL;
@@ -722,30 +764,53 @@ main ()
             }
         }
 
-        if (ds3231_flag)
+        if (dcf77_time(&tm))
         {
+            display_set_status_led (1, 1, 0);                       // got DCF77 time, light yellow = green + red LED
+
+            status_led_cnt = 50;
+
             if (rtc_is_up)
             {
-                if (rtc_get_date_time (&tm))
+                rtc_set_date_time (&tm);
+            }
+
+            if (hour != (uint_fast8_t) tm.tm_hour || minute != (uint_fast8_t) tm.tm_min)
+            {
+                display_flag = DISPLAY_FLAG_UPDATE_ALL;
+            }
+
+            wday        = tm.tm_wday;
+            hour        = tm.tm_hour;
+            minute      = tm.tm_min;
+            second      = tm.tm_sec;
+
+            log_printf ("dcf77: %s %4d-%02d-%02d %02d:%02d:%02d\r\n",
+                         wdays_en[tm.tm_wday], tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        }
+
+        if (ds3231_flag)
+        {
+            if (rtc_is_up && rtc_get_date_time (&tm))
+            {
+                if (hour != (uint_fast8_t) tm.tm_hour || minute != (uint_fast8_t) tm.tm_min)
                 {
-                    if (hour != (uint_fast8_t) tm.tm_hour || minute != (uint_fast8_t) tm.tm_min)
-                    {
-                        display_flag = DISPLAY_FLAG_UPDATE_ALL;
-                    }
-
-                    hour            = tm.tm_hour;
-                    minute          = tm.tm_min;
-                    second          = tm.tm_sec;
-
-                    log_printf ("read rtc: %4d-%02d-%02d %02d:%02d:%02d\r\n",
-                                 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+                    display_flag = DISPLAY_FLAG_UPDATE_ALL;
                 }
+
+                wday        = tm.tm_wday;
+                hour        = tm.tm_hour;
+                minute      = tm.tm_min;
+                second      = tm.tm_sec;
+
+                log_printf ("read rtc: %s %4d-%02d-%02d %02d:%02d:%02d\r\n",
+                             wdays_en[tm.tm_wday], tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
             }
 
             ds3231_flag = 0;
         }
 
-        if (ldr_is_up && brightness_control_per_ldr && ldr_conversion_flag)
+        if (auto_brightness && ldr_conversion_flag)
         {
             ldr_start_conversion ();
             ldr_conversion_flag = 0;
@@ -781,92 +846,44 @@ main ()
             show_time_flag = 0;
         }
 
-        if (power_is_on)
+        if (power_is_on == night_power_is_on && night_check_night_times (power_is_on, wday, hour * 60 + minute))
         {
-            if (night_power_is_on && night_time_off_p->night_time_active)
-            {
-                uint_fast16_t  m = hour * 60 + minute;
-                uint_fast16_t  moff = night_time_off_p->night_time;
-                uint_fast16_t  mon = night_time_on_p->night_time;
-
-                if ((moff < mon && m >= moff && m < mon) ||                 // e.g. moff=16:00 < 17:00 < mon=18:00
-                    (mon < moff && !(m >= mon && m < moff)))                // e.g. moff=23:00 < 03:00 < mon=07:00
-                {
-                    power_is_on = 0;
-                    night_power_is_on = 0;
-                    display_flag = DISPLAY_FLAG_UPDATE_ALL;
-                }
-            }
-        }
-        else
-        {
-            if (!night_power_is_on && night_time_on_p->night_time_active)
-            {
-                uint_fast16_t  m = hour * 60 + minute;
-                uint_fast16_t  moff = night_time_off_p->night_time;
-                uint_fast16_t  mon = night_time_on_p->night_time;
-
-                if ((mon < moff && m >= mon && m < moff) ||                 // e.g. mon=16:00  < 17:00 < moff=18:00
-                    (moff < mon && !(m >= moff && m < mon)))                // e.g. moff=07:00 < 08:00 < mon=23:00
-                {
-                    power_is_on = 1;
-                    night_power_is_on = 1;
-                    display_flag = DISPLAY_FLAG_UPDATE_ALL;
-                }
-            }
+            power_is_on         = ! power_is_on;
+            night_power_is_on   = ! night_power_is_on;
+            display_flag        = DISPLAY_FLAG_UPDATE_ALL;
+            log_printf ("Found Timer: %s at %02d:%02d\r\n", power_is_on ? "on" : "off", hour, minute);
         }
 
         if (show_temperature)
         {
-            uint_fast8_t temperature_index_ds;
-            uint_fast8_t temperature_index_rtc;
-            uint_fast8_t temperature_index = 0xFF;
-            show_temperature = 0;
+            uint_fast8_t temperature_index;
 
-            log_msg ("show temperature");
+            show_temperature = 0;
 
             if (ds18xx_is_up)
             {
                 short_isr = 1;
-                temperature_index_ds = temp_read_temp_index ();
-                temperature_index = temperature_index_ds;
+                temperature_index = temp_read_temp_index ();
                 short_isr = 0;
+                log_printf ("got temperature from DS18xxx: %d%s\r\n", temperature_index / 2, (temperature_index % 2) ? ".5" : "");
+            }
+            else if (rtc_is_up)
+            {
+                temperature_index = rtc_get_temperature_index ();
+                log_printf ("got temperature from RTC: %d%s\r\n", temperature_index / 2, (temperature_index % 2) ? ".5" : "");
             }
             else
             {
-                temperature_index_ds = 0xFF;
-            }
-
-            if (rtc_is_up)
-            {
-                temperature_index_rtc = rtc_get_temperature_index ();
-
-                if (temperature_index != 0xFF)
-                {
-                    temperature_index = temperature_index_rtc;
-                }
-            }
-            else
-            {
-                temperature_index_rtc = 0xFF;
+                temperature_index = 0xFF;
+                log_msg ("no temperature available");
             }
 
             if (temperature_index != 0xFF)
             {
-                if (temperature_index_ds != 0xFF)
-                {
-                    log_msg ("got temperature from DS18xxx");
-                }
-
-                if (temperature_index_rtc != 0xFF)
-                {
-                    log_msg ("got temperature from RTC");
-                }
-
                 display_temperature (power_is_on, temperature_index);
 
 #if WCLOCK24H == 1                                                          // WC24H shows temperature with animation, WC12H rolls itself
-                uint32_t        stop_time;
+                uint32_t    stop_time;
 
                 stop_time = uptime + 5;
 
@@ -887,7 +904,38 @@ main ()
         {
             log_msg ("update display");
 
+#if WCLOCK24H == 1
+            if (display_mode == MODES_COUNT - 1)                            // temperature
+            {
+                uint_fast8_t temperature_index;
+
+                if (ds18xx_is_up)
+                {
+                    short_isr = 1;
+                    temperature_index = temp_read_temp_index ();
+                    short_isr = 0;
+                    log_printf ("got temperature from DS18xxx: %d%s\r\n", temperature_index / 2, (temperature_index % 2) ? ".5" : "");
+                }
+                else if (rtc_is_up)
+                {
+                    temperature_index = rtc_get_temperature_index ();
+                    log_printf ("got temperature from RTC: %d%s\r\n", temperature_index / 2, (temperature_index % 2) ? ".5" : "");
+                }
+                else
+                {
+                    temperature_index = 0x00;
+                    log_msg ("no temperature available");
+                }
+
+                display_clock (power_is_on, 0, temperature_index - 20, display_flag);    // show new time
+            }
+            else
+            {
+                display_clock (power_is_on, hour, minute, display_flag);    // show new time
+            }
+#else
             display_clock (power_is_on, hour, minute, display_flag);        // show new time
+#endif
             display_flag = DISPLAY_FLAG_NONE;
         }
 
@@ -895,6 +943,12 @@ main ()
         {
             animation_flag = 0;
             display_animation ();
+        }
+
+        if (dcf77_flag)
+        {
+            dcf77_flag = 0;
+            dcf77_tick ();
         }
 
 #if SAVE_RAM == 0
@@ -910,25 +964,25 @@ main ()
         {
             switch (cmd)
             {
-                case REMOTE_IR_CMD_POWER:                         log_msg ("IRMP: POWER key");                     break;
-                case REMOTE_IR_CMD_OK:                            log_msg ("IRMP: OK key");                        break;
-                case REMOTE_IR_CMD_DECREMENT_DISPLAY_MODE:        log_msg ("IRMP: decrement display mode");        break;
-                case REMOTE_IR_CMD_INCREMENT_DISPLAY_MODE:        log_msg ("IRMP: increment display mode");        break;
-                case REMOTE_IR_CMD_DECREMENT_ANIMATION_MODE:      log_msg ("IRMP: decrement animation mode");      break;
-                case REMOTE_IR_CMD_INCREMENT_ANIMATION_MODE:      log_msg ("IRMP: increment animation mode");      break;
-                case REMOTE_IR_CMD_DECREMENT_HOUR:                log_msg ("IRMP: decrement minute");              break;
-                case REMOTE_IR_CMD_INCREMENT_HOUR:                log_msg ("IRMP: increment hour");                break;
-                case REMOTE_IR_CMD_DECREMENT_MINUTE:              log_msg ("IRMP: decrement minute");              break;
-                case REMOTE_IR_CMD_INCREMENT_MINUTE:              log_msg ("IRMP: increment minute");              break;
-                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_RED:      log_msg ("IRMP: decrement red brightness");      break;
-                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_RED:      log_msg ("IRMP: increment red brightness");      break;
-                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_GREEN:    log_msg ("IRMP: decrement green brightness");    break;
-                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_GREEN:    log_msg ("IRMP: increment green brightness");    break;
-                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_BLUE:     log_msg ("IRMP: decrement blue brightness");     break;
-                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_BLUE:     log_msg ("IRMP: increment blue brightness");     break;
-                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS:          log_msg ("IRMP: decrement brightness");          break;
-                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS:          log_msg ("IRMP: increment brightness");          break;
-                case REMOTE_IR_CMD_GET_TEMPERATURE:               log_msg ("IRMP: get temperature");               break;
+                case REMOTE_IR_CMD_POWER:                         log_msg ("IRMP: POWER key");                  break;
+                case REMOTE_IR_CMD_OK:                            log_msg ("IRMP: OK key");                     break;
+                case REMOTE_IR_CMD_DECREMENT_DISPLAY_MODE:        log_msg ("IRMP: decrement display mode");     break;
+                case REMOTE_IR_CMD_INCREMENT_DISPLAY_MODE:        log_msg ("IRMP: increment display mode");     break;
+                case REMOTE_IR_CMD_DECREMENT_ANIMATION_MODE:      log_msg ("IRMP: decrement animation mode");   break;
+                case REMOTE_IR_CMD_INCREMENT_ANIMATION_MODE:      log_msg ("IRMP: increment animation mode");   break;
+                case REMOTE_IR_CMD_DECREMENT_HOUR:                log_msg ("IRMP: decrement hour");             break;
+                case REMOTE_IR_CMD_INCREMENT_HOUR:                log_msg ("IRMP: increment hour");             break;
+                case REMOTE_IR_CMD_DECREMENT_MINUTE:              log_msg ("IRMP: decrement minute");           break;
+                case REMOTE_IR_CMD_INCREMENT_MINUTE:              log_msg ("IRMP: increment minute");           break;
+                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_RED:      log_msg ("IRMP: decrement red brightness");   break;
+                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_RED:      log_msg ("IRMP: increment red brightness");   break;
+                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_GREEN:    log_msg ("IRMP: decrement green brightness"); break;
+                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_GREEN:    log_msg ("IRMP: increment green brightness"); break;
+                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS_BLUE:     log_msg ("IRMP: decrement blue brightness");  break;
+                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS_BLUE:     log_msg ("IRMP: increment blue brightness");  break;
+                case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS:          log_msg ("IRMP: decrement brightness");       break;
+                case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS:          log_msg ("IRMP: increment brightness");       break;
+                case REMOTE_IR_CMD_GET_TEMPERATURE:               log_msg ("IRMP: get temperature");            break;
             }
         }
 
@@ -936,7 +990,7 @@ main ()
         {
             case REMOTE_IR_CMD_POWER:
             {
-                power_is_on = power_is_on ? 0 : 1;
+                power_is_on = ! power_is_on;
 
                 display_flag        = DISPLAY_FLAG_UPDATE_ALL;
                 break;
@@ -1086,30 +1140,22 @@ main ()
                 break;
             }
 
-            case REMOTE_IR_CMD_AUTO_BRIGHTNESS_CONTROL:
+            case REMOTE_IR_CMD_AUTO_BRIGHTNESS_CONTROL:                     // toggle auto brightness
             {
-                if (brightness_control_per_ldr)
-                {
-                    brightness_control_per_ldr = 0;
-                }
-                else if (ldr_is_up)
-                {
-                    brightness_control_per_ldr = 1;
-                }
-
+                auto_brightness = ! auto_brightness;
                 last_ldr_value = 0xFF;
-                display_set_automatic_brightness_control (brightness_control_per_ldr);
+                display_set_automatic_brightness_control (auto_brightness);
                 display_flag = DISPLAY_FLAG_UPDATE_NO_ANIMATION;
                 break;
             }
 
-            case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS:                            // decrement brightness
+            case REMOTE_IR_CMD_DECREMENT_BRIGHTNESS:                        // decrement brightness
             {
-                if (brightness_control_per_ldr)
+                if (auto_brightness)
                 {
-                    brightness_control_per_ldr = 0;
+                    auto_brightness = 0;
                     last_ldr_value = 0xFF;
-                    display_set_automatic_brightness_control (brightness_control_per_ldr);
+                    display_set_automatic_brightness_control (auto_brightness);
                     display_flag = DISPLAY_FLAG_UPDATE_NO_ANIMATION;
                 }
 
@@ -1120,11 +1166,11 @@ main ()
 
             case REMOTE_IR_CMD_INCREMENT_BRIGHTNESS:                        // increment brightness
             {
-                if (brightness_control_per_ldr)
+                if (auto_brightness)
                 {
-                    brightness_control_per_ldr = 0;
+                    auto_brightness = 0;
                     last_ldr_value = 0xFF;
-                    display_set_automatic_brightness_control (brightness_control_per_ldr);
+                    display_set_automatic_brightness_control (auto_brightness);
                     display_flag = DISPLAY_FLAG_UPDATE_NO_ANIMATION;
                 }
 

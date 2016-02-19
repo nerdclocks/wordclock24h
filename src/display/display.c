@@ -1592,7 +1592,7 @@ display_temperature (uint_fast8_t power_is_on, uint_fast8_t temperature_index)
         temperature_index -= 20;                                            // subtract 10°C (20 units)
 
         // Perhaps not all LEDs have reached the desired colors yet.
-        // This happens when we change the time faster than LED fading is.
+        // This happens when we change the display faster than LED fading is.
         // Then we have to flush the target states:
 
         display_animation_flush (FALSE);
@@ -1658,7 +1658,7 @@ display_temperature (uint_fast8_t power_is_on, uint_fast8_t temperature_index)
     *p   = '\0';
 
     // Perhaps not all LEDs have reached the desired colors yet.
-    // This happens when we change the time faster than LED fading is.
+    // This happens when we change the display faster than LED fading is.
     // Then we have to flush the target states:
 
     display_animation_flush (FALSE);
@@ -1696,7 +1696,7 @@ display_clock (uint_fast8_t power_is_on, uint_fast8_t hour, uint_fast8_t minute,
     if (display_flag)
     {
         // Perhaps not all LEDs have reached the desired colors yet.
-        // This happens when we change the time faster than LED fading is.
+        // This happens when we change the display faster than LED fading is.
         // Then we have to flush the target states:
 
         display_animation_flush (FALSE);

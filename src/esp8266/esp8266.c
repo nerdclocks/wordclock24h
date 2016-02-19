@@ -223,22 +223,6 @@ esp8266_get_message (uint_fast16_t timeout_ten_ms)
 
             esp8266_info.is_up = 1;
 
-#if 0
-            if (ch >= 32 && ch < 127)
-            {
-                log_putc (ch);
-            }
-            else
-            {
-                if (l > 0)
-                {
-                    log_hex (ch);
-                }
-            }
-
-            log_flush ();
-#endif
-
             if (ch == '\n')
             {
                 answer[l] = '\0';

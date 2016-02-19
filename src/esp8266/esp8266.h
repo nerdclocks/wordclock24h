@@ -17,7 +17,7 @@
 #include <time.h>
 
 #define ESP8266_MAX_CMD_LEN     80
-#define ESP8266_MAX_ANSWER_LEN  80
+#define ESP8266_MAX_ANSWER_LEN  256                             // max length of ESP answer length, could be very long if "HTTP GET ..."
 
 /*--------------------------------------------------------------------------------------------------------------------------------------
  * possible return values of esp8266_get_answer():
@@ -35,12 +35,12 @@
 #define ESP8266_HTTP_GET        9
 #define ESP8266_UNSPECIFIED   0xFF
 
-#define ESP8266_MAX_FIRMWARE_SIZE       16
-#define ESP8266_MAX_ACCESSPOINT_SIZE    32
-#define ESP8266_MAX_IPADDRESS_SIZE      16
-#define ESP8266_MAX_HTTP_GET_PARAM_SIZE 80
-#define ESP8266_MAX_CMD_SIZE            32
-#define ESP8266_MAX_TIME_SIZE           16
+#define ESP8266_MAX_FIRMWARE_SIZE        16
+#define ESP8266_MAX_ACCESSPOINT_SIZE     32
+#define ESP8266_MAX_IPADDRESS_SIZE       16
+#define ESP8266_MAX_HTTP_GET_PARAM_SIZE 256
+#define ESP8266_MAX_CMD_SIZE             32
+#define ESP8266_MAX_TIME_SIZE            16
 
 typedef struct
 {

@@ -9,24 +9,24 @@
 
 #include "tables.h"
 const struct Modes tbl_modes[MODES_COUNT] = {
-{ MM_8, HM_5, "Es ist hh Uhr mm (12)" },
-{ MM_8, HM_6, "Es ist hh Uhr mm (24)" },
-{ MM_9, HM_5, "Es ist hh Uhr und mm Minuten (12)" },
-{ MM_9, HM_6, "Es ist hh Uhr und mm Minuten (24)" },
-{ MM_2, HM_3, "Es ist mm Minuten nach hh Uhr (12) nachts" },
-{ MM_2, HM_4, "Es ist mm Minuten nach hh Uhr (24)" },
-{ MM_3, HM_1, "Ossi & Berlin - Es ist mm Minuten nach hh (12)" },
-{ MM_3, HM_3, "Ossi & Berlin - Es ist mm Minuten nach hh Uhr (12) nachts" },
-{ MM_4, HM_1, "Oesi - Es ist mm Minuten nach hh Uhr (12)" },
-{ MM_4, HM_3, "Oesi - Es ist mm Minuten nach hh Uhr (12) nachts" },
-{ MM_5, HM_1, "Rhein/ Ruhr - Es ist mm Minuten nach hh (12)" },
-{ MM_5, HM_3, "Rhein/ Ruhr - Es ist mm Minuten nach hh Uhr (12) nachts" },
-{ MM_6, HM_2, "Schwaben - Es ist mm Minuten nach hh (12)" },
-{ MM_6, HM_3, "Schwaben - Es ist mm Minuten nach hh Uhr (12) nachts" },
-{ MM_7, HM_1, "Wessi - Es ist mm Minuten nach hh (12)" },
-{ MM_7, HM_3, "Wessi - Es ist mm Minuten nach hh uhr (12) nachts" },
-{ MM_10, HM_7, "Countdown mm Minuten vor Mitternacht" },
-{ MM_11, HM_0, "Temperatur" }
+{ MM_8, HM_5,  "hh mm (12)"         },
+{ MM_8, HM_6,  "hh mm (24)"         },
+{ MM_9, HM_5,  "hh und mm (12)"     },
+{ MM_9, HM_6,  "hh und mm (24)"     },
+{ MM_2, HM_3,  "mm nach hh (12+)"   },
+{ MM_2, HM_4,  "mm nach hh (24)"    },
+{ MM_3, HM_1,  "Ossi/Berlin (12)"   },
+{ MM_3, HM_3,  "Ossi/Berlin (12+)"  },
+{ MM_4, HM_1,  "Oesi (12)"          },
+{ MM_4, HM_3,  "Oesi (12+)"         },
+{ MM_5, HM_1,  "Rhein/Ruhr (12)"    },
+{ MM_5, HM_3,  "Rhein/Ruhr (12+)"   },
+{ MM_6, HM_2,  "Schwaben (12)"      },
+{ MM_6, HM_3,  "Schwaben (12+)"     },
+{ MM_7, HM_1,  "Wessi (12)"         },
+{ MM_7, HM_3,  "Wessi (12+)"        },
+{ MM_10, HM_7, "Countdown"          },
+{ MM_11, HM_0, "Temperatur"         }
 };
 const uint8_t it_is[2] = { WP_ES, WP_IST };
 const uint8_t tbl_hours[HOUR_MODES_COUNT][HOUR_COUNT][MAX_HOUR_WORDS]= {

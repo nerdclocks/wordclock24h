@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------------------------------------------------------------------------
- * ldr.h - adc functions
+ * dcf77.h - declaration of dcf77 routines
  *
- * Copyright (c) 2015-2016 Frank Meyer - frank(at)fli4l.de
+ * Copyright (c) 2014-2016 Frank Meyer - frank(at)fli4l.de
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,23 +9,25 @@
  * (at your option) any later version.
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
-#ifndef LDR_H
-#define LDR_H
+#ifndef DCF77_H
+#define DCF77_H
 
-#if defined (STM32F10X)
-#  include "stm32f10x.h"
-#  include "stm32f10x_gpio.h"
-#  include "stm32f10x_rcc.h"
-#  include "stm32f10x_adc.h"
+#include <stdint.h>
+
+#if defined (STM32F1XX)
+#include "stm32f10x.h"
+#include "stm32f10x_gpio.h"
+#include "stm32f10x_rcc.h"
 #elif defined (STM32F4XX)
-#  include "stm32f4xx.h"
-#  include "stm32f4xx_gpio.h"
-#  include "stm32f4xx_rcc.h"
-#  include "stm32f4xx_adc.h"
+#include "stm32f4xx.h"
+#include "stm32f4xx_gpio.h"
+#include "stm32f4xx_rcc.h"
 #endif
 
-extern void             ldr_start_conversion (void);
-extern uint_fast8_t     ldr_poll_brightness (uint_fast8_t *);
-extern void             ldr_init (void);
+#include <time.h>
 
-#endif // LDR_H
+extern void             dcf77_tick (void);
+extern uint_fast8_t     dcf77_time (struct tm *);
+extern void             dcf77_init (void);
+
+#endif
