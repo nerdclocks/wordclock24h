@@ -1069,9 +1069,10 @@
 	"stm32f10x.h"
 	"stm32f4xx.h"
 
-1455810652 source:c:\emblocksprojects\wclock24h\src\timeserver\timeserver.c
+1455914236 source:c:\emblocksprojects\wclock24h\src\timeserver\timeserver.c
 	<stdio.h>
 	<stdlib.h>
+	"base.h"
 	"timeserver.h"
 	"http.h"
 	"esp8266.h"

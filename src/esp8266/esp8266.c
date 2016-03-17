@@ -83,7 +83,7 @@ static char                             cmd[ESP8266_MAX_CMD_LEN];
 #define ESP8266_FLASH_PERIPH_CLOCK_CMD  RCC_APB2PeriphClockCmd
 #define ESP8266_FLASH_PERIPH            RCC_APB2Periph_GPIOA
 #define ESP8266_FLASH_PORT              GPIOA
-#define ESP8266_FLASH_PIN               GPIO_Pin_1
+#define ESP8266_FLASH_PIN               GPIO_Pin_4
 
 #else
 #error STM32 unknown

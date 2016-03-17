@@ -55,6 +55,7 @@
  *    | LDR                     | ADC:       ACD1_IN14=PC4      | ADC:       ADC12_IN5=PA5      |
  *    | WS2812                  | TIM3/DMA1: PC6                | TIM1/DMA1: PA8                |
  *    | APA102                  | SPI2/DMA1: SCK=PB13 MOSI=PB15 | SPI2/DMA1: SCK=PB13 MOSI=PB15 |
+ *    | Power switch (later)    | GPIO:      <unknown>          | GPIO:      <unknown>          |
  *    +-------------------------+-------------------------------+-------------------------------+
  *
  * Timers:
@@ -103,7 +104,7 @@
 
 #include "log.h"
 
-#define VERSION     "1.8.3"
+#define VERSION     "1.8.4"												// 2016-03-17
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------
  * global public variables
