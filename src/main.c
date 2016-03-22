@@ -429,6 +429,11 @@ main ()
     SystemInit ();
     SystemCoreClockUpdate();                                                // needed for Nucleo board
 
+#if defined (STM32F103)                                                     // disable JTAG to get back PB3, PB4, PA13, PA14, PA15
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);                    // turn on clock for the alternate function register
+    GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);                // disable the JTAG, enable the SWJ interface
+#endif
+
     log_init ();                                                            // initilize logger on uart
 
 #if SAVE_RAM == 0
