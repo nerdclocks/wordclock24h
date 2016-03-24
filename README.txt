@@ -1,6 +1,6 @@
 Documentation: http://www.mikrocontroller.net/articles/WordClock24h
 
-Version: 1.8.4
+Version: 1.8.6 - 2016-03-24
 
 Copyright (c) 2014-2016 Frank Meyer - frank(at)fli4l.de
 

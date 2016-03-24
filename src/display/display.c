@@ -655,6 +655,9 @@ display_set_status_led (uint_fast8_t r_flag, uint_fast8_t g_flag, uint_fast8_t b
  *-------------------------------------------------------------------------------------------------------------------------------------------
  */
 #if DSP_MINUTE_LEDS != 0
+static uint_fast8_t last_minute;
+static uint_fast8_t last_power_is_on;
+
 static void
 display_minute_leds (uint_fast8_t power_is_on, uint_fast8_t minute)
 {
@@ -662,6 +665,9 @@ display_minute_leds (uint_fast8_t power_is_on, uint_fast8_t minute)
     LED_RGB         rgb0;
     uint_fast8_t    n_leds;
     uint_fast8_t    i;
+
+    last_minute = minute;
+    last_power_is_on = power_is_on;
 
     if (DSP_MINUTE_LEDS > 0)
     {
@@ -817,7 +823,7 @@ display_animation_flush (uint_fast8_t flush_ambi)
     static uint_fast8_t already_called;
     LED_RGB          rgb;
     LED_RGB          rgb0;
-    uint_fast16_t       idx;
+    uint_fast16_t    idx;
 
     if (! already_called)
     {
@@ -846,6 +852,10 @@ display_animation_flush (uint_fast8_t flush_ambi)
             led.state[idx] &= ~CURRENT_STATE;                       // we are in sync
         }
     }
+
+#if DSP_MINUTE_LEDS != 0
+    display_minute_leds (last_power_is_on, last_minute);
+#endif
 
     if (flush_ambi)
     {
